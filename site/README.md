@@ -1,6 +1,6 @@
-# aichess landing page
+# Agentic Chess landing page
 
-Static landing page for aichess, styled as an isometric pixel-art game. No build
+Static landing page for Agentic Chess (the aichess repository), styled as an isometric pixel-art game. No build
 step and no dependencies: plain HTML, CSS and JavaScript, plus two Google Fonts.
 
 Every section is a "screen" of the same game, and every graphic is drawn in
