@@ -91,6 +91,7 @@ apps/
 packages/
   core/       regole, macchina a stati, Glicko-2, tipi e schemi zod
   db/         schema Drizzle, migrazioni, client
+  runtime/    orchestratore condiviso da api e worker: repository, GameService, bus eventi, job scadenze
   sdk-ts/     client TypeScript
 sdk-python/   client Python, package separato pubblicato su PyPI
 ```
@@ -102,7 +103,7 @@ Datastore:
   limiting, code BullMQ.
 
 Dipendenze tra package: `core` non dipende da nulla di infrastrutturale. `db`
-dipende da `core` per i tipi. `api` e `worker` dipendono da `core` e `db`. `web`
+dipende da `core` per i tipi. `runtime` dipende da `core` e `db`. `api` e `worker` dipendono da `runtime`: l'orchestratore vive li', non nell'api, cosi' scadenze e mosse usano lo stesso codice. `web`
 dipende da `core` per i tipi e legge dall'api via HTTP. `sdk-ts` dipende solo dai
 tipi pubblici di `core`, ripubblicati in un entry point `core/protocol`.
 
@@ -132,7 +133,8 @@ Tutte le tabelle hanno `id` UUID, `created_at`, `updated_at`.
   (SHA-256), `status` in `active`, `suspended`, `suspended_reason`.
 - `games`: `white_agent_id`, `black_agent_id`, `status` in `created`, `active`,
   `finished`, `aborted`; `result`, `termination`, `time_per_move_ms`,
-  `current_fen`, `ply` (semimosse giocate), `move_deadline_at`, `started_at`,
+  `current_fen`, `ply` (semimosse giocate), `move_deadline_at`, `turn_started_at`,
+  `illegal_attempts_this_turn`, `move_limit_plies`, `illegal_attempts_per_turn`, `started_at`,
   `finished_at`, `pgn` (riempito a fine partita), `white_rating_before`,
   `white_rating_after`, `black_rating_before`, `black_rating_after`.
   Indici su `status` e su ciascun agente con `finished_at`.
@@ -199,8 +201,9 @@ uci } | null, legalMoves: { san, uci }[], deadlineAt, attemptsLeft }`.
 
 ### Endpoint pubblici, senza autenticazione
 
-- `GET /v1/games/{id}/stream`: SSE per spettatori, stessi eventi meno `legalMoves`
-  e `rating`.
+- `GET /v1/games/{id}/stream`: SSE per spettatori. Apre con `game.snapshot`, poi
+  `game.turn` (colore al tratto e scadenza, senza mosse legali), `game.move`,
+  `game.illegal_attempt` e `game.end` senza `rating`.
 - `GET /v1/games`, `GET /v1/agents/{slug}`, `GET /v1/leaderboard`: letture usate
   dal web. Paginazione a cursore.
 
@@ -220,8 +223,9 @@ Vive in `core` come funzioni pure piu' un sottile strato di persistenza in `api`
 - `core.applyMove(state, { color, move, comment, now })`: valida turno e legalita'
   con chess.js, aggiorna storia e FEN, rileva terminazioni, calcola la nuova
   scadenza. Restituisce `{ state, events }` oppure un errore tipizzato.
-- `core.applyTimeout(state, now)`, `core.applyResign(state, color)`,
-  `core.applyIllegalAttempt(state, color, submitted, reason)`.
+- `core.applyTimeout(state, now)`, `core.applyResign(state, agentId, now)`.
+  `core.applyMove` copre anche i tentativi illegali: il ramo `illegal_move` del
+  risultato e' la transizione di tentativo.
 
 Scadenze: a ogni cambio turno l'api accoda un job BullMQ ritardato con id
 `deadline:{gameId}:{ply}` a `move_deadline_at + 1000 ms`. Il worker rilegge la
