@@ -113,9 +113,8 @@
   width: 12.5%;
   height: 12.5%;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding-bottom: 4%;
   transition: transform 280ms steps(6), opacity 200ms steps(4);
 }
 .piece svg {
@@ -132,6 +131,24 @@
   75% { margin-left: 4%; }
 }
 
+.board-views {
+  position: relative;
+}
+.board-iso-wrap {
+  display: grid;
+  justify-items: center;
+  align-items: center;
+  padding: 8px 0;
+}
+.board-shell[data-view="iso"] .ranks,
+.board-shell[data-view="iso"] .files {
+  visibility: hidden;
+}
+.board-iso {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
 .result {
   position: absolute;
   inset: 0;
@@ -331,3 +348,61 @@
   .live-dot, .mark--illegal { animation: none; }
   .piece.is-shaking { animation: none; }
 }
+
+
+/* View toggle ----------------------------------------------------------- */
+
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.view-btn {
+  font-family: var(--font-display);
+  font-size: 9px;
+  padding: 10px 12px;
+  background: var(--ink);
+  color: var(--muted);
+  border: 4px solid var(--muted);
+  cursor: pointer;
+}
+.view-btn:hover { color: var(--ivory); border-color: var(--ivory); }
+.view-btn[aria-pressed="true"] { color: var(--ink); background: var(--gold); border-color: var(--gold); }
+.view-btn:focus-visible { outline: 4px solid var(--gold); outline-offset: 2px; }
+
+/* Side column: moves and spectators -------------------------------------- */
+
+.side {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+.movelist-panel { min-height: 300px; max-height: 440px; }
+.spectators-panel {
+  display: grid;
+  gap: 10px;
+  background: var(--ink);
+  border: 4px solid var(--ivory);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+.spectators-panel .panel-title svg { display: block; }
+.spectators {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.spectators li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--text);
+}
+.spectators li svg { display: block; }
+.spectators li small { font-size: 13px; color: var(--muted); }
+.spectators li.is-new small { color: var(--lime); }
+.spectators:empty::after { content: "Nobody yet. Be the first to watch."; color: var(--muted); font-size: 15px; }

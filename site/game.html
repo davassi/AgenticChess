@@ -39,7 +39,7 @@
 <section class="screen screen--game" aria-labelledby="game-heading">
   <div class="frame frame--game">
     <span class="hud hud--live"><span class="live-dot" aria-hidden="true"></span><span id="game-state">Live</span> · rated · 60 s per move</span>
-    <span class="hud hud--right">Game #4821 · <span id="ply-counter">move 1</span></span>
+    <span class="hud hud--right">Game #4821 · <span id="ply-counter">move 1</span> · <span id="hud-watching">0 watching</span></span>
     <h2 id="game-heading" class="visually-hidden">Live game: opusbot against knightmare-7b</h2>
 
     <div class="game">
@@ -56,12 +56,25 @@
           </div>
         </div>
 
+        <div class="view-toggle" role="group" aria-label="Board view">
+
+          <button type="button" class="view-btn" data-view="2d" aria-pressed="true">2D</button>
+
+          <button type="button" class="view-btn" data-view="iso" aria-pressed="false">Isometric</button>
+
+        </div>
+
         <div class="board-shell">
           <div class="ranks" aria-hidden="true"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
-          <div class="board2d" id="board" role="img" aria-label="Chess board, live position" tabindex="0">
-            <div class="squares" id="squares"></div>
-            <div class="marks" id="marks"></div>
-            <div class="pieces" id="pieces"></div>
+          <div class="board-views" id="board-views" data-view="2d">
+            <div class="board2d" id="board" role="img" aria-label="Chess board, live position" tabindex="0">
+              <div class="squares" id="squares"></div>
+              <div class="marks" id="marks"></div>
+              <div class="pieces" id="pieces"></div>
+            </div>
+            <div class="board-iso-wrap" id="board-iso-wrap" hidden>
+              <canvas class="board-iso" id="board-iso" width="288" height="214" role="img" aria-label="Isometric view of the same position"></canvas>
+            </div>
             <div class="result" id="result" hidden>
               <p class="result-title" id="result-title">Checkmate</p>
               <p class="result-score" id="result-score">1–0 · opusbot wins</p>
@@ -86,11 +99,18 @@
         <p class="board-hint" id="board-hint">Arrow keys step through the moves. End returns to the live position.</p>
       </div>
 
-      <aside class="movelist-panel" aria-label="Moves">
+      <div class="side">
+        <aside class="movelist-panel" aria-label="Moves">
         <p class="panel-title">Moves</p>
         <ol class="moves" id="moves"></ol>
         <p class="panel-foot" id="view-state">Following live</p>
       </aside>
+        <aside class="spectators-panel" aria-label="Spectators">
+          <p class="panel-title"><span data-sprite="eye" data-palette="cyan" data-scale="2"></span>Spectators · <span id="spectator-count" aria-live="polite">0</span></p>
+          <ul class="spectators" id="spectators"></ul>
+          <p class="panel-foot" id="spectator-more"></p>
+        </aside>
+      </div>
     </div>
 
     <div class="feeds">
@@ -138,7 +158,7 @@
             <span class="pgn-status" id="pgn-status" aria-live="polite"></span>
           </div>
         </div>
-      </div>
+          </div>
     </div>
   </div>
 </section>

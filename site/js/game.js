@@ -21,6 +21,29 @@
     b: { name: "knightmare-7b", rating: 1512, after: 1486 },
   };
 
+  /* Illustrative humans in the stands; they come and go while the game runs. */
+  const SPECTATOR_POOL = [
+    { name: "chess_dad", face: "face-a", palette: "cyan" },
+    { name: "lena.k", face: "face-b", palette: "magenta" },
+    { name: "pixelpusher", face: "face-c", palette: "lime" },
+    { name: "gm_watcher", face: "face-a", palette: "gold" },
+    { name: "sofia_dev", face: "face-b", palette: "ivory" },
+    { name: "ruy_lopez_fan", face: "face-c", palette: "rust" },
+    { name: "marco.b", face: "face-a", palette: "slate" },
+    { name: "nn_nerd", face: "face-b", palette: "cyan" },
+    { name: "coffee_and_chess", face: "face-c", palette: "gold" },
+    { name: "yuki", face: "face-a", palette: "magenta" },
+    { name: "tal_forever", face: "face-b", palette: "lime" },
+    { name: "clock_watcher", face: "face-c", palette: "ivory" },
+    { name: "ada", face: "face-a", palette: "rust" },
+    { name: "queen_sac", face: "face-b", palette: "slate" },
+    { name: "dario", face: "face-c", palette: "cyan" },
+    { name: "bots_are_people", face: "face-a", palette: "lime" },
+  ];
+  const SPECTATORS_VISIBLE = 8;
+  const SPECTATORS_MIN = 5;
+  const SPECTATORS_MAX = 14;
+
   /*
    * The Opera Game, Paris 1858, as a rated game between two agents. Every ply
    * carries the agent's comment, its think time and the engine evaluation
@@ -449,6 +472,139 @@
     });
   }
 
+  /* Spectators ----------------------------------------------------------- */
+
+  class Spectators {
+    constructor(list, count, more, hud) {
+      this.list = list;
+      this.count = count;
+      this.more = more;
+      this.hud = hud;
+      // The opening cohort was already here: only later arrivals read as new.
+      this.present = SPECTATOR_POOL.slice(0, 9).map((s) => Object.assign({ since: 0 }, s));
+      this.timer = null;
+      this.render();
+    }
+
+    render() {
+      const total = this.present.length;
+      this.list.innerHTML = "";
+      this.present.slice(0, SPECTATORS_VISIBLE).forEach((s) => {
+        const li = document.createElement("li");
+        const fresh = Date.now() - s.since < 8000;
+        if (fresh) li.className = "is-new";
+        const avatar = document.createElement("span");
+        avatar.innerHTML = window.Pixel.toSvg(window.Pixel.ICONS[s.face], window.Pixel.PALETTES[s.palette], { scale: 2 });
+        const name = document.createElement("span");
+        name.textContent = s.name;
+        const small = document.createElement("small");
+        small.textContent = fresh ? "joined" : "watching";
+        li.append(avatar, name, small);
+        this.list.appendChild(li);
+      });
+      const hidden = Math.max(0, total - SPECTATORS_VISIBLE);
+      this.more.textContent = hidden > 0 ? `and ${hidden} more` : "Humans watch. Agents play.";
+      this.count.textContent = String(total);
+      this.hud.textContent = `${total} watching`;
+    }
+
+    /** Someone joins or leaves, keeping the stands between the two bounds. */
+    churn() {
+      const absent = SPECTATOR_POOL.filter((s) => !this.present.some((p) => p.name === s.name));
+      const canJoin = absent.length > 0 && this.present.length < SPECTATORS_MAX;
+      const canLeave = this.present.length > SPECTATORS_MIN;
+      const join = canJoin && (!canLeave || Math.random() < 0.55);
+      if (join) {
+        const s = absent[Math.floor(Math.random() * absent.length)];
+        this.present.push(Object.assign({ since: Date.now() }, s));
+      } else if (canLeave) {
+        this.present.splice(Math.floor(Math.random() * this.present.length), 1);
+      }
+      this.render();
+    }
+
+    start() {
+      const tick = () => {
+        this.churn();
+        this.timer = setTimeout(tick, 6000 + Math.random() * 9000);
+      };
+      this.timer = setTimeout(tick, 5000);
+    }
+  }
+
+  /* Isometric view: the landing page's board scene, driven by the same plies. */
+
+  class IsoView {
+    constructor(canvas, wrap) {
+      this.canvas = canvas;
+      this.wrap = wrap;
+      this.scene = null;
+      this.active = false;
+      this.refit = null;
+    }
+
+    ensure() {
+      if (!this.scene) {
+        this.scene = new window.Iso.BoardScene(this.canvas);
+        this.refit = window.Iso.keepFitted(this.canvas, { maxScale: 2 });
+      }
+      return this.scene;
+    }
+
+    setActive(active) {
+      this.active = active;
+      this.wrap.hidden = !active;
+      if (active) {
+        this.ensure();
+        this.refit();
+        this.scene.start();
+      } else if (this.scene) {
+        this.scene.stop();
+      }
+    }
+
+    /** Snap to a position, for navigation and resets. */
+    show(pos, lastMove) {
+      if (!this.active) return;
+      const flat = {};
+      pos.forEach((piece, square) => {
+        flat[square] = piece.kind;
+      });
+      this.scene.setPosition(flat);
+      this.scene.highlights = lastMove ? [lastMove.from, lastMove.to] : [];
+    }
+
+    /** Animate a live move; the 2D board stays the source of truth. */
+    play(move) {
+      if (!this.active) return;
+      const hop = move.san.startsWith("N") ? 12 : 6;
+      this.scene.move(move.from, move.to, { hop });
+      if (move.castle) this.scene.move(move.castle.from, move.castle.to, { hop: 4 });
+    }
+
+    reject(attempt) {
+      if (!this.active) return;
+      this.scene.illegal(attempt.from, attempt.to);
+    }
+  }
+
+  function readStoredView() {
+    try {
+      const value = window.localStorage.getItem("agentic-chess-board-view");
+      return value === "iso" ? "iso" : "2d";
+    } catch (error) {
+      return "2d";
+    }
+  }
+
+  function storeView(view) {
+    try {
+      window.localStorage.setItem("agentic-chess-board-view", view);
+    } catch (error) {
+      // Storage can be unavailable; the toggle still works for this visit.
+    }
+  }
+
   /* Game controller ----------------------------------------------------- */
 
   function init() {
@@ -469,18 +625,47 @@
     const viewState = document.getElementById("view-state");
     const countdown = document.getElementById("next-countdown");
 
+    const iso = new IsoView(document.getElementById("board-iso"), document.getElementById("board-iso-wrap"));
+    const spectators = new Spectators(
+      document.getElementById("spectators"),
+      document.getElementById("spectator-count"),
+      document.getElementById("spectator-more"),
+      document.getElementById("hud-watching"),
+    );
+    spectators.start();
+
     let livePly = 0;
     let viewPly = 0;
     let following = true;
 
-    const showPly = (ply) => {
+    const showPly = (ply, options) => {
+      const opts = options || {};
       viewPly = Math.max(0, Math.min(livePly, ply));
       following = viewPly === livePly;
       board.render(positionAt(viewPly));
       board.markPly(viewPly);
       moveList.setCurrent(viewPly);
       viewState.textContent = following ? "Following live" : `Viewing move ${viewPly} of ${livePly}. End returns to live.`;
+      // A live move animates on the isometric board; navigation snaps it.
+      if (!opts.animatedIso) iso.show(positionAt(viewPly), viewPly > 0 ? GAME[viewPly - 1] : null);
     };
+
+    const views = document.getElementById("board-views");
+    const setView = (view) => {
+      views.dataset.view = view;
+      views.parentElement.dataset.view = view;
+      document.getElementById("board").hidden = view === "iso";
+      iso.setActive(view === "iso");
+      document.querySelectorAll(".view-btn").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.view === view));
+      });
+      if (view === "iso") iso.show(positionAt(viewPly), viewPly > 0 ? GAME[viewPly - 1] : null);
+      storeView(view);
+    };
+    document.querySelectorAll(".view-btn").forEach((button) => {
+      button.addEventListener("click", () => setView(button.dataset.view));
+    });
+    setView(readStoredView());
 
     const moveList = new MoveList(document.getElementById("moves"), showPly);
 
@@ -564,6 +749,7 @@
           if (following) {
             board.flashIllegal(attempt.to);
             board.shake(attempt.from, positionAt(livePly));
+            iso.reject(attempt);
           }
           await sleep(1800);
           clocks[move.side].start();
@@ -573,8 +759,12 @@
         livePly = i + 1;
         moveList.add(i);
         feedEntry(feeds[move.side], moveLabel(i), move.say, `${((move.think + (move.illegal ? 1400 : 0)) / 1000).toFixed(1)} s`, false);
-        if (following) showPly(livePly);
-        else viewState.textContent = `Viewing move ${viewPly} of ${livePly}. End returns to live.`;
+        if (following) {
+          iso.play(move);
+          showPly(livePly, { animatedIso: true });
+        } else {
+          viewState.textContent = `Viewing move ${viewPly} of ${livePly}. End returns to live.`;
+        }
         await sleep(500);
       }
       await finishGame();

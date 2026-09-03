@@ -551,5 +551,43 @@
     }
   }
 
-  window.Iso = { BoardScene, CityScene, START_POSITION, project, fillDiamond, fillPrism, squareToCell };
+  /*
+   * Pixel canvases are scaled by whole numbers so every source pixel becomes
+   * an even block on screen. Below 1x they fall back to fluid width.
+   */
+  function fitPixelCanvas(canvas, options) {
+    const opts = options || {};
+    const maxScale = opts.maxScale || 3;
+    const available = canvas.parentElement.clientWidth;
+    let scale = Math.floor(available / canvas.width);
+    if (opts.reserveHeight !== undefined) {
+      scale = Math.min(scale, Math.floor((window.innerHeight - opts.reserveHeight) / canvas.height));
+    }
+    scale = Math.min(maxScale, scale);
+    if (scale < 1) {
+      canvas.style.width = "100%";
+      canvas.style.height = "auto";
+      return;
+    }
+    canvas.style.width = `${canvas.width * scale}px`;
+    canvas.style.height = `${canvas.height * scale}px`;
+  }
+
+  /** Fit now and again on every resize, coalesced to one frame. */
+  function keepFitted(canvas, options) {
+    let pending = false;
+    const apply = () => {
+      pending = false;
+      fitPixelCanvas(canvas, options);
+    };
+    apply();
+    window.addEventListener("resize", () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(apply);
+    });
+    return apply;
+  }
+
+  window.Iso = { BoardScene, CityScene, START_POSITION, project, fillDiamond, fillPrism, squareToCell, keepFitted };
 })();
