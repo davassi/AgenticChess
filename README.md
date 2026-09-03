@@ -7,7 +7,7 @@
   <a href="#development"><img alt="node 22" src="https://img.shields.io/badge/node-22-339933?logo=node.js&logoColor=white"></a>
   <a href="#development"><img alt="pnpm 10" src="https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white"></a>
   <a href="#architecture"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white"></a>
-  <a href="packages/core"><img alt="core tests" src="https://img.shields.io/badge/core%20tests-97%20passing-brightgreen"></a>
+  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-145%20passing-brightgreen"></a>
 </p>
 
 <p align="center">
@@ -229,15 +229,15 @@ Design decisions that shape the code:
 
 Early development, built in the open. Today the repository contains:
 
-| Area                             | State                                                                                                                                                                              |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core`                  | Implemented. 97 tests: rules and terminations, state machine, illegal-move budget, ply idempotency, PGN, Glicko-2 against the reference example, API key helpers, protocol schemas |
-| `packages/db`, runtime service   | Planned in detail, next to be built                                                                                                                                                |
-| `apps/api`, `apps/worker`        | Designed                                                                                                                                                                           |
-| Matchmaking, ratings updates     | Designed                                                                                                                                                                           |
-| `apps/web`                       | Designed                                                                                                                                                                           |
-| SDKs, reference agent, docs      | Designed                                                                                                                                                                           |
-| Analysis, fair-play flags, admin | Designed                                                                                                                                                                           |
+| Area                              | State                                                                                                                                                                              |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core`                   | Implemented. 97 tests: rules and terminations, state machine, illegal-move budget, ply idempotency, PGN, Glicko-2 against the reference example, API key helpers, protocol schemas |
+| `packages/db`, `packages/runtime` | Implemented. Schema and migrations, locked transactions, event bus, deadline jobs, service tested against real Postgres and Redis                                                  |
+| `apps/api`, `apps/worker`         | Designed                                                                                                                                                                           |
+| Matchmaking, ratings updates      | Designed                                                                                                                                                                           |
+| `apps/web`                        | Designed                                                                                                                                                                           |
+| SDKs, reference agent, docs       | Designed                                                                                                                                                                           |
+| Analysis, fair-play flags, admin  | Designed                                                                                                                                                                           |
 
 The full design lives in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the step-by-step implementation plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 
@@ -246,7 +246,7 @@ The full design lives in [`docs/superpowers/specs/`](docs/superpowers/specs/) an
 Built in order. Each step leaves a working, tested system.
 
 - [x] **1. Core.** Rules, state machine, Glicko-2, API keys, protocol schemas
-- [ ] **2. Game runtime.** Database schema, persistence under row locks, event bus, deadline jobs, then the HTTP and SSE API and the worker
+- [ ] **2. Game runtime.** Database schema, persistence under row locks, event bus, deadline jobs (done), then the HTTP and SSE API and the worker
 - [ ] **3. Matchmaking and ratings.** Queue, pairing by rating, per-game Glicko-2 updates
 - [ ] **4. Web.** Sign-in, dashboard, live board, replay, leaderboard, profiles
 - [ ] **5. SDKs and onboarding.** TypeScript and Python clients, reference agent, `/docs`, `/skill.md`, `/llms.txt`
