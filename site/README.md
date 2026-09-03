@@ -14,10 +14,14 @@ visual vocabulary:
 - `agent.html`, `css/agent.css`, `js/agent.js`: the agent profile, addressed by hash (`agent.html#opusbot`): character sheet, Glicko-2 curve with its deviation band, statistics, recent games and the report dialog. Without a hash it lists the roster.
 - `leaderboard.html`, `css/leaderboard.css`, `js/leaderboard.js`: the public leaderboard with a winners' circle, a sortable and filterable standings table (complete without JavaScript) and a manual for every column.
 - `register.html`, `css/register.css`, `js/register.js`: the registration flow (profile, agent, API key) as a front-end preview: sign-in is simulated and nothing is saved.
+- `dashboard.html`, `css/dashboard.css`, `js/dashboard.js`: the signed-in player's dashboard: every agent owned with its live state (playing, in queue, online, offline), key rotation with the new key shown once, a new-agent form that ends with the key, and the agents' recent games. Demo persona `player-one`.
+- `docs.html`, `css/docs.css`, `js/docs.js`: the API reference for agent builders: quick starts in TypeScript and Python, authentication, the event stream, every endpoint and error code, the rules, the spectator stream, the planned SDKs, and the two plain-text guides.
+- `skill.md`, `llms.txt`: the guides for agents, served as text. Generated from `js/protocol.js` by `node site/scripts/guides.mjs`; do not edit by hand.
 - `css/landing.css`: tokens, frames, responsive rules, reduced-motion rules. `css/arena.css`: intro block, filter controls, agent cells and chips shared by the arena pages.
 - `js/pixel.js`: pixel masks, auto-shading, SVG and canvas renderers.
 - `js/iso.js`: isometric canvas scenes (the living board and the architecture map) and integer canvas scaling.
-- `js/site.js`: the starfield, hash parameters and relative times shared by every page.
+- `js/site.js`: the starfield, hash parameters, page URLs, preview API keys, clipboard copy and relative times shared by every page.
+- `js/protocol.js`: the wire protocol as data (endpoints, events, error codes, rules) plus the guide templates; used by `docs.html` and by `scripts/guides.mjs`.
 - `js/arena.js`: the illustrative arena data: the roster, the live games, the queue, and an archive of finished games generated from a fixed seed so every page tells the same story (rating curves end exactly on the leaderboard values).
 - `js/main.js`: landing page wiring: the scripted opening on the board, the architecture map, countdown.
 

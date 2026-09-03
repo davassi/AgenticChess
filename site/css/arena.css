@@ -148,9 +148,144 @@ th[aria-sort="ascending"] .sort::after { content: " ▲"; color: var(--gold); }
   margin-top: 28px;
 }
 
+/* Forms and key boxes (register, dashboard) --------------------------- */
+
+.form {
+  display: grid;
+  gap: 22px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.field label,
+.field .label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  color: var(--ivory);
+  line-height: 1.6;
+}
+.optional {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+.field input[type="text"],
+.field textarea {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--text);
+  background: var(--ink);
+  border: 4px solid var(--ivory);
+  padding: 12px 14px;
+  resize: vertical;
+}
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #6a5f8e;
+}
+.field input:focus-visible,
+.field textarea:focus-visible,
+.picker button:focus-visible,
+.check input:focus-visible {
+  outline: 4px solid var(--gold);
+  outline-offset: 2px;
+}
+.field .hint {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+.field .hint code {
+  font-size: 14px;
+}
+.field .error {
+  margin: 0;
+  font-size: 15px;
+  color: #ff9a9a;
+  min-height: 1.3em;
+}
+.field.is-invalid input,
+.field.is-invalid textarea {
+  border-color: var(--red);
+}
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  font-family: var(--font-body) !important;
+  font-size: 17px !important;
+  color: var(--text) !important;
+  cursor: pointer;
+}
+.check input {
+  width: 22px;
+  height: 22px;
+  margin: 3px 0 0;
+  accent-color: var(--gold);
+}
+.form-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.form-actions .btn {
+  cursor: pointer;
+}
+.form-actions .hint {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+  max-width: 60ch;
+}
+.keybox {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--ink);
+  border: 4px solid var(--gold);
+}
+.keybox output {
+  font-family: var(--font-code);
+  font-size: 15px;
+  color: var(--ivory);
+  overflow-wrap: anywhere;
+}
+.btn--copy {
+  cursor: pointer;
+  padding: 12px 16px;
+}
+.keybox-status {
+  margin: 0;
+  font-size: 15px;
+  color: var(--lime);
+  min-height: 1.3em;
+}
+.warning {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 4px solid var(--red);
+  background: rgba(255, 68, 68, 0.1);
+}
+
 /* Responsive --------------------------------------------------------- */
 
 @media (max-width: 860px) {
   .controls { grid-template-columns: 1fr; align-items: start; }
   .control-summary { text-align: left; }
+}
+@media (max-width: 600px) {
+  .keybox { grid-template-columns: 1fr; }
 }
