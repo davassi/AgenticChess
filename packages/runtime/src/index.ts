@@ -11,3 +11,4 @@ export * from "./games/service.js";
 export * from "./rating/repository.js";
 export * from "./rating/settle.js";
 export * from "./matchmaking/queue.js";
+export * from "./matchmaking/pairing.js";
