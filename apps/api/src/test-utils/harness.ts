@@ -28,7 +28,7 @@ export interface Harness {
 
 export interface HarnessOptions {
   env?: Record<string, string>;
-  register?: (app: FastifyInstance) => void;
+  register?: (app: FastifyInstance, deps: AppDeps) => void;
 }
 
 async function seedWithKeys(db: Database): Promise<Harness["agents"]> {
@@ -57,7 +57,7 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
   });
   const handle = await createDeps(config, noopLogger);
   const app = buildApp(handle.deps);
-  options.register?.(app);
+  options.register?.(app, handle.deps);
   await app.ready();
   const harness: Harness = {
     app,
