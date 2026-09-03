@@ -68,6 +68,7 @@ Each `src/**/x.ts` has a sibling `x.test.ts`.
 ### Task 1: Monorepo scaffold and core package skeleton
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `turbo.json`
@@ -81,6 +82,7 @@ Each `src/**/x.ts` has a sibling `x.test.ts`.
 - Test: `packages/core/src/index.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: the workspace commands `pnpm test`, `pnpm typecheck`, `pnpm build` and the package name `@aichess/core` used by every later task.
 
@@ -92,6 +94,7 @@ Expected: Node `v22.x`, pnpm `10.15.0`. If Node is not 22, install it with your 
 - [ ] **Step 2: Write workspace files**
 
 `package.json`:
+
 ```json
 {
   "name": "aichess",
@@ -111,6 +114,7 @@ Expected: Node `v22.x`, pnpm `10.15.0`. If Node is not 22, install it with your 
 ```
 
 `pnpm-workspace.yaml`:
+
 ```yaml
 packages:
   - apps/*
@@ -118,6 +122,7 @@ packages:
 ```
 
 `turbo.json`:
+
 ```json
 {
   "$schema": "https://turbo.build/schema.json",
@@ -130,6 +135,7 @@ packages:
 ```
 
 `tsconfig.base.json`:
+
 ```json
 {
   "compilerOptions": {
@@ -152,6 +158,7 @@ packages:
 ```
 
 `.nvmrc`:
+
 ```
 22
 ```
@@ -159,6 +166,7 @@ packages:
 - [ ] **Step 3: Write core package files**
 
 `packages/core/package.json`:
+
 ```json
 {
   "name": "@aichess/core",
@@ -187,6 +195,7 @@ packages:
 ```
 
 `packages/core/tsconfig.json`:
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -200,6 +209,7 @@ packages:
 ```
 
 `packages/core/tsconfig.build.json`:
+
 ```json
 {
   "extends": "./tsconfig.json",
@@ -208,6 +218,7 @@ packages:
 ```
 
 `packages/core/vitest.config.ts`:
+
 ```ts
 import { defineConfig } from "vitest/config";
 
@@ -221,6 +232,7 @@ export default defineConfig({
 - [ ] **Step 4: Write the failing smoke test**
 
 `packages/core/src/index.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { CORE_VERSION } from "./index.js";
@@ -240,6 +252,7 @@ Expected: FAIL, vitest reports it cannot resolve `./index.js`.
 - [ ] **Step 6: Write the minimal index**
 
 `packages/core/src/index.ts`:
+
 ```ts
 export const CORE_VERSION = "0.0.1";
 ```
@@ -261,6 +274,7 @@ git commit -m "chore: scaffold pnpm/turbo monorepo with @aichess/core skeleton"
 ### Task 2: Protocol enums and zod schemas
 
 **Files:**
+
 - Create: `packages/core/src/protocol/enums.ts`
 - Create: `packages/core/src/protocol/schemas.ts`
 - Create: `packages/core/src/protocol/index.ts`
@@ -268,12 +282,14 @@ git commit -m "chore: scaffold pnpm/turbo monorepo with @aichess/core skeleton"
 - Test: `packages/core/src/protocol/schemas.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `Color`, `GameStatus`, `Termination`, `GameResult`, `ErrorCode`, `IllegalReason` literal types and their `*Schema` zod counterparts; `LegalMove`, `GameConfig`, `MoveRequest`, `ErrorResponse`, `AgentSummary`, `GameSnapshot`, `WireEvent` types; constants `DEFAULT_GAME_CONFIG`, `MAX_COMMENT_LENGTH`, `NETWORK_GRACE_MS`, `MIN_PLIES_FOR_RATED_RESULT`, `UCI_REGEX`.
 
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/protocol/schemas.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import {
@@ -395,6 +411,7 @@ Expected: FAIL, cannot resolve `./schemas.js` and `./enums.js`.
 - [ ] **Step 3: Write the enums**
 
 `packages/core/src/protocol/enums.ts`:
+
 ```ts
 export const COLORS = ["white", "black"] as const;
 export type Color = (typeof COLORS)[number];
@@ -458,6 +475,7 @@ export const DEFAULT_GAME_CONFIG = {
 - [ ] **Step 4: Write the schemas**
 
 `packages/core/src/protocol/schemas.ts`:
+
 ```ts
 import { z } from "zod";
 import {
@@ -613,12 +631,14 @@ export type WireEvent = z.infer<typeof WireEventSchema>;
 - [ ] **Step 5: Write the protocol index and export it from the package**
 
 `packages/core/src/protocol/index.ts`:
+
 ```ts
 export * from "./enums.js";
 export * from "./schemas.js";
 ```
 
 In `packages/core/package.json`, replace the `exports` block with:
+
 ```json
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
@@ -627,6 +647,7 @@ In `packages/core/package.json`, replace the `exports` block with:
 ```
 
 Append to `packages/core/src/index.ts`:
+
 ```ts
 export * from "./protocol/index.js";
 ```
@@ -648,10 +669,12 @@ git commit -m "feat(core): protocol enums and zod schemas"
 ### Task 3: Chess rules wrapper over chess.js
 
 **Files:**
+
 - Create: `packages/core/src/chess/rules.ts`
 - Test: `packages/core/src/chess/rules.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LegalMove` from `../protocol/schemas.js`; `Color`, `IllegalReason`, `Termination`, `UCI_REGEX` from `../protocol/enums.js`.
 - Produces:
   - `START_FEN: string`
@@ -665,6 +688,7 @@ git commit -m "feat(core): protocol enums and zod schemas"
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/chess/rules.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import {
@@ -810,6 +834,7 @@ Expected: FAIL, cannot resolve `./rules.js`.
 - [ ] **Step 3: Write the implementation**
 
 `packages/core/src/chess/rules.ts`:
+
 ```ts
 import { Chess } from "chess.js";
 import type { Color, GameResult, IllegalReason, Termination } from "../protocol/enums.js";
@@ -924,11 +949,13 @@ git commit -m "feat(core): chess rules wrapper with move parsing and termination
 ### Task 4: Game state types, createGame and startGame
 
 **Files:**
+
 - Create: `packages/core/src/game/state.ts`
 - Create: `packages/core/src/game/create.ts`
 - Test: `packages/core/src/game/create.test.ts`
 
 **Interfaces:**
+
 - Consumes: `START_FEN` from `../chess/rules.js`; enums and `GameConfig`.
 - Produces (`state.ts`):
   - `interface MoveRecord { ply: number; color: Color; san: string; uci: string; fenAfter: string; comment: string | null; thinkTimeMs: number; illegalAttemptsBefore: number }`
@@ -945,6 +972,7 @@ git commit -m "feat(core): chess rules wrapper with move parsing and termination
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/game/create.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GAME_CONFIG } from "../protocol/enums.js";
@@ -1037,6 +1065,7 @@ Expected: FAIL, cannot resolve `./create.js` and `./state.js`.
 - [ ] **Step 3: Write the state module**
 
 `packages/core/src/game/state.ts`:
+
 ```ts
 import type { Color, GameResult, GameStatus, IllegalReason, Termination } from "../protocol/enums.js";
 import type { GameConfig } from "../protocol/schemas.js";
@@ -1111,10 +1140,7 @@ export function opponentOf(color: Color): Color {
   return color === "white" ? "black" : "white";
 }
 
-export function agentColor(
-  state: Pick<GameState, "whiteAgentId" | "blackAgentId">,
-  agentId: string,
-): Color | null {
+export function agentColor(state: Pick<GameState, "whiteAgentId" | "blackAgentId">, agentId: string): Color | null {
   if (agentId === state.whiteAgentId) return "white";
   if (agentId === state.blackAgentId) return "black";
   return null;
@@ -1124,6 +1150,7 @@ export function agentColor(
 - [ ] **Step 4: Write createGame and startGame**
 
 `packages/core/src/game/create.ts`:
+
 ```ts
 import { START_FEN } from "../chess/rules.js";
 import type { GameConfig } from "../protocol/schemas.js";
@@ -1205,11 +1232,13 @@ git commit -m "feat(core): game state types with createGame and startGame"
 ### Task 5: applyMove with legal moves, illegal-move budget and ply idempotency
 
 **Files:**
+
 - Modify: `packages/core/src/game/state.ts` (append `finishState`, `endedEvent`)
 - Create: `packages/core/src/game/apply-move.ts`
 - Test: `packages/core/src/game/apply-move.test.ts`
 
 **Interfaces:**
+
 - Consumes: `tryMove`, `legalMoves`, `detectBoardTermination`, `resultForWinner` from `../chess/rules.js`; `createGame`, `startGame` from `./create.js`; everything in `./state.js`.
 - Produces:
   - `finishState(state: GameState, result: GameResult, termination: Termination, finishedAt: number): GameState` (status becomes `aborted` when termination is `aborted`, otherwise `finished`; clears `turnStartedAt` and `moveDeadlineAt`)
@@ -1223,6 +1252,7 @@ git commit -m "feat(core): game state types with createGame and startGame"
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/game/apply-move.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GAME_CONFIG, MAX_COMMENT_LENGTH } from "../protocol/enums.js";
@@ -1310,26 +1340,47 @@ describe("applyMove: legal move", () => {
 
 describe("applyMove: turn and status guards", () => {
   it("rejects a move on a game that has not started", () => {
-    const created = createGame({ id: "g1", whiteAgentId: WHITE, blackAgentId: BLACK, config: DEFAULT_GAME_CONFIG, now: T0 });
-    expect(applyMove(created, { agentId: WHITE, ply: 0, move: "e4", now: T0 })).toMatchObject({ ok: false, code: "game_not_active" });
+    const created = createGame({
+      id: "g1",
+      whiteAgentId: WHITE,
+      blackAgentId: BLACK,
+      config: DEFAULT_GAME_CONFIG,
+      now: T0,
+    });
+    expect(applyMove(created, { agentId: WHITE, ply: 0, move: "e4", now: T0 })).toMatchObject({
+      ok: false,
+      code: "game_not_active",
+    });
   });
 
   it("rejects a move from an agent who is not in the game", () => {
-    expect(applyMove(activeGame(), { agentId: "stranger", ply: 0, move: "e4", now: T0 })).toMatchObject({ ok: false, code: "not_a_player" });
+    expect(applyMove(activeGame(), { agentId: "stranger", ply: 0, move: "e4", now: T0 })).toMatchObject({
+      ok: false,
+      code: "not_a_player",
+    });
   });
 
   it("rejects black moving first", () => {
-    expect(applyMove(activeGame(), { agentId: BLACK, ply: 0, move: "e5", now: T0 })).toMatchObject({ ok: false, code: "not_your_turn" });
+    expect(applyMove(activeGame(), { agentId: BLACK, ply: 0, move: "e5", now: T0 })).toMatchObject({
+      ok: false,
+      code: "not_your_turn",
+    });
   });
 
   it("rejects a ply from the future", () => {
-    expect(applyMove(activeGame(), { agentId: WHITE, ply: 2, move: "e4", now: T0 })).toMatchObject({ ok: false, code: "stale_ply" });
+    expect(applyMove(activeGame(), { agentId: WHITE, ply: 2, move: "e4", now: T0 })).toMatchObject({
+      ok: false,
+      code: "stale_ply",
+    });
   });
 
   it("rejects a move after the game has finished", () => {
     const mated = playLine(activeGame(), ["f3", "e5", "g4", "Qh4"]);
     expect(mated.status).toBe("finished");
-    expect(applyMove(mated, { agentId: WHITE, ply: mated.ply, move: "a3", now: T0 })).toMatchObject({ ok: false, code: "game_not_active" });
+    expect(applyMove(mated, { agentId: WHITE, ply: mated.ply, move: "a3", now: T0 })).toMatchObject({
+      ok: false,
+      code: "game_not_active",
+    });
   });
 });
 
@@ -1342,12 +1393,18 @@ describe("applyMove: idempotency on ply", () => {
 
   it("rejects a different move at an old ply", () => {
     const after = mustApply(activeGame(), WHITE, "e4", T0 + 1);
-    expect(applyMove(after, { agentId: WHITE, ply: 0, move: "d4", now: T0 + 2 })).toMatchObject({ ok: false, code: "stale_ply" });
+    expect(applyMove(after, { agentId: WHITE, ply: 0, move: "d4", now: T0 + 2 })).toMatchObject({
+      ok: false,
+      code: "stale_ply",
+    });
   });
 
   it("rejects a replay by the other agent", () => {
     const after = mustApply(activeGame(), WHITE, "e4", T0 + 1);
-    expect(applyMove(after, { agentId: BLACK, ply: 0, move: "e4", now: T0 + 2 })).toMatchObject({ ok: false, code: "stale_ply" });
+    expect(applyMove(after, { agentId: BLACK, ply: 0, move: "e4", now: T0 + 2 })).toMatchObject({
+      ok: false,
+      code: "stale_ply",
+    });
   });
 });
 
@@ -1455,6 +1512,7 @@ Expected: FAIL, cannot resolve `./apply-move.js`.
 - [ ] **Step 3: Append finish helpers to the state module**
 
 Append to `packages/core/src/game/state.ts`:
+
 ```ts
 export function finishState(
   state: GameState,
@@ -1489,6 +1547,7 @@ export function endedEvent(state: GameState): DomainEvent {
 - [ ] **Step 4: Write applyMove**
 
 `packages/core/src/game/apply-move.ts`:
+
 ```ts
 import { detectBoardTermination, legalMoves, resultForWinner, tryMove } from "../chess/rules.js";
 import { MAX_COMMENT_LENGTH, type Color, type IllegalReason } from "../protocol/enums.js";
@@ -1566,7 +1625,15 @@ function rejectIllegal(state: GameState, color: Color, cmd: MoveCommand, reason:
       events: [attemptEvent, endedEvent(finished)],
     };
   }
-  return { ok: false, code: "illegal_move", reason, attemptsLeft, legalMoves: legal, state: counted, events: [attemptEvent] };
+  return {
+    ok: false,
+    code: "illegal_move",
+    reason,
+    attemptsLeft,
+    legalMoves: legal,
+    state: counted,
+    events: [attemptEvent],
+  };
 }
 
 export function applyMove(state: GameState, cmd: MoveCommand): ApplyMoveResult {
@@ -1657,10 +1724,12 @@ git commit -m "feat(core): applyMove with illegal-move budget and ply idempotenc
 ### Task 6: applyTimeout and applyResign
 
 **Files:**
+
 - Create: `packages/core/src/game/end.ts`
 - Test: `packages/core/src/game/end.test.ts`
 
 **Interfaces:**
+
 - Consumes: `NETWORK_GRACE_MS`, `MIN_PLIES_FOR_RATED_RESULT` from `../protocol/enums.js`; `resultForWinner` from `../chess/rules.js`; `finishState`, `endedEvent`, `agentColor`, `opponentOf`, `sideToMove` from `./state.js`.
 - Produces:
   - `type EndResult = ({ ok: true } & Transition) | { ok: false; code: "game_not_active" | "deadline_not_reached" | "not_a_player"; state: GameState }`
@@ -1671,6 +1740,7 @@ git commit -m "feat(core): applyMove with illegal-move budget and ply idempotenc
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/game/end.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GAME_CONFIG, NETWORK_GRACE_MS } from "../protocol/enums.js";
@@ -1716,7 +1786,13 @@ describe("applyTimeout", () => {
     const r = applyTimeout(activeGame(), now);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.state).toMatchObject({ status: "aborted", result: "*", termination: "aborted", finishedAt: now, moveDeadlineAt: null });
+    expect(r.state).toMatchObject({
+      status: "aborted",
+      result: "*",
+      termination: "aborted",
+      finishedAt: now,
+      moveDeadlineAt: null,
+    });
     expect(r.events).toEqual([{ type: "ended", result: "*", termination: "aborted", finishedAt: now }]);
   });
 
@@ -1747,7 +1823,12 @@ describe("applyResign", () => {
   it("gives the win to the opponent, even before two plies", () => {
     const r = applyResign(activeGame(), BLACK, T0 + 5);
     if (!r.ok) throw new Error(r.code);
-    expect(r.state).toMatchObject({ status: "finished", result: "1-0", termination: "resignation", finishedAt: T0 + 5 });
+    expect(r.state).toMatchObject({
+      status: "finished",
+      result: "1-0",
+      termination: "resignation",
+      finishedAt: T0 + 5,
+    });
     expect(r.events).toEqual([{ type: "ended", result: "1-0", termination: "resignation", finishedAt: T0 + 5 }]);
   });
 
@@ -1777,6 +1858,7 @@ Expected: FAIL, cannot resolve `./end.js`.
 - [ ] **Step 3: Write the implementation**
 
 `packages/core/src/game/end.ts`:
+
 ```ts
 import { resultForWinner } from "../chess/rules.js";
 import { MIN_PLIES_FOR_RATED_RESULT, NETWORK_GRACE_MS } from "../protocol/enums.js";
@@ -1840,10 +1922,12 @@ git commit -m "feat(core): timeout and resignation transitions with abort rule"
 ### Task 7: PGN export
 
 **Files:**
+
 - Create: `packages/core/src/game/pgn.ts`
 - Test: `packages/core/src/game/pgn.test.ts`
 
 **Interfaces:**
+
 - Consumes: `GameState` from `./state.js`; `Chess` from `chess.js`.
 - Produces:
   - `interface PgnMeta { white: string; black: string; event?: string; site?: string; date?: Date }`
@@ -1853,6 +1937,7 @@ git commit -m "feat(core): timeout and resignation transitions with abort rule"
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/game/pgn.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GAME_CONFIG } from "../protocol/enums.js";
@@ -1903,7 +1988,11 @@ describe("toPgn", () => {
   });
 
   it("places agent comments after their move", () => {
-    const s = play(activeGame(), [{ san: "e4", comment: "Centre." }, { san: "e5" }, { san: "Nf3", comment: "Develop." }]);
+    const s = play(activeGame(), [
+      { san: "e4", comment: "Centre." },
+      { san: "e5" },
+      { san: "Nf3", comment: "Develop." },
+    ]);
     const pgn = toPgn(s, META);
     expect(pgn).toContain("1. e4 {Centre.} e5 2. Nf3 {Develop.}");
   });
@@ -1942,6 +2031,7 @@ Expected: FAIL, cannot resolve `./pgn.js`.
 - [ ] **Step 3: Write the implementation**
 
 `packages/core/src/game/pgn.ts`:
+
 ```ts
 import { Chess } from "chess.js";
 import type { GameState } from "./state.js";
@@ -2014,10 +2104,12 @@ git commit -m "feat(core): PGN export with agent comments"
 ### Task 8: Glicko-2 rating
 
 **Files:**
+
 - Create: `packages/core/src/rating/glicko2.ts`
 - Test: `packages/core/src/rating/glicko2.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Color`, `GameResult` from `../protocol/enums.js`.
 - Produces:
   - `interface Glicko2Rating { rating: number; rd: number; volatility: number }`
@@ -2034,16 +2126,10 @@ git commit -m "feat(core): PGN export with agent comments"
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/rating/glicko2.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
-import {
-  GLICKO2_DEFAULTS,
-  applyGameRatings,
-  initialRating,
-  isProvisional,
-  scoreFor,
-  updateRating,
-} from "./glicko2.js";
+import { GLICKO2_DEFAULTS, applyGameRatings, initialRating, isProvisional, scoreFor, updateRating } from "./glicko2.js";
 
 describe("updateRating", () => {
   it("reproduces the worked example from Glickman's paper", () => {
@@ -2119,7 +2205,11 @@ describe("scoreFor", () => {
 describe("initialRating and isProvisional", () => {
   it("starts at the spec defaults and is provisional", () => {
     const r = initialRating();
-    expect(r).toEqual({ rating: GLICKO2_DEFAULTS.rating, rd: GLICKO2_DEFAULTS.rd, volatility: GLICKO2_DEFAULTS.volatility });
+    expect(r).toEqual({
+      rating: GLICKO2_DEFAULTS.rating,
+      rd: GLICKO2_DEFAULTS.rd,
+      volatility: GLICKO2_DEFAULTS.volatility,
+    });
     expect(isProvisional(r)).toBe(true);
   });
 
@@ -2138,6 +2228,7 @@ Expected: FAIL, cannot resolve `./glicko2.js`.
 - [ ] **Step 3: Write the implementation**
 
 `packages/core/src/rating/glicko2.ts`:
+
 ```ts
 import type { Color, GameResult } from "../protocol/enums.js";
 
@@ -2290,10 +2381,12 @@ git commit -m "feat(core): Glicko-2 rating with per-game update"
 ### Task 9: API key helpers
 
 **Files:**
+
 - Create: `packages/core/src/auth/api-key.ts`
 - Test: `packages/core/src/auth/api-key.test.ts`
 
 **Interfaces:**
+
 - Consumes: `node:crypto` only.
 - Produces:
   - `API_KEY_PREFIX = "ac_"`
@@ -2309,6 +2402,7 @@ git commit -m "feat(core): Glicko-2 rating with per-game update"
 - [ ] **Step 1: Write the failing tests**
 
 `packages/core/src/auth/api-key.test.ts`:
+
 ```ts
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -2383,6 +2477,7 @@ Expected: FAIL, cannot resolve `./api-key.js`.
 - [ ] **Step 3: Write the implementation**
 
 `packages/core/src/auth/api-key.ts`:
+
 ```ts
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
@@ -2450,18 +2545,21 @@ git commit -m "feat(core): API key generation and constant-time verification"
 ### Task 10: Public surface, build verification and package README
 
 **Files:**
+
 - Modify: `packages/core/src/index.ts`
 - Modify: `packages/core/src/index.test.ts`
 - Create: `packages/core/README.md`
 - Create: `README.md`
 
 **Interfaces:**
+
 - Consumes: every module from Tasks 2 to 9.
 - Produces: the import paths every later plan uses. `import { applyMove, createGame, ... } from "@aichess/core"` for server code; `import { MoveRequestSchema, WireEventSchema, ... } from "@aichess/core/protocol"` for SDKs and the web.
 
 - [ ] **Step 1: Write the failing surface test**
 
 Replace `packages/core/src/index.test.ts` with:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import * as core from "./index.js";
@@ -2506,6 +2604,7 @@ Expected: FAIL, `core.createGame` is undefined.
 - [ ] **Step 3: Write the index**
 
 Replace `packages/core/src/index.ts` with:
+
 ```ts
 export const CORE_VERSION = "0.0.1";
 
@@ -2523,16 +2622,19 @@ export * from "./auth/api-key.js";
 - [ ] **Step 4: Run tests, typecheck and a real build**
 
 Run from the repository root:
+
 ```bash
 pnpm --filter @aichess/core test && pnpm --filter @aichess/core typecheck && pnpm --filter @aichess/core build
 node --input-type=module -e "import('./packages/core/dist/index.js').then(m => { if (typeof m.applyMove !== 'function') throw new Error('root export missing'); console.log('root ok'); })"
 node --input-type=module -e "import('./packages/core/dist/protocol/index.js').then(m => { if (!m.MoveRequestSchema) throw new Error('protocol export missing'); console.log('protocol ok'); })"
 ```
+
 Expected: tests pass, `tsc` exits 0, `dist/` contains `index.js`, `index.d.ts`, `protocol/index.js`, and both node commands print `ok`. No `*.test.js` files may appear under `dist/`; if they do, `tsconfig.build.json` is not excluding tests.
 
 - [ ] **Step 5: Write the package README**
 
 `packages/core/README.md`:
+
 ```markdown
 # @aichess/core
 
@@ -2547,14 +2649,14 @@ Pure TypeScript domain package for aichess. No database, no network.
 
 Every transition is a pure function `(state, command) -> result` and never mutates its input.
 
-| Function | Purpose |
-| --- | --- |
-| `createGame(input)` | New game in status `created` at the start position. |
-| `startGame(state, now)` | `created` to `active`; white gets the first turn and deadline. |
-| `applyMove(state, cmd)` | Legal move, illegal attempt with budget, or `stale_ply` idempotency. |
-| `applyTimeout(state, now)` | Loss on time, or `aborted` when fewer than 2 plies were played. |
-| `applyResign(state, agentId, now)` | Loss for the resigning side. |
-| `toPgn(state, meta)` | PGN with agent comments. |
+| Function                           | Purpose                                                              |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `createGame(input)`                | New game in status `created` at the start position.                  |
+| `startGame(state, now)`            | `created` to `active`; white gets the first turn and deadline.       |
+| `applyMove(state, cmd)`            | Legal move, illegal attempt with budget, or `stale_ply` idempotency. |
+| `applyTimeout(state, now)`         | Loss on time, or `aborted` when fewer than 2 plies were played.      |
+| `applyResign(state, agentId, now)` | Loss for the resigning side.                                         |
+| `toPgn(state, meta)`               | PGN with agent comments.                                             |
 
 Ply convention: `state.ply` is the number of plies played and is the value expected in `MoveCommand.ply`. `MoveRecord.ply` is 1-based.
 
@@ -2569,15 +2671,18 @@ Transitions return `DomainEvent[]`: `started`, `turn`, `move`, `illegal_attempt`
 Glicko-2 with tau 0.5, start 1500 / 350 / 0.06. Use `applyGameRatings(white, black, result)` with the pre-game ratings of both sides.
 
 ## Testing
+```
+
+pnpm --filter @aichess/core test
 
 ```
-pnpm --filter @aichess/core test
-```
+
 ```
 
 - [ ] **Step 6: Write the repository README**
 
 `README.md`:
+
 ```markdown
 # aichess
 
@@ -2587,11 +2692,12 @@ A chess arena where only LLM agents play and humans watch.
 - Implementation plans: `docs/superpowers/plans/`
 
 ## Layout
-
 ```
-apps/        web (Next.js), api (Fastify), worker (BullMQ)
-packages/    core (rules, state machine, rating, protocol), db, sdk-ts
-sdk-python/  Python client
+
+apps/ web (Next.js), api (Fastify), worker (BullMQ)
+packages/ core (rules, state machine, rating, protocol), db, sdk-ts
+sdk-python/ Python client
+
 ```
 
 ## Development
@@ -2599,11 +2705,14 @@ sdk-python/  Python client
 Requires Node 22 and pnpm 10 (`corepack enable`).
 
 ```
+
 pnpm install
 pnpm test
 pnpm typecheck
 pnpm build
+
 ```
+
 ```
 
 - [ ] **Step 7: Commit**

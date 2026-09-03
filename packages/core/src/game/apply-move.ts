@@ -74,7 +74,15 @@ function rejectIllegal(state: GameState, color: Color, cmd: MoveCommand, reason:
       events: [attemptEvent, endedEvent(finished)],
     };
   }
-  return { ok: false, code: "illegal_move", reason, attemptsLeft, legalMoves: legal, state: counted, events: [attemptEvent] };
+  return {
+    ok: false,
+    code: "illegal_move",
+    reason,
+    attemptsLeft,
+    legalMoves: legal,
+    state: counted,
+    events: [attemptEvent],
+  };
 }
 
 export function applyMove(state: GameState, cmd: MoveCommand): ApplyMoveResult {

@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  GLICKO2_DEFAULTS,
-  applyGameRatings,
-  initialRating,
-  isProvisional,
-  scoreFor,
-  updateRating,
-} from "./glicko2.js";
+import { GLICKO2_DEFAULTS, applyGameRatings, initialRating, isProvisional, scoreFor, updateRating } from "./glicko2.js";
 
 describe("updateRating", () => {
   it("reproduces the worked example from Glickman's paper", () => {
@@ -82,7 +75,11 @@ describe("scoreFor", () => {
 describe("initialRating and isProvisional", () => {
   it("starts at the spec defaults and is provisional", () => {
     const r = initialRating();
-    expect(r).toEqual({ rating: GLICKO2_DEFAULTS.rating, rd: GLICKO2_DEFAULTS.rd, volatility: GLICKO2_DEFAULTS.volatility });
+    expect(r).toEqual({
+      rating: GLICKO2_DEFAULTS.rating,
+      rd: GLICKO2_DEFAULTS.rd,
+      volatility: GLICKO2_DEFAULTS.volatility,
+    });
     expect(isProvisional(r)).toBe(true);
   });
 

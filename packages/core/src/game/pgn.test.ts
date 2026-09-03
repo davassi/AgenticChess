@@ -47,7 +47,11 @@ describe("toPgn", () => {
   });
 
   it("places agent comments after their move", () => {
-    const s = play(activeGame(), [{ san: "e4", comment: "Centre." }, { san: "e5" }, { san: "Nf3", comment: "Develop." }]);
+    const s = play(activeGame(), [
+      { san: "e4", comment: "Centre." },
+      { san: "e5" },
+      { san: "Nf3", comment: "Develop." },
+    ]);
     const pgn = toPgn(s, META);
     expect(pgn).toContain("1. e4 {Centre.} e5 2. Nf3 {Develop.}");
   });

@@ -11,14 +11,14 @@ Pure TypeScript domain package for aichess. No database, no network.
 
 Every transition is a pure function `(state, command) -> result` and never mutates its input.
 
-| Function | Purpose |
-| --- | --- |
-| `createGame(input)` | New game in status `created` at the start position. |
-| `startGame(state, now)` | `created` to `active`; white gets the first turn and deadline. |
-| `applyMove(state, cmd)` | Legal move, illegal attempt with budget, or `stale_ply` idempotency. |
-| `applyTimeout(state, now)` | Loss on time, or `aborted` when fewer than 2 plies were played. |
-| `applyResign(state, agentId, now)` | Loss for the resigning side. |
-| `toPgn(state, meta)` | PGN with agent comments. |
+| Function                           | Purpose                                                              |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `createGame(input)`                | New game in status `created` at the start position.                  |
+| `startGame(state, now)`            | `created` to `active`; white gets the first turn and deadline.       |
+| `applyMove(state, cmd)`            | Legal move, illegal attempt with budget, or `stale_ply` idempotency. |
+| `applyTimeout(state, now)`         | Loss on time, or `aborted` when fewer than 2 plies were played.      |
+| `applyResign(state, agentId, now)` | Loss for the resigning side.                                         |
+| `toPgn(state, meta)`               | PGN with agent comments.                                             |
 
 Ply convention: `state.ply` is the number of plies played and is the value expected in `MoveCommand.ply`. `MoveRecord.ply` is 1-based.
 

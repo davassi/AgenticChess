@@ -79,6 +79,7 @@ Each `src/**/x.ts` has a sibling `x.test.ts`.
 ### Task 1: Tooling: lint, format, dev compose, env example
 
 **Files:**
+
 - Modify: `package.json` (root: scripts and devDependencies)
 - Modify: `turbo.json` (add `lint`)
 - Create: `eslint.config.mjs`
@@ -90,17 +91,20 @@ Each `src/**/x.ts` has a sibling `x.test.ts`.
 - Modify: `README.md` (development section)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: root commands `pnpm lint`, `pnpm format`, `pnpm format:check`; the per-package convention `"lint": "eslint src"`; `docker compose up -d` for local development.
 
 - [ ] **Step 1: Add root dev dependencies and scripts**
 
 Run from the repository root:
+
 ```bash
 pnpm add -w -D eslint@^9.39.0 @eslint/js@^9.39.0 typescript-eslint@^8.69.0 eslint-config-prettier@^10.1.0 prettier@^3.9.0
 ```
 
 Replace the `scripts` block in the root `package.json` with:
+
 ```json
   "scripts": {
     "build": "turbo run build",
@@ -113,6 +117,7 @@ Replace the `scripts` block in the root `package.json` with:
 ```
 
 Replace `turbo.json` with:
+
 ```json
 {
   "$schema": "https://turbo.build/schema.json",
@@ -128,6 +133,7 @@ Replace `turbo.json` with:
 - [ ] **Step 2: Write the lint and format configuration**
 
 `eslint.config.mjs`:
+
 ```js
 import eslint from "@eslint/js";
 import prettier from "eslint-config-prettier";
@@ -155,6 +161,7 @@ export default tseslint.config(
 ```
 
 `.prettierrc`:
+
 ```json
 {
   "printWidth": 120,
@@ -164,6 +171,7 @@ export default tseslint.config(
 ```
 
 `.prettierignore`:
+
 ```
 pnpm-lock.yaml
 **/dist/
@@ -174,6 +182,7 @@ pnpm-lock.yaml
 ```
 
 In `packages/core/package.json` add to `scripts`:
+
 ```json
     "lint": "eslint src",
 ```
@@ -181,6 +190,7 @@ In `packages/core/package.json` add to `scripts`:
 - [ ] **Step 3: Write the development compose file and env example**
 
 `docker-compose.yml`:
+
 ```yaml
 services:
   postgres:
@@ -218,6 +228,7 @@ volumes:
 ```
 
 `.env.example`:
+
 ```
 DATABASE_URL=postgres://aichess:aichess@localhost:5432/aichess
 REDIS_URL=redis://localhost:6379
@@ -228,13 +239,15 @@ LOG_LEVEL=info
 ```
 
 Append to the `## Development` section of `README.md`:
-```markdown
+
+````markdown
 Local services for manual runs (tests start their own containers):
 
 ```bash
 cp .env.example .env
 docker compose up -d
 ```
+````
 
 Lint and format:
 
@@ -242,7 +255,8 @@ Lint and format:
 pnpm lint
 pnpm format
 ```
-```
+
+````
 
 - [ ] **Step 4: Format and lint the existing code**
 
@@ -259,13 +273,14 @@ Expected: 97 core tests pass, typecheck exits 0, Prettier reports all files form
 ```bash
 git add -A
 git commit -m "chore: eslint, prettier, dev compose and env example"
-```
+````
 
 ---
 
 ### Task 2: `@aichess/db`: schema, migrations, client, test database helper
 
 **Files:**
+
 - Create: `packages/db/package.json`
 - Create: `packages/db/tsconfig.json`
 - Create: `packages/db/tsconfig.build.json`
@@ -286,6 +301,7 @@ git commit -m "chore: eslint, prettier, dev compose and env example"
 - Test: `packages/db/src/schema.test.ts`
 
 **Interfaces:**
+
 - Consumes: `COLORS`, `AGENT_STATUSES`, `GAME_STATUSES`, `RESULTS`, `TERMINATIONS`, `ILLEGAL_REASONS` from `@aichess/core/protocol`.
 - Produces:
   - Tables: `users`, `agents`, `games`, `moves`, `moveAttempts` (Drizzle table objects, exported from `@aichess/db`).
@@ -298,6 +314,7 @@ git commit -m "chore: eslint, prettier, dev compose and env example"
 - [ ] **Step 1: Create the package files**
 
 `packages/db/package.json`:
+
 ```json
 {
   "name": "@aichess/db",
@@ -333,6 +350,7 @@ git commit -m "chore: eslint, prettier, dev compose and env example"
 ```
 
 `packages/db/tsconfig.json`:
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -346,6 +364,7 @@ git commit -m "chore: eslint, prettier, dev compose and env example"
 ```
 
 `packages/db/tsconfig.build.json`:
+
 ```json
 {
   "extends": "./tsconfig.json",
@@ -354,6 +373,7 @@ git commit -m "chore: eslint, prettier, dev compose and env example"
 ```
 
 `packages/db/vitest.config.ts`:
+
 ```ts
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -376,6 +396,7 @@ export default defineConfig({
 ```
 
 `packages/db/drizzle.config.ts`:
+
 ```ts
 import { defineConfig } from "drizzle-kit";
 
@@ -395,6 +416,7 @@ Expected: workspace links `@aichess/core` into `packages/db/node_modules`.
 - [ ] **Step 2: Write the failing schema test**
 
 `packages/db/src/schema.test.ts`:
+
 ```ts
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -502,17 +524,48 @@ describe("database schema", () => {
     const [a, b] = await tdb.db
       .insert(agents)
       .values([
-        { ownerId: owner.id, name: "A", slug: "a", modelProvider: "x", modelName: "y", apiKeyPrefix: "AAAAAAAA", apiKeyHash: "0".repeat(64) },
-        { ownerId: owner.id, name: "B", slug: "b", modelProvider: "x", modelName: "y", apiKeyPrefix: "BBBBBBBB", apiKeyHash: "1".repeat(64) },
+        {
+          ownerId: owner.id,
+          name: "A",
+          slug: "a",
+          modelProvider: "x",
+          modelName: "y",
+          apiKeyPrefix: "AAAAAAAA",
+          apiKeyHash: "0".repeat(64),
+        },
+        {
+          ownerId: owner.id,
+          name: "B",
+          slug: "b",
+          modelProvider: "x",
+          modelName: "y",
+          apiKeyPrefix: "BBBBBBBB",
+          apiKeyHash: "1".repeat(64),
+        },
       ])
       .returning();
     if (a === undefined || b === undefined) throw new Error("agents not inserted");
     const [game] = await tdb.db
       .insert(games)
-      .values({ whiteAgentId: a.id, blackAgentId: b.id, timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3, currentFen: START_FEN })
+      .values({
+        whiteAgentId: a.id,
+        blackAgentId: b.id,
+        timePerMoveMs: 60_000,
+        moveLimitPlies: 300,
+        illegalAttemptsPerTurn: 3,
+        currentFen: START_FEN,
+      })
       .returning();
     if (game === undefined) throw new Error("game not inserted");
-    const move = { gameId: game.id, ply: 1, color: "white" as const, san: "e4", uci: "e2e4", fenAfter: START_FEN, thinkTimeMs: 10 };
+    const move = {
+      gameId: game.id,
+      ply: 1,
+      color: "white" as const,
+      san: "e4",
+      uci: "e2e4",
+      fenAfter: START_FEN,
+      thinkTimeMs: 10,
+    };
     await tdb.db.insert(moves).values(move);
     await expect(tdb.db.insert(moves).values(move)).rejects.toThrow(/unique/i);
   });
@@ -527,6 +580,7 @@ Expected: FAIL, cannot resolve `./migrate.js`.
 - [ ] **Step 4: Write the schema**
 
 `packages/db/src/schema/enums.ts`:
+
 ```ts
 import { AGENT_STATUSES, COLORS, GAME_STATUSES, ILLEGAL_REASONS, RESULTS, TERMINATIONS } from "@aichess/core/protocol";
 import { pgEnum } from "drizzle-orm/pg-core";
@@ -541,6 +595,7 @@ export const illegalReasonEnum = pgEnum("illegal_reason", ILLEGAL_REASONS);
 ```
 
 `packages/db/src/schema/users.ts`:
+
 ```ts
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userRoleEnum } from "./enums.js";
@@ -557,6 +612,7 @@ export const users = pgTable("users", {
 ```
 
 `packages/db/src/schema/agents.ts`:
+
 ```ts
 import { relations } from "drizzle-orm";
 import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
@@ -591,6 +647,7 @@ export const agentsRelations = relations(agents, ({ one }) => ({
 ```
 
 `packages/db/src/schema/games.ts`:
+
 ```ts
 import { relations } from "drizzle-orm";
 import { doublePrecision, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
@@ -644,6 +701,7 @@ export const gamesRelations = relations(games, ({ one, many }) => ({
 ```
 
 `packages/db/src/schema/moves.ts`:
+
 ```ts
 import { relations } from "drizzle-orm";
 import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
@@ -695,6 +753,7 @@ export const moveAttempts = pgTable(
 ```
 
 `packages/db/src/schema/index.ts`:
+
 ```ts
 export * from "./enums.js";
 export * from "./users.js";
@@ -708,6 +767,7 @@ The circular import between `games.ts` and `moves.ts` is fine: both only referen
 - [ ] **Step 5: Write client, migrator, CLI, testing helper and index**
 
 `packages/db/src/client.ts`:
+
 ```ts
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -735,6 +795,7 @@ export function createDb(url: string, options: CreateDbOptions = {}): DatabaseHa
 ```
 
 `packages/db/src/migrate.ts`:
+
 ```ts
 import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -748,6 +809,7 @@ export async function runMigrations(db: Database, migrationsFolder: string = DEF
 ```
 
 `packages/db/src/cli/migrate.ts`:
+
 ```ts
 import { createDb } from "../client.js";
 import { runMigrations } from "../migrate.js";
@@ -771,6 +833,7 @@ try {
 ```
 
 `packages/db/src/testing.ts`:
+
 ```ts
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { sql } from "drizzle-orm";
@@ -812,6 +875,7 @@ export async function truncateAll(db: Database): Promise<void> {
 ```
 
 `packages/db/src/index.ts`:
+
 ```ts
 export * from "./schema/index.js";
 export * from "./client.js";
@@ -821,12 +885,14 @@ export { runMigrations } from "./migrate.js";
 - [ ] **Step 6: Generate the first migration**
 
 Run from the root:
+
 ```bash
 pnpm --filter @aichess/core build && pnpm --filter @aichess/db generate
 ls packages/db/drizzle
 grep -c 'CREATE TYPE' packages/db/drizzle/0000_*.sql
 grep -c 'CREATE TABLE' packages/db/drizzle/0000_*.sql
 ```
+
 Expected: one `0000_<adjective>_<name>.sql` plus `meta/_journal.json` and `meta/0000_snapshot.json`. Seven `CREATE TYPE` (user_role, agent_status, color, game_status, game_result, termination, illegal_reason) and five `CREATE TABLE` (users, agents, games, moves, move_attempts). If drizzle-kit cannot resolve `@aichess/core/protocol`, `core` was not built; rerun the build.
 
 - [ ] **Step 7: Run tests, lint and typecheck**
@@ -846,6 +912,7 @@ git commit -m "feat(db): drizzle schema, migrations, client and test database he
 ### Task 3: Spectator events in the protocol, `runtime` scaffold, wire mapping
 
 **Files:**
+
 - Modify: `packages/core/src/protocol/schemas.ts` (three new event schemas in `WireEventSchema`)
 - Modify: `packages/core/src/protocol/schemas.test.ts` (parse the new events)
 - Create: `packages/runtime/package.json`
@@ -857,6 +924,7 @@ git commit -m "feat(db): drizzle schema, migrations, client and test database he
 - Test: `packages/runtime/src/events/wire.test.ts`
 
 **Interfaces:**
+
 - Consumes: `GameState`, `DomainEvent`, `MoveRecord`, `legalMoves`, `sideToMove`, `agentColor` from `@aichess/core`; `AgentSummary`, `GameSnapshot`, `WireEvent` from `@aichess/core/protocol`.
 - Produces (core protocol): `SnapshotEventSchema` (`game.snapshot`, `{ game: GameSnapshot }`), `TurnEventSchema` (`game.turn`, `{ gameId, color, ply, deadlineAt }`), `IllegalAttemptEventSchema` (`game.illegal_attempt`, `{ gameId, color, ply, submitted, reason, attemptsLeft }`), all members of `WireEventSchema`.
 - Produces (runtime):
@@ -871,44 +939,46 @@ git commit -m "feat(db): drizzle schema, migrations, client and test database he
 - [ ] **Step 1: Extend the protocol tests**
 
 Append to `packages/core/src/protocol/schemas.test.ts`, inside `describe("WireEventSchema", ...)`:
+
 ```ts
-  it("parses the spectator-only events", () => {
-    const gameId = "3f2c1f0e-3d1a-4d9b-9f0e-1c2b3a4d5e6f";
-    expect(
-      WireEventSchema.parse({ type: "game.turn", gameId, color: "black", ply: 1, deadlineAt: "2026-09-03T10:00:00.000Z" }).type,
-    ).toBe("game.turn");
-    expect(
-      WireEventSchema.parse({
-        type: "game.illegal_attempt",
-        gameId,
-        color: "white",
-        ply: 0,
-        submitted: "Nf6",
-        reason: "not_legal",
-        attemptsLeft: 2,
-      }).type,
-    ).toBe("game.illegal_attempt");
-    const snapshot = WireEventSchema.parse({
-      type: "game.snapshot",
-      game: {
-        id: gameId,
-        status: "active",
-        white: { id: "5b1d0d3e-1c2b-4a4d-9e0f-0a1b2c3d4e5f", name: "A", slug: "a", modelProvider: "x", modelName: "y" },
-        black: { id: "6c2e1e4f-2d3c-4b5e-8f10-1b2c3d4e5f60", name: "B", slug: "b", modelProvider: "x", modelName: "y" },
-        config: { timePerMoveMs: 60000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 },
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        ply: 0,
-        history: [],
-        turn: "white",
-        moveDeadlineAt: "2026-09-03T10:01:00.000Z",
-        result: null,
-        termination: null,
-        startedAt: "2026-09-03T10:00:00.000Z",
-        finishedAt: null,
-      },
-    });
-    expect(snapshot.type).toBe("game.snapshot");
+it("parses the spectator-only events", () => {
+  const gameId = "3f2c1f0e-3d1a-4d9b-9f0e-1c2b3a4d5e6f";
+  expect(
+    WireEventSchema.parse({ type: "game.turn", gameId, color: "black", ply: 1, deadlineAt: "2026-09-03T10:00:00.000Z" })
+      .type,
+  ).toBe("game.turn");
+  expect(
+    WireEventSchema.parse({
+      type: "game.illegal_attempt",
+      gameId,
+      color: "white",
+      ply: 0,
+      submitted: "Nf6",
+      reason: "not_legal",
+      attemptsLeft: 2,
+    }).type,
+  ).toBe("game.illegal_attempt");
+  const snapshot = WireEventSchema.parse({
+    type: "game.snapshot",
+    game: {
+      id: gameId,
+      status: "active",
+      white: { id: "5b1d0d3e-1c2b-4a4d-9e0f-0a1b2c3d4e5f", name: "A", slug: "a", modelProvider: "x", modelName: "y" },
+      black: { id: "6c2e1e4f-2d3c-4b5e-8f10-1b2c3d4e5f60", name: "B", slug: "b", modelProvider: "x", modelName: "y" },
+      config: { timePerMoveMs: 60000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 },
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      ply: 0,
+      history: [],
+      turn: "white",
+      moveDeadlineAt: "2026-09-03T10:01:00.000Z",
+      result: null,
+      termination: null,
+      startedAt: "2026-09-03T10:00:00.000Z",
+      finishedAt: null,
+    },
   });
+  expect(snapshot.type).toBe("game.snapshot");
+});
 ```
 
 - [ ] **Step 2: Run the core tests to verify the new test fails**
@@ -919,6 +989,7 @@ Expected: FAIL on "parses the spectator-only events" with a zod invalid discrimi
 - [ ] **Step 3: Add the schemas**
 
 In `packages/core/src/protocol/schemas.ts`, insert after `GameEndEventSchema`:
+
 ```ts
 export const SnapshotEventSchema = z.object({
   type: z.literal("game.snapshot"),
@@ -943,7 +1014,9 @@ export const IllegalAttemptEventSchema = z.object({
   attemptsLeft: z.int().min(0),
 });
 ```
+
 and replace the `WireEventSchema` union with:
+
 ```ts
 export const WireEventSchema = z.discriminatedUnion("type", [
   HelloEventSchema,
@@ -966,6 +1039,7 @@ Expected: all core tests pass; `dist/` refreshed so `runtime` can typecheck agai
 - [ ] **Step 4: Scaffold the runtime package**
 
 `packages/runtime/package.json`:
+
 ```json
 {
   "name": "@aichess/runtime",
@@ -999,6 +1073,7 @@ Expected: all core tests pass; `dist/` refreshed so `runtime` can typecheck agai
 ```
 
 `packages/runtime/tsconfig.json`:
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -1012,6 +1087,7 @@ Expected: all core tests pass; `dist/` refreshed so `runtime` can typecheck agai
 ```
 
 `packages/runtime/tsconfig.build.json`:
+
 ```json
 {
   "extends": "./tsconfig.json",
@@ -1020,6 +1096,7 @@ Expected: all core tests pass; `dist/` refreshed so `runtime` can typecheck agai
 ```
 
 `packages/runtime/vitest.config.ts`:
+
 ```ts
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -1044,9 +1121,11 @@ export default defineConfig({
   },
 });
 ```
+
 `fileParallelism: false` keeps one Postgres and one Redis container at a time on a developer machine.
 
 `packages/runtime/src/index.ts` (initial):
+
 ```ts
 export * from "./events/wire.js";
 ```
@@ -1057,6 +1136,7 @@ Expected: workspace links `@aichess/core` and `@aichess/db`; `bullmq` and `iored
 - [ ] **Step 5: Write the failing wire tests**
 
 `packages/runtime/src/events/wire.test.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { applyMove, applyResign, createGame, startGame, type DomainEvent, type GameState } from "@aichess/core";
@@ -1192,9 +1272,15 @@ describe("toWireEvents", () => {
     const r = applyResign(started, agents.black.id, T0 + 5_000);
     if (!r.ok) throw new Error(r.code);
     const ratings = { white: { before: 1500, after: 1650 }, black: { before: 1500, after: 1350 } };
-    const out = toWireEvents(r.state, agents, r.events, { pgn: "[Event \"x\"]\n\n*", ratings });
+    const out = toWireEvents(r.state, agents, r.events, { pgn: '[Event "x"]\n\n*', ratings });
     validate(out);
-    const expectedBase = { type: "game.end", gameId: r.state.id, result: "1-0", termination: "resignation", pgn: "[Event \"x\"]\n\n*" };
+    const expectedBase = {
+      type: "game.end",
+      gameId: r.state.id,
+      result: "1-0",
+      termination: "resignation",
+      pgn: '[Event "x"]\n\n*',
+    };
     expect(out.toWhite).toEqual([{ ...expectedBase, rating: ratings.white }]);
     expect(out.toBlack).toEqual([{ ...expectedBase, rating: ratings.black }]);
     expect(out.toPublic).toEqual([{ ...expectedBase, rating: null }]);
@@ -1274,6 +1360,7 @@ Expected: FAIL, cannot resolve `./wire.js`.
 - [ ] **Step 7: Write the wire mapping**
 
 `packages/runtime/src/events/wire.ts`:
+
 ```ts
 import { agentColor, legalMoves, sideToMove, type DomainEvent, type GameState } from "@aichess/core";
 import type { AgentSummary, Color, GameSnapshot, WireEvent } from "@aichess/core/protocol";
@@ -1357,7 +1444,12 @@ function yourTurnEvent(state: GameState, event: Extract<DomainEvent, { type: "tu
   };
 }
 
-export function toWireEvents(state: GameState, agents: GameAgents, events: DomainEvent[], extras: WireExtras): Outgoing {
+export function toWireEvents(
+  state: GameState,
+  agents: GameAgents,
+  events: DomainEvent[],
+  extras: WireExtras,
+): Outgoing {
   const out: Outgoing = { toWhite: [], toBlack: [], toPublic: [] };
   const toAgent = (color: Color, event: WireEvent): void => {
     (color === "white" ? out.toWhite : out.toBlack).push(event);
@@ -1456,12 +1548,14 @@ git commit -m "feat(runtime): spectator events in protocol and per-recipient wir
 ### Task 4: Game repository on Postgres
 
 **Files:**
+
 - Create: `packages/runtime/src/games/repository.ts`
 - Create: `packages/runtime/src/testing.ts` (seed helper; Redis helper is added in Task 5)
 - Modify: `packages/runtime/src/index.ts`
 - Test: `packages/runtime/src/games/repository.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Database`, `Transaction`, tables `agents`, `games`, `moves`, `moveAttempts`, `users` from `@aichess/db`; `GameState`, `DomainEvent`, `MoveRecord`, `START_FEN` from `@aichess/core`; `GameAgents` from `../events/wire.js`.
 - Produces:
   - `type Executor = Database | Transaction`
@@ -1477,6 +1571,7 @@ git commit -m "feat(runtime): spectator events in protocol and per-recipient wir
 - [ ] **Step 1: Write the seed helper**
 
 `packages/runtime/src/testing.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { agents, users, type Database } from "@aichess/db";
@@ -1528,6 +1623,7 @@ export async function seedTwoAgents(db: Database): Promise<GameAgents> {
 - [ ] **Step 2: Write the failing repository tests**
 
 `packages/runtime/src/games/repository.test.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { applyMove, createGame, startGame, toPgn, type GameState } from "@aichess/core";
@@ -1594,7 +1690,13 @@ describe("game repository", () => {
     const started = startGame(created, T0 + 10);
     await db.transaction((tx) => persistTransition(tx, created, started.state, started.events, {}));
 
-    const m1 = applyMove(started.state, { agentId: agents.white.id, ply: 0, move: "e4", comment: "Centre.", now: T0 + 2_000 });
+    const m1 = applyMove(started.state, {
+      agentId: agents.white.id,
+      ply: 0,
+      move: "e4",
+      comment: "Centre.",
+      now: T0 + 2_000,
+    });
     if (!m1.ok) throw new Error(m1.code);
     await db.transaction((tx) => persistTransition(tx, started.state, m1.state, m1.events, {}));
 
@@ -1642,7 +1744,8 @@ describe("game repository", () => {
       const r = applyMove(before, { agentId, ply: before.ply, move: san, now: T0 + before.ply * 1_000 + 500 });
       if (!r.ok) throw new Error(r.code);
       state = r.state;
-      const pgn = state.status === "finished" ? toPgn(state, { white: agents.white.name, black: agents.black.name }) : null;
+      const pgn =
+        state.status === "finished" ? toPgn(state, { white: agents.white.name, black: agents.black.name }) : null;
       await db.transaction((tx) => persistTransition(tx, before, state, r.events, { pgn }));
     }
     const loaded = await loadGame(db, created.id);
@@ -1657,7 +1760,10 @@ describe("game repository", () => {
 
   it("loads agent summaries in colour order", async () => {
     expect(await loadAgentSummaries(db, agents.white.id, agents.black.id)).toEqual(agents);
-    expect(await loadAgentSummaries(db, agents.black.id, agents.white.id)).toEqual({ white: agents.black, black: agents.white });
+    expect(await loadAgentSummaries(db, agents.black.id, agents.white.id)).toEqual({
+      white: agents.black,
+      black: agents.white,
+    });
     expect(await loadAgentSummaries(db, agents.white.id, randomUUID())).toBeNull();
   });
 
@@ -1700,6 +1806,7 @@ Expected: FAIL, cannot resolve `./repository.js`.
 - [ ] **Step 4: Write the repository**
 
 `packages/runtime/src/games/repository.ts`:
+
 ```ts
 import { START_FEN, type DomainEvent, type GameState, type MoveRecord } from "@aichess/core";
 import type { Color } from "@aichess/core/protocol";
@@ -1888,6 +1995,7 @@ export async function listActiveDeadlines(
 ```
 
 Add to `packages/runtime/src/index.ts`:
+
 ```ts
 export * from "./games/repository.js";
 ```
@@ -1909,6 +2017,7 @@ git commit -m "feat(runtime): game repository with row locks and transition pers
 ### Task 5: Event bus on Redis pub/sub
 
 **Files:**
+
 - Modify: `packages/runtime/src/testing.ts` (add `startTestRedis`)
 - Create: `packages/runtime/src/logger.ts`
 - Create: `packages/runtime/src/events/bus.ts`
@@ -1916,6 +2025,7 @@ git commit -m "feat(runtime): game repository with row locks and transition pers
 - Test: `packages/runtime/src/events/bus.test.ts`
 
 **Interfaces:**
+
 - Consumes: `WireEventSchema`, `WireEvent` from `@aichess/core/protocol`; `Outgoing` from `./wire.js`; `Redis` from `ioredis`.
 - Produces:
   - `interface RuntimeLogger { info(meta: Record<string, unknown>, message: string): void; warn(meta, message): void; error(meta, message): void }` (pino-compatible call shape) and `noopLogger`.
@@ -1930,6 +2040,7 @@ git commit -m "feat(runtime): game repository with row locks and transition pers
 - [ ] **Step 1: Add the Redis test helper and the logger interface**
 
 Append to `packages/runtime/src/testing.ts`:
+
 ```ts
 import { RedisContainer } from "@testcontainers/redis";
 
@@ -1945,9 +2056,11 @@ export async function startTestRedis(): Promise<TestRedis> {
   return { url: container.getConnectionUrl(), stop: () => container.stop().then(() => undefined) };
 }
 ```
+
 Move the new `import` line to the top of the file with the other imports.
 
 `packages/runtime/src/logger.ts`:
+
 ```ts
 export interface RuntimeLogger {
   info(meta: Record<string, unknown>, message: string): void;
@@ -1965,6 +2078,7 @@ export const noopLogger: RuntimeLogger = {
 - [ ] **Step 2: Write the failing bus tests**
 
 `packages/runtime/src/events/bus.test.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import type { WireEvent } from "@aichess/core/protocol";
@@ -2080,7 +2194,10 @@ describe("EventBus", () => {
       { toWhite: [], toBlack: [], toPublic: [ping("2026-01-01T00:00:00.000Z")] },
     );
     await waitFor(() => received.length === 1);
-    expect(logger.error).toHaveBeenCalledWith(expect.objectContaining({ channel: gameChannel(gameId) }), "event handler failed");
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: gameChannel(gameId) }),
+      "event handler failed",
+    );
     await offBad();
     await offGood();
   });
@@ -2095,6 +2212,7 @@ Expected: FAIL, cannot resolve `./bus.js`.
 - [ ] **Step 4: Write the bus**
 
 `packages/runtime/src/events/bus.ts`:
+
 ```ts
 import { WireEventSchema, type WireEvent } from "@aichess/core/protocol";
 import { Redis } from "ioredis";
@@ -2216,6 +2334,7 @@ export class EventBus {
 ```
 
 Add to `packages/runtime/src/index.ts`:
+
 ```ts
 export * from "./logger.js";
 export * from "./events/bus.js";
@@ -2238,11 +2357,13 @@ git commit -m "feat(runtime): Redis event bus with per-recipient channels"
 ### Task 6: Deadline jobs on BullMQ
 
 **Files:**
+
 - Create: `packages/runtime/src/jobs/deadlines.ts`
 - Modify: `packages/runtime/src/index.ts`
 - Test: `packages/runtime/src/jobs/deadlines.test.ts`
 
 **Interfaces:**
+
 - Consumes: `NETWORK_GRACE_MS` from `@aichess/core/protocol`; `Queue` from `bullmq`; `Redis` from `ioredis`.
 - Produces:
   - `DEADLINES_QUEUE = "deadlines"`, `DEADLINE_JOB_NAME = "expire"`
@@ -2258,6 +2379,7 @@ git commit -m "feat(runtime): Redis event bus with per-recipient channels"
 - [ ] **Step 1: Write the failing tests**
 
 `packages/runtime/src/jobs/deadlines.test.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { NETWORK_GRACE_MS } from "@aichess/core/protocol";
@@ -2336,6 +2458,7 @@ Expected: FAIL, cannot resolve `./deadlines.js`.
 - [ ] **Step 3: Write the implementation**
 
 `packages/runtime/src/jobs/deadlines.ts`:
+
 ```ts
 import { NETWORK_GRACE_MS } from "@aichess/core/protocol";
 import { Queue } from "bullmq";
@@ -2383,6 +2506,7 @@ export async function scheduleDeadline(
 ```
 
 Add to `packages/runtime/src/index.ts`:
+
 ```ts
 export * from "./jobs/deadlines.js";
 ```
@@ -2404,11 +2528,13 @@ git commit -m "feat(runtime): idempotent deadline jobs on BullMQ"
 ### Task 7: GameService: create, move, resign, expire, rearm
 
 **Files:**
+
 - Create: `packages/runtime/src/games/service.ts`
 - Modify: `packages/runtime/src/index.ts`
 - Test: `packages/runtime/src/games/service.test.ts`
 
 **Interfaces:**
+
 - Consumes: `applyMove`, `applyResign`, `applyTimeout`, `createGame`, `startGame`, `toPgn`, `GameState`, `DomainEvent` from `@aichess/core`; `GameConfig`, `GameSnapshot`, `IllegalReason`, `LegalMove` from `@aichess/core/protocol`; `Database` from `@aichess/db`; `EventBus`, `GameParties` from `../events/bus.js`; `toSnapshot`, `toWireEvents`, `GameAgents` from `../events/wire.js`; `scheduleDeadline`, `deadlineFireAt`, `DeadlineQueue` from `../jobs/deadlines.js`; `RuntimeLogger`; repository functions from `./repository.js`.
 - Produces:
   - `interface GameServiceDeps { db: Database; bus: EventBus; deadlines: DeadlineQueue; config: GameConfig; logger: RuntimeLogger; now?: () => number; newId?: () => string }`
@@ -2426,6 +2552,7 @@ git commit -m "feat(runtime): idempotent deadline jobs on BullMQ"
 - [ ] **Step 1: Write the failing service tests**
 
 `packages/runtime/src/games/service.test.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import { DEFAULT_GAME_CONFIG, NETWORK_GRACE_MS, type WireEvent } from "@aichess/core/protocol";
@@ -2584,7 +2711,13 @@ describe("GameService", () => {
       const offBlack = await bus.subscribeAgent(agents.black.id, (e) => black.push(e));
 
       clock += 1_500;
-      const first = await service.submitMove({ gameId, agentId: agents.white.id, ply: 0, move: "f3", comment: "Testing." });
+      const first = await service.submitMove({
+        gameId,
+        agentId: agents.white.id,
+        ply: 0,
+        move: "f3",
+        comment: "Testing.",
+      });
       expect(first).toMatchObject({ ok: true, idempotent: false });
       if (!first.ok) return;
       expect(first.snapshot.ply).toBe(1);
@@ -2594,9 +2727,19 @@ describe("GameService", () => {
       for (const san of ["e5", "g4"]) await play(gameId, san);
       const snapshot = await service.getSnapshot(gameId);
       clock += 1_000;
-      const last = await service.submitMove({ gameId, agentId: agents.black.id, ply: snapshot?.ply ?? -1, move: "Qh4#" });
+      const last = await service.submitMove({
+        gameId,
+        agentId: agents.black.id,
+        ply: snapshot?.ply ?? -1,
+        move: "Qh4#",
+      });
       if (!last.ok) throw new Error(last.code);
-      expect(last.snapshot).toMatchObject({ status: "finished", result: "0-1", termination: "checkmate", moveDeadlineAt: null });
+      expect(last.snapshot).toMatchObject({
+        status: "finished",
+        result: "0-1",
+        termination: "checkmate",
+        moveDeadlineAt: null,
+      });
 
       await waitFor(() => pub.filter((e) => e.type === "game.end").length === 1);
       expect(pub.map((e) => e.type)).toEqual([
@@ -2640,7 +2783,13 @@ describe("GameService", () => {
       expect(r.snapshot.legalMoves).toHaveLength(20);
 
       await waitFor(() => pub.length === 1);
-      expect(pub[0]).toMatchObject({ type: "game.illegal_attempt", color: "white", ply: 0, submitted: "Nf6", attemptsLeft: 2 });
+      expect(pub[0]).toMatchObject({
+        type: "game.illegal_attempt",
+        color: "white",
+        ply: 0,
+        submitted: "Nf6",
+        attemptsLeft: 2,
+      });
       expect(await db.select().from(moveAttempts).where(eq(moveAttempts.gameId, gameId))).toHaveLength(1);
       await offPublic();
     });
@@ -2679,10 +2828,22 @@ describe("GameService", () => {
 
     it("maps guard failures to stable codes", async () => {
       const gameId = await newGame();
-      expect(await service.submitMove({ gameId: randomUUID(), agentId: agents.white.id, ply: 0, move: "e4" })).toEqual({ ok: false, code: "not_found" });
-      expect(await service.submitMove({ gameId, agentId: randomUUID(), ply: 0, move: "e4" })).toEqual({ ok: false, code: "not_found" });
-      expect(await service.submitMove({ gameId, agentId: agents.black.id, ply: 0, move: "e5" })).toEqual({ ok: false, code: "not_your_turn" });
-      expect(await service.submitMove({ gameId, agentId: agents.white.id, ply: 5, move: "e4" })).toEqual({ ok: false, code: "stale_ply" });
+      expect(await service.submitMove({ gameId: randomUUID(), agentId: agents.white.id, ply: 0, move: "e4" })).toEqual({
+        ok: false,
+        code: "not_found",
+      });
+      expect(await service.submitMove({ gameId, agentId: randomUUID(), ply: 0, move: "e4" })).toEqual({
+        ok: false,
+        code: "not_found",
+      });
+      expect(await service.submitMove({ gameId, agentId: agents.black.id, ply: 0, move: "e5" })).toEqual({
+        ok: false,
+        code: "not_your_turn",
+      });
+      expect(await service.submitMove({ gameId, agentId: agents.white.id, ply: 5, move: "e4" })).toEqual({
+        ok: false,
+        code: "stale_ply",
+      });
     });
 
     it("serialises two concurrent moves for the same turn", async () => {
@@ -2701,14 +2862,23 @@ describe("GameService", () => {
     it("ends the game for the resigning side", async () => {
       const gameId = await newGame();
       const r = await service.resign({ gameId, agentId: agents.black.id });
-      expect(r).toMatchObject({ ok: true, snapshot: { status: "finished", result: "1-0", termination: "resignation" } });
-      expect(await service.resign({ gameId, agentId: agents.white.id })).toEqual({ ok: false, code: "game_not_active" });
+      expect(r).toMatchObject({
+        ok: true,
+        snapshot: { status: "finished", result: "1-0", termination: "resignation" },
+      });
+      expect(await service.resign({ gameId, agentId: agents.white.id })).toEqual({
+        ok: false,
+        code: "game_not_active",
+      });
     });
 
     it("hides the game from strangers", async () => {
       const gameId = await newGame();
       expect(await service.resign({ gameId, agentId: randomUUID() })).toEqual({ ok: false, code: "not_found" });
-      expect(await service.resign({ gameId: randomUUID(), agentId: agents.white.id })).toEqual({ ok: false, code: "not_found" });
+      expect(await service.resign({ gameId: randomUUID(), agentId: agents.white.id })).toEqual({
+        ok: false,
+        code: "not_found",
+      });
     });
   });
 
@@ -2729,7 +2899,11 @@ describe("GameService", () => {
       const offPublic = await bus.subscribeGame(gameId, (e) => pub.push(e));
       clock = T0 + 60_000 + NETWORK_GRACE_MS;
       const r = await service.expireDeadline({ gameId, ply: 0 });
-      expect(r).toMatchObject({ ok: true, applied: true, snapshot: { status: "aborted", result: "*", termination: "aborted" } });
+      expect(r).toMatchObject({
+        ok: true,
+        applied: true,
+        snapshot: { status: "aborted", result: "*", termination: "aborted" },
+      });
       await waitFor(() => pub.length === 1);
       expect(pub[0]).toMatchObject({ type: "game.end", result: "*", termination: "aborted" });
       await offPublic();
@@ -2742,16 +2916,28 @@ describe("GameService", () => {
       const snapshot = await service.getSnapshot(gameId);
       clock = Date.parse(snapshot?.moveDeadlineAt ?? "") + NETWORK_GRACE_MS;
       const r = await service.expireDeadline({ gameId, ply: 2 });
-      expect(r).toMatchObject({ ok: true, applied: true, snapshot: { status: "finished", result: "0-1", termination: "timeout" } });
+      expect(r).toMatchObject({
+        ok: true,
+        applied: true,
+        snapshot: { status: "finished", result: "0-1", termination: "timeout" },
+      });
     });
 
     it("ignores a job for an old ply or a finished game", async () => {
       const gameId = await newGame();
       await play(gameId, "e4");
       clock = T0 + 10 * 60_000;
-      expect(await service.expireDeadline({ gameId, ply: 0 })).toEqual({ ok: true, applied: false, reason: "stale_ply" });
+      expect(await service.expireDeadline({ gameId, ply: 0 })).toEqual({
+        ok: true,
+        applied: false,
+        reason: "stale_ply",
+      });
       await service.resign({ gameId, agentId: agents.white.id });
-      expect(await service.expireDeadline({ gameId, ply: 1 })).toEqual({ ok: true, applied: false, reason: "not_active" });
+      expect(await service.expireDeadline({ gameId, ply: 1 })).toEqual({
+        ok: true,
+        applied: false,
+        reason: "not_active",
+      });
       expect(await service.expireDeadline({ gameId: randomUUID(), ply: 0 })).toEqual({ ok: false, code: "not_found" });
     });
   });
@@ -2778,6 +2964,7 @@ Expected: FAIL, cannot resolve `./service.js`.
 - [ ] **Step 3: Write the service**
 
 `packages/runtime/src/games/service.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto";
 import {
@@ -3073,6 +3260,7 @@ export class GameService {
 ```
 
 Add to `packages/runtime/src/index.ts`:
+
 ```ts
 export * from "./games/service.js";
 ```
@@ -3094,18 +3282,21 @@ git commit -m "feat(runtime): GameService with locked transactions, post-commit 
 ### Task 8: Documentation and spec alignment
 
 **Files:**
+
 - Create: `packages/runtime/README.md`
 - Create: `packages/db/README.md`
 - Modify: `docs/superpowers/specs/2026-09-03-aichess-platform-design.md` (sections 4, 5, 6)
 - Modify: `README.md` (status table)
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: documentation only.
 
 - [ ] **Step 1: Write the package READMEs**
 
 `packages/db/README.md`:
+
 ```markdown
 # @aichess/db
 
@@ -3119,11 +3310,12 @@ Drizzle schema, SQL migrations and Postgres client for aichess.
 ## Migrations
 
 Migrations are generated from the schema and committed under `drizzle/`.
-
 ```
-pnpm --filter @aichess/core build      # drizzle-kit loads enums from core's dist
-pnpm --filter @aichess/db generate     # writes drizzle/NNNN_*.sql
+
+pnpm --filter @aichess/core build # drizzle-kit loads enums from core's dist
+pnpm --filter @aichess/db generate # writes drizzle/NNNN_*.sql
 DATABASE_URL=postgres://... pnpm --filter @aichess/db migrate
+
 ```
 
 Migrations are additive. Dropping a column happens in a release after the one that stops using it.
@@ -3134,18 +3326,19 @@ Migrations are additive. Dropping a column happens in a release after the one th
 ```
 
 `packages/runtime/README.md`:
+
 ```markdown
 # @aichess/runtime
 
 The game orchestrator shared by the API and the worker. Wraps the pure transitions of `@aichess/core` with persistence, events and deadline jobs.
 
-| Module | Responsibility |
-| --- | --- |
-| `games/repository.ts` | Load and persist `GameState`; `loadGameForUpdate` locks the row with `FOR UPDATE`. |
-| `games/service.ts` | `GameService`: create and start, snapshot, move, resign, expire deadline, re-arm deadlines on boot. |
-| `events/wire.ts` | Pure mapping from `DomainEvent`s to per-recipient `WireEvent`s and snapshots. |
-| `events/bus.ts` | `EventBus` on Redis pub/sub: `agent:{id}` and `game:{id}` channels. |
-| `jobs/deadlines.ts` | BullMQ queue `deadlines`, job id `deadline-{gameId}-{ply}`, fires at deadline plus grace. |
+| Module                | Responsibility                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `games/repository.ts` | Load and persist `GameState`; `loadGameForUpdate` locks the row with `FOR UPDATE`.                  |
+| `games/service.ts`    | `GameService`: create and start, snapshot, move, resign, expire deadline, re-arm deadlines on boot. |
+| `events/wire.ts`      | Pure mapping from `DomainEvent`s to per-recipient `WireEvent`s and snapshots.                       |
+| `events/bus.ts`       | `EventBus` on Redis pub/sub: `agent:{id}` and `game:{id}` channels.                                 |
+| `jobs/deadlines.ts`   | BullMQ queue `deadlines`, job id `deadline-{gameId}-{ply}`, fires at deadline plus grace.           |
 
 ## Invariants
 
@@ -3157,9 +3350,10 @@ The game orchestrator shared by the API and the worker. Wraps the pure transitio
 ## Testing
 
 Integration tests start Postgres and Redis with testcontainers:
-
 ```
+
 pnpm --filter @aichess/runtime test
+
 ```
 
 `@aichess/runtime/testing` exports `seedTwoAgents(db)` and `startTestRedis()` for other packages' tests.
@@ -3170,14 +3364,17 @@ pnpm --filter @aichess/runtime test
 In `docs/superpowers/specs/2026-09-03-aichess-platform-design.md`:
 
 Section 4, in the layout block, add after the `db/` line:
+
 ```
   runtime/    orchestratore condiviso da api e worker: repository, GameService, bus eventi, job scadenze
 ```
+
 and replace the sentence "`api` e `worker` dipendono da `core` e `db`." with "`runtime` dipende da `core` e `db`. `api` e `worker` dipendono da `runtime`: l'orchestratore vive li', non nell'api, cosi' scadenze e mosse usano lo stesso codice."
 
 Section 5, `games`: after `move_deadline_at` add `, turn_started_at, illegal_attempts_this_turn, move_limit_plies, illegal_attempts_per_turn`.
 
 Section 6, under "Endpoint pubblici", replace the `GET /v1/games/{id}/stream` line with:
+
 ```
 - `GET /v1/games/{id}/stream`: SSE per spettatori. Apre con `game.snapshot`, poi
   `game.turn` (colore al tratto e scadenza, senza mosse legali), `game.move`,
@@ -3189,10 +3386,13 @@ Section 7, replace "`core.applyIllegalAttempt(state, color, submitted, reason)`"
 - [ ] **Step 3: Update the README status table**
 
 In `README.md`, replace the row
+
 ```
 | `packages/db`, runtime service | Planned in detail, next to be built |
 ```
+
 with
+
 ```
 | `packages/db`, `packages/runtime` | Implemented. Schema and migrations, locked transactions, event bus, deadline jobs, service tested against real Postgres and Redis |
 ```

@@ -174,9 +174,9 @@ Eventi, tutti con payload JSON:
   dell'agente, subito dopo arriva un `game.your_turn`.
 - `queue.joined`, `queue.left`: `{ queuedAt }`.
 - `game.start`: `{ gameId, color, opponent: { id, name, slug, modelProvider,
-  modelName }, timePerMoveMs, startedAt }`.
+modelName }, timePerMoveMs, startedAt }`.
 - `game.your_turn`: `{ gameId, ply, fen, history: string[] (SAN), lastMove: { san,
-  uci } | null, legalMoves: { san, uci }[], deadlineAt, attemptsLeft }`.
+uci } | null, legalMoves: { san, uci }[], deadlineAt, attemptsLeft }`.
 - `game.move`: `{ gameId, ply, color, san, uci, fen, comment, thinkTimeMs }`.
   Emesso per ogni mossa a entrambi gli agenti e agli spettatori.
 - `game.end`: `{ gameId, result, termination, pgn, rating: { before, after } | null }`.

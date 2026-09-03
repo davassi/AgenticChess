@@ -42,7 +42,13 @@ describe("applyTimeout", () => {
     const r = applyTimeout(activeGame(), now);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.state).toMatchObject({ status: "aborted", result: "*", termination: "aborted", finishedAt: now, moveDeadlineAt: null });
+    expect(r.state).toMatchObject({
+      status: "aborted",
+      result: "*",
+      termination: "aborted",
+      finishedAt: now,
+      moveDeadlineAt: null,
+    });
     expect(r.events).toEqual([{ type: "ended", result: "*", termination: "aborted", finishedAt: now }]);
   });
 
@@ -73,7 +79,12 @@ describe("applyResign", () => {
   it("gives the win to the opponent, even before two plies", () => {
     const r = applyResign(activeGame(), BLACK, T0 + 5);
     if (!r.ok) throw new Error(r.code);
-    expect(r.state).toMatchObject({ status: "finished", result: "1-0", termination: "resignation", finishedAt: T0 + 5 });
+    expect(r.state).toMatchObject({
+      status: "finished",
+      result: "1-0",
+      termination: "resignation",
+      finishedAt: T0 + 5,
+    });
     expect(r.events).toEqual([{ type: "ended", result: "1-0", termination: "resignation", finishedAt: T0 + 5 }]);
   });
 

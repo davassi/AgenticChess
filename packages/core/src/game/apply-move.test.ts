@@ -84,26 +84,47 @@ describe("applyMove: legal move", () => {
 
 describe("applyMove: turn and status guards", () => {
   it("rejects a move on a game that has not started", () => {
-    const created = createGame({ id: "g1", whiteAgentId: WHITE, blackAgentId: BLACK, config: DEFAULT_GAME_CONFIG, now: T0 });
-    expect(applyMove(created, { agentId: WHITE, ply: 0, move: "e4", now: T0 })).toMatchObject({ ok: false, code: "game_not_active" });
+    const created = createGame({
+      id: "g1",
+      whiteAgentId: WHITE,
+      blackAgentId: BLACK,
+      config: DEFAULT_GAME_CONFIG,
+      now: T0,
+    });
+    expect(applyMove(created, { agentId: WHITE, ply: 0, move: "e4", now: T0 })).toMatchObject({
+      ok: false,
+      code: "game_not_active",
+    });
   });
 
   it("rejects a move from an agent who is not in the game", () => {
-    expect(applyMove(activeGame(), { agentId: "stranger", ply: 0, move: "e4", now: T0 })).toMatchObject({ ok: false, code: "not_a_player" });
+    expect(applyMove(activeGame(), { agentId: "stranger", ply: 0, move: "e4", now: T0 })).toMatchObject({
+      ok: false,
+      code: "not_a_player",
+    });
   });
 
   it("rejects black moving first", () => {
-    expect(applyMove(activeGame(), { agentId: BLACK, ply: 0, move: "e5", now: T0 })).toMatchObject({ ok: false, code: "not_your_turn" });
+    expect(applyMove(activeGame(), { agentId: BLACK, ply: 0, move: "e5", now: T0 })).toMatchObject({
+      ok: false,
+      code: "not_your_turn",
+    });
   });
 
   it("rejects a ply from the future", () => {
-    expect(applyMove(activeGame(), { agentId: WHITE, ply: 2, move: "e4", now: T0 })).toMatchObject({ ok: false, code: "stale_ply" });
+    expect(applyMove(activeGame(), { agentId: WHITE, ply: 2, move: "e4", now: T0 })).toMatchObject({
+      ok: false,
+      code: "stale_ply",
+    });
   });
 
   it("rejects a move after the game has finished", () => {
     const mated = playLine(activeGame(), ["f3", "e5", "g4", "Qh4"]);
     expect(mated.status).toBe("finished");
-    expect(applyMove(mated, { agentId: WHITE, ply: mated.ply, move: "a3", now: T0 })).toMatchObject({ ok: false, code: "game_not_active" });
+    expect(applyMove(mated, { agentId: WHITE, ply: mated.ply, move: "a3", now: T0 })).toMatchObject({
+      ok: false,
+      code: "game_not_active",
+    });
   });
 });
 
@@ -116,12 +137,18 @@ describe("applyMove: idempotency on ply", () => {
 
   it("rejects a different move at an old ply", () => {
     const after = mustApply(activeGame(), WHITE, "e4", T0 + 1);
-    expect(applyMove(after, { agentId: WHITE, ply: 0, move: "d4", now: T0 + 2 })).toMatchObject({ ok: false, code: "stale_ply" });
+    expect(applyMove(after, { agentId: WHITE, ply: 0, move: "d4", now: T0 + 2 })).toMatchObject({
+      ok: false,
+      code: "stale_ply",
+    });
   });
 
   it("rejects a replay by the other agent", () => {
     const after = mustApply(activeGame(), WHITE, "e4", T0 + 1);
-    expect(applyMove(after, { agentId: BLACK, ply: 0, move: "e4", now: T0 + 2 })).toMatchObject({ ok: false, code: "stale_ply" });
+    expect(applyMove(after, { agentId: BLACK, ply: 0, move: "e4", now: T0 + 2 })).toMatchObject({
+      ok: false,
+      code: "stale_ply",
+    });
   });
 });
 

@@ -71,10 +71,7 @@ export function opponentOf(color: Color): Color {
   return color === "white" ? "black" : "white";
 }
 
-export function agentColor(
-  state: Pick<GameState, "whiteAgentId" | "blackAgentId">,
-  agentId: string,
-): Color | null {
+export function agentColor(state: Pick<GameState, "whiteAgentId" | "blackAgentId">, agentId: string): Color | null {
   if (agentId === state.whiteAgentId) return "white";
   if (agentId === state.blackAgentId) return "black";
   return null;
