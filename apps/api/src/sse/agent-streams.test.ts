@@ -1,7 +1,7 @@
+import { presenceKeyFor } from "@aichess/runtime";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { openSseClient, type SseClient } from "../test-utils/sse-client.js";
 import { startHarness, type Harness } from "../test-utils/harness.js";
-import { presenceKeyFor } from "./agent-streams.js";
 
 describe("agent event stream", () => {
   let h: Harness;

@@ -1,11 +1,8 @@
+import { presenceKeyFor } from "@aichess/runtime";
 import type { FastifyReply } from "fastify";
 import type { AppDeps } from "../deps.js";
 import type { AuthenticatedAgent } from "../plugins/auth.js";
 import { openSse, type SseConnection } from "./stream.js";
-
-export function presenceKeyFor(agentId: string): string {
-  return `presence:agent:${agentId}`;
-}
 
 interface ActiveStream {
   connection: SseConnection;

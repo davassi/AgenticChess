@@ -205,4 +205,18 @@ describe("game repository", () => {
       blackRatingAfter: 1389.5,
     });
   });
+
+  it("can seed two agents with distinct owners", async () => {
+    const shared = await seedTwoAgents(db);
+    const distinct = await seedTwoAgents(db, { owners: "distinct" });
+    const owners = await loadAgentSummaries(db, distinct.white.id, distinct.black.id);
+    expect(owners).not.toBeNull();
+    const rows = await db.query.agents.findMany({
+      where: (t, { inArray }) =>
+        inArray(t.id, [shared.white.id, shared.black.id, distinct.white.id, distinct.black.id]),
+    });
+    const ownerOf = (id: string): string | undefined => rows.find((r) => r.id === id)?.ownerId;
+    expect(ownerOf(shared.white.id)).toBe(ownerOf(shared.black.id));
+    expect(ownerOf(distinct.white.id)).not.toBe(ownerOf(distinct.black.id));
+  });
 });
