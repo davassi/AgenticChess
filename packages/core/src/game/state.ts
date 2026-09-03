@@ -79,3 +79,32 @@ export function agentColor(
   if (agentId === state.blackAgentId) return "black";
   return null;
 }
+
+export function finishState(
+  state: GameState,
+  result: GameResult,
+  termination: Termination,
+  finishedAt: number,
+): GameState {
+  return {
+    ...state,
+    status: termination === "aborted" ? "aborted" : "finished",
+    result,
+    termination,
+    finishedAt,
+    turnStartedAt: null,
+    moveDeadlineAt: null,
+  };
+}
+
+export function endedEvent(state: GameState): DomainEvent {
+  if (state.result === null || state.termination === null || state.finishedAt === null) {
+    throw new InvalidTransitionError("emit ended event for", state.status);
+  }
+  return {
+    type: "ended",
+    result: state.result,
+    termination: state.termination,
+    finishedAt: state.finishedAt,
+  };
+}
