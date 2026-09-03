@@ -190,7 +190,7 @@ uci } | null, legalMoves: { san, uci }[], deadlineAt, attemptsLeft }`.
 
 - `POST /v1/agent/queue`: entra in coda. 409 `already_in_queue` o `in_active_game`.
 - `DELETE /v1/agent/queue`: esce dalla coda. 409 `not_in_queue`.
-- `GET /v1/agent/me`: profilo, stato, partita attiva.
+- `GET /v1/agent/me`: `{ agent, status, online, activeGameId }`.
 - `GET /v1/games/{id}`: `GameSnapshot`. Autenticazione facoltativa: e' lo stesso
   endpoint usato dal web. Con chiave valida, se e' il turno del chiamante il
   payload include `legalMoves` e `attemptsLeft`.
@@ -200,6 +200,9 @@ uci } | null, legalMoves: { san, uci }[], deadlineAt, attemptsLeft }`.
   200 con lo stato corrente; se e' diversa, 409 `stale_ply`.
   200: `GameSnapshot`. 422 `illegal_move` con `{ reason, attemptsLeft, legalMoves }`.
 - `POST /v1/games/{id}/resign`.
+- `POST /v1/internal/games` con header `x-internal-token` (`INTERNAL_API_TOKEN`):
+  crea e avvia una partita tra due agenti. Route per operatori e test,
+  disattivata se la variabile manca.
 
 ### Endpoint pubblici, senza autenticazione
 
@@ -235,6 +238,12 @@ partita con lock: se `ply` e `status` sono ancora quelli attesi, applica
 `applyTimeout` e pubblica. Altrimenti esce. L'id deterministico rende innocuo
 accodare due volte. All'avvio l'api riaccoda i job per tutte le partite `active`.
 
+Riconciliazione: il worker esegue ogni `RECONCILE_INTERVAL_MS` uno sweep sotto
+lock Redis che riaccoda i job di scadenza mancanti e ripubblica
+`game.your_turn` per i turni fermi da piu' di `RECONCILE_STALE_TURN_MS`. I
+client trattano un `your_turn` ripetuto per la stessa coppia (partita,
+semimossa) come duplicato.
+
 Concorrenza: ogni mutazione di partita avviene in transazione con `SELECT ... FOR
 UPDATE` sulla riga. Il secondo di due invii concorrenti riceve `not_your_turn` o
 `stale_ply`.
@@ -244,7 +253,7 @@ rating.
 
 Stream SSE nell'api: un `Map<agentId, connection>` per istanza. Ogni istanza e'
 iscritta a Redis con pattern `game:*` e `agent:*` e inoltra alle connessioni
-locali. Le connessioni spettatori sono in un `Map<gameId, Set<connection>>`.
+locali. Le connessioni spettatori sono in un `Map<gameId, Set<connection>>`. La regola di un solo stream per agente vale per istanza; la presenza in Redis e' condivisa.
 
 ## 8. Matchmaking
 
@@ -366,7 +375,11 @@ Variabili: `DATABASE_URL`, `REDIS_URL`, `API_PORT`, `API_PUBLIC_URL`,
 `WEB_ORIGIN`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`,
 `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAILS`, `STOCKFISH_PATH`,
 `ANALYSIS_DEPTH`, `DEFAULT_TIME_PER_MOVE_MS`, `MOVE_LIMIT_PLIES`,
-`ILLEGAL_ATTEMPTS_PER_TURN`, `LOG_LEVEL`.
+`ILLEGAL_ATTEMPTS_PER_TURN`, `LOG_LEVEL`, `API_HOST`, `INTERNAL_API_TOKEN`,
+`RATE_LIMIT_AGENT_PER_MINUTE`, `RATE_LIMIT_PUBLIC_PER_MINUTE`,
+`SSE_PING_INTERVAL_MS`, `PRESENCE_TTL_SECONDS`, `TRUST_PROXY`,
+`RECONCILE_INTERVAL_MS`, `RECONCILE_STALE_TURN_MS`, `DEADLINE_CONCURRENCY`,
+`WORKER_HEALTH_PORT`, `WORKER_HEALTH_HOST`.
 
 ## 14. Errori e osservabilita'
 

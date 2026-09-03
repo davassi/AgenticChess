@@ -858,6 +858,11 @@ export interface DepsHandle {
   close: () => Promise<void>;
 }
 
+function asSharedLogger(logger: RuntimeLogger): FastifyBaseLogger | undefined {
+  const candidate = logger as { child?: unknown };
+  return typeof candidate.child === "function" ? (logger as unknown as FastifyBaseLogger) : undefined;
+}
+
 export async function createDeps(config: ApiConfig, logger: RuntimeLogger): Promise<DepsHandle> {
   const dbHandle = createDb(config.DATABASE_URL);
   const redis = createRedis(config.REDIS_URL);
@@ -2968,8 +2973,7 @@ export async function createDeps(
     },
     logger,
   );
-  const shared = "child" in logger && typeof logger.child === "function" ? (logger as FastifyBaseLogger) : undefined;
-  return {
+  const shared = asSharedLogger(logger);
     deps: {
       config,
       db: runtime.db,
