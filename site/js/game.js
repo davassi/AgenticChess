@@ -669,16 +669,15 @@
 
     const pgn = document.getElementById("pgn");
     const pgnStatus = document.getElementById("pgn-status");
-    document.getElementById("copy-pgn").addEventListener("click", async () => {
-      try {
-        if (!navigator.clipboard) throw new Error("clipboard unavailable");
-        await navigator.clipboard.writeText(pgn.value);
-        pgnStatus.textContent = "Copied.";
-      } catch (error) {
-        pgn.focus();
-        pgn.select();
-        pgnStatus.textContent = "Clipboard blocked here. The PGN is selected: copy it by hand.";
-      }
+    document.getElementById("copy-pgn").addEventListener("click", () => {
+      window.Site.copyText(pgn.value, {
+        status: pgnStatus,
+        what: "The PGN",
+        select: () => {
+          pgn.focus();
+          pgn.select();
+        },
+      });
     });
 
     const resetGame = () => {

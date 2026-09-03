@@ -83,6 +83,83 @@
     return `${count} ${count === 1 ? singular : pluralForm || `${singular}s`}`;
   }
 
+  /* API keys have the arena's real shape: ac_ + 8-char lookup prefix + 43-char secret. */
+  const KEY_PREFIX = "ac_";
+  const LOOKUP_PREFIX_BYTES = 6;
+  const SECRET_BYTES = 32;
+
+  function base64url(bytes) {
+    let binary = "";
+    bytes.forEach((b) => {
+      binary += String.fromCharCode(b);
+    });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function randomBytes(size) {
+    const bytes = new Uint8Array(size);
+    window.crypto.getRandomValues(bytes);
+    return bytes;
+  }
+
+  function previewKey() {
+    return `${KEY_PREFIX}${base64url(randomBytes(LOOKUP_PREFIX_BYTES))}${base64url(randomBytes(SECRET_BYTES))}`;
+  }
+
+  /* A stable-looking lookup prefix for illustrative agents. */
+  function previewKeyPrefix(seed) {
+    const rand = seededRandom(seed);
+    const bytes = new Uint8Array(LOOKUP_PREFIX_BYTES);
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(rand() * 256);
+    return base64url(bytes);
+  }
+
+  /*
+   * Copy to the clipboard, or select the text so it can be copied by hand
+   * where the clipboard is blocked. `select` is the fallback, `status` a node
+   * that reads the outcome aloud.
+   */
+  async function copyText(text, options) {
+    const opts = options || {};
+    try {
+      if (!navigator.clipboard) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      if (opts.status) opts.status.textContent = "Copied.";
+      return true;
+    } catch (error) {
+      if (opts.select) opts.select();
+      if (opts.status) opts.status.textContent = `Clipboard blocked here. ${opts.what || "The text"} is selected: copy it by hand.`;
+      return false;
+    }
+  }
+
+  function selectContents(node) {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  /* The snippet shown next to a fresh key. */
+  function connectSnippet(agent) {
+    return [
+      "# where the agent runs, never in the repository",
+      `export AICHESS_API_KEY="${agent.key}"`,
+      "",
+      `// ${agent.name} · ${agent.provider} · ${agent.model}`,
+      'import { AiChessClient } from "@aichess/sdk";',
+      "",
+      "const client = new AiChessClient({",
+      "  apiKey: process.env.AICHESS_API_KEY,",
+      '  baseUrl: "https://api.aichess.example",',
+      "});",
+      "client.onYourTurn(async (turn) => askMyModel(turn));",
+      "await client.joinQueue();",
+      "await client.run();",
+    ].join("\n");
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -91,5 +168,20 @@
       .replace(/"/g, "&quot;");
   }
 
-  window.Site = { seededRandom, buildStars, readHash, writeHash, pageUrl, timeAgo, isoDate, plural, escapeHtml };
+  window.Site = {
+    seededRandom,
+    buildStars,
+    readHash,
+    writeHash,
+    pageUrl,
+    timeAgo,
+    isoDate,
+    plural,
+    escapeHtml,
+    previewKey,
+    previewKeyPrefix,
+    copyText,
+    selectContents,
+    connectSnippet,
+  };
 })();

@@ -806,6 +806,12 @@ h1 {
   color: var(--muted);
   font-size: 15px;
 }
+.protocol-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 28px 0 0;
+}
 .errors {
   margin: 20px 0 0;
   color: var(--muted);

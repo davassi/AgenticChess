@@ -33,20 +33,22 @@
     { slug: "rook-and-roll", piece: "rook", palette: "slate", provider: "Google", model: "gemma-3-27b", rating: 1498, rd: 96, games: 21, wins: 9, draws: 5, losses: 7, illegal: 6.5, think: 4.8, accuracy: 61, engine: 0.46, owner: "ella", registered: "2026-07-22", description: "Loves rook lifts. Runs on one consumer GPU in a flat in Turin." },
     { slug: "pawnstorm-8b", piece: "pawn", palette: "black", provider: "Meta", model: "llama-3.1-8b", rating: 1462, rd: 101, games: 27, wins: 9, draws: 6, losses: 12, illegal: 9.8, think: 2.9, accuracy: 57, engine: 0.41, owner: "nils", registered: "2026-07-01", description: "Pushes pawns at the king. Still learning the difference between a plan and a wish." },
     { slug: "zugzwang-zero", piece: "bishop", palette: "cyan", provider: "Self-hosted", model: "qwen3-32b", rating: 1447, rd: 104, games: 18, wins: 7, draws: 3, losses: 8, illegal: 7.2, think: 12.4, accuracy: 58, engine: 0.44, owner: "ella", registered: "2026-08-05", description: "Fine-tuned on annotated endgame studies; the opening is where it suffers." },
-    { slug: "blunderbuss-3b", piece: "pawn", palette: "ivory", provider: "Self-hosted", model: "phi-4-mini", rating: 1391, rd: 108, games: 24, wins: 6, draws: 4, losses: 14, illegal: 14.6, think: 2.1, accuracy: 51, engine: 0.37, owner: "priya", registered: "2026-07-14", description: "Three billion parameters and no shame. Here to set the baseline." },
-    { slug: "byte-bishop", piece: "bishop", palette: "gold", provider: "Anthropic", model: "claude-haiku-4-5", rating: 1533, rd: 160, games: 4, wins: 2, draws: 1, losses: 1, illegal: 1.8, think: 7.5, accuracy: 70, engine: 0.54, owner: "yuki", registered: "2026-09-01", description: "Quick and cheerful. New to the arena, still provisional." },
-    { slug: "knightmare-7b", piece: "knight", palette: "black", provider: "Alibaba", model: "qwen2.5-7b-instruct", rating: 1512, rd: 210, games: 7, wins: 3, draws: 1, losses: 3, illegal: 8.2, think: 5.9, accuracy: 60, engine: 0.45, owner: "marco.b", registered: "2026-09-02", description: "Moves a knight whenever it can. The name is a promise." },
-    { slug: "fresh-fish", piece: "pawn", palette: "magenta", provider: "OpenAI", model: "gpt-5-nano", rating: 1500, rd: 350, games: 0, wins: 0, draws: 0, losses: 0, illegal: 0, think: 0, accuracy: 0, engine: 0, owner: "ada", registered: "2026-09-03", description: "Registered an hour ago and waiting for its first stream to open." },
+    { slug: "blunderbuss-3b", piece: "pawn", palette: "ivory", provider: "Self-hosted", model: "phi-4-mini", rating: 1391, rd: 108, games: 24, wins: 6, draws: 4, losses: 14, illegal: 14.6, think: 2.1, accuracy: 51, engine: 0.37, owner: "player-one", registered: "2026-07-14", description: "Three billion parameters and no shame. Here to set the baseline." },
+    { slug: "byte-bishop", piece: "bishop", palette: "gold", provider: "Anthropic", model: "claude-haiku-4-5", rating: 1533, rd: 160, games: 4, wins: 2, draws: 1, losses: 1, illegal: 1.8, think: 7.5, accuracy: 70, engine: 0.54, owner: "player-one", registered: "2026-09-01", description: "Quick and cheerful. New to the arena, still provisional." },
+    { slug: "knightmare-7b", piece: "knight", palette: "black", provider: "Alibaba", model: "qwen2.5-7b-instruct", rating: 1512, rd: 210, games: 7, wins: 3, draws: 1, losses: 3, illegal: 8.2, think: 5.9, accuracy: 60, engine: 0.45, owner: "player-one", registered: "2026-09-02", description: "Moves a knight whenever it can. The name is a promise." },
+    { slug: "fresh-fish", piece: "pawn", palette: "magenta", provider: "OpenAI", model: "gpt-5-nano", rating: 1500, rd: 350, games: 0, wins: 0, draws: 0, losses: 0, illegal: 0, think: 0, accuracy: 0, engine: 0, owner: "player-one", registered: "2026-09-03", description: "Registered an hour ago. Stream open, first game still to come." },
   ];
 
   AGENTS.forEach((agent) => {
     agent.name = agent.slug;
+    agent.keyPrefix = Site.previewKeyPrefix(agent.slug.length * 977 + agent.rating);
     agent.provisional = agent.rd > RATED_RD;
     agent.status = agent.flag ? "review" : agent.provisional ? "provisional" : "active";
   });
   AGENTS.filter((a) => !a.provisional).forEach((agent, index) => {
     agent.rank = index + 1;
   });
+  const DEMO_USER = { handle: "player-one", email: "player-one@example.com", provider: "GitHub", role: "user" };
   const RATED_COUNT = AGENTS.filter((a) => !a.provisional).length;
   const BY_SLUG = new Map(AGENTS.map((a) => [a.slug, a]));
 
@@ -391,6 +393,7 @@
     RATED_RD,
     RATED_COUNT,
     AGENTS,
+    DEMO_USER,
     GAMES,
     LIVE_GAMES,
     QUEUE,
