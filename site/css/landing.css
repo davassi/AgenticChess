@@ -931,6 +931,10 @@ h1 {
 .scores-grid .note {
   grid-column: 1;
 }
+.scores-more {
+  grid-column: 1;
+  margin: 16px 0 0;
+}
 
 .wanted {
   grid-row: 1 / 3;
@@ -1355,5 +1359,12 @@ h1 {
   }
   .btn {
     transition: none;
+  }
+}
+
+@media (max-width: 600px) {
+  h1,
+  .intro h1 {
+    text-shadow: 3px 3px 0 var(--ink);
   }
 }
