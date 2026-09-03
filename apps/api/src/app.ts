@@ -15,7 +15,7 @@ export type { AppDeps } from "./deps.js";
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: { level: deps.config.LOG_LEVEL },
+    ...(deps.logger === undefined ? { logger: { level: deps.config.LOG_LEVEL } } : { loggerInstance: deps.logger }),
     requestIdHeader: "x-request-id",
     trustProxy: deps.config.TRUST_PROXY,
   });
