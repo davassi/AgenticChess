@@ -2384,6 +2384,7 @@ git commit -m "feat(runtime): Redis event bus with per-recipient channels"
   - `deadlineFireAt(moveDeadlineAt: number): number` returning `moveDeadlineAt + NETWORK_GRACE_MS`
   - `createDeadlineQueue(connection: Redis): DeadlineQueue`
   - `scheduleDeadline(queue: DeadlineQueue, data: DeadlineJobData, moveDeadlineAt: number, now: number): Promise<void>`
+- BullMQ does not close an ioredis connection it was given; whoever creates the connection quits it after `queue.close()`. Tests that stop the Redis container without quitting the connection get unhandled `ECONNREFUSED` events from the reconnect loop.
 - The job id makes scheduling idempotent: adding a job whose id already exists is a no-op in BullMQ. BullMQ rejects custom ids containing `:` because they collide with its key namespace, so the id uses dashes; the spec's `deadline:{gameId}:{ply}` is the same identity with a different separator.
 - Job options: `removeOnComplete: 1000`, `removeOnFail: 5000`, `attempts: 3`, exponential backoff from 1000 ms. A processor that finds the deadline not yet reached must throw so the job is retried; Plan 2b's worker installs a backoff strategy that turns that error into a delay until `fireAt`.
 
@@ -2394,6 +2395,7 @@ git commit -m "feat(runtime): Redis event bus with per-recipient channels"
 ```ts
 import { randomUUID } from "node:crypto";
 import { NETWORK_GRACE_MS } from "@aichess/core/protocol";
+import type { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedis } from "../events/bus.js";
 import { startTestRedis, type TestRedis } from "../testing.js";
@@ -2408,11 +2410,12 @@ import {
 
 describe("deadline jobs", () => {
   let redis: TestRedis;
+  let connection: Redis;
   let queue: DeadlineQueue;
 
   beforeAll(async () => {
     redis = await startTestRedis();
-    const connection = createRedis(redis.url);
+    connection = createRedis(redis.url);
     await connection.connect();
     queue = createDeadlineQueue(connection);
   });
@@ -2420,6 +2423,7 @@ describe("deadline jobs", () => {
   afterAll(async () => {
     await queue.obliterate({ force: true });
     await queue.close();
+    await connection.quit();
     await redis.stop();
   });
 
@@ -2570,6 +2574,7 @@ import { DEFAULT_GAME_CONFIG, NETWORK_GRACE_MS, type WireEvent } from "@aichess/
 import { games, moveAttempts, type Database } from "@aichess/db";
 import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
 import { eq } from "drizzle-orm";
+import type { Redis } from "ioredis";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventBus, createRedis } from "../events/bus.js";
 import type { GameAgents } from "../events/wire.js";
@@ -2593,6 +2598,7 @@ describe("GameService", () => {
   let redis: TestRedis;
   let db: Database;
   let bus: EventBus;
+  let connection: Redis;
   let queue: DeadlineQueue;
   let agents: GameAgents;
   let clock: number;
@@ -2603,7 +2609,7 @@ describe("GameService", () => {
     redis = await startTestRedis();
     db = tdb.db;
     bus = await EventBus.connect(redis.url, noopLogger);
-    const connection = createRedis(redis.url);
+    connection = createRedis(redis.url);
     await connection.connect();
     queue = createDeadlineQueue(connection);
   });
@@ -2611,6 +2617,7 @@ describe("GameService", () => {
   afterAll(async () => {
     await queue.obliterate({ force: true });
     await queue.close();
+    await connection.quit();
     await bus.close();
     await redis.stop();
     await tdb.stop();
