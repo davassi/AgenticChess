@@ -1,4 +1,4 @@
-import { createRuntime, type RuntimeHandle, type RuntimeLogger } from "@aichess/runtime";
+import { createRuntime, gameConfigFrom, type RuntimeHandle, type RuntimeLogger } from "@aichess/runtime";
 import type { FastifyBaseLogger } from "fastify";
 import type { ApiConfig } from "./config.js";
 
@@ -19,15 +19,7 @@ function asSharedLogger(logger: RuntimeLogger): FastifyBaseLogger | undefined {
 
 export async function createDeps(config: ApiConfig, logger: RuntimeLogger): Promise<DepsHandle> {
   const runtime = await createRuntime(
-    {
-      databaseUrl: config.DATABASE_URL,
-      redisUrl: config.REDIS_URL,
-      game: {
-        timePerMoveMs: config.DEFAULT_TIME_PER_MOVE_MS,
-        moveLimitPlies: config.MOVE_LIMIT_PLIES,
-        illegalAttemptsPerTurn: config.ILLEGAL_ATTEMPTS_PER_TURN,
-      },
-    },
+    { databaseUrl: config.DATABASE_URL, redisUrl: config.REDIS_URL, game: gameConfigFrom(config) },
     logger,
   );
   const shared = asSharedLogger(logger);
