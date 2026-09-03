@@ -444,8 +444,8 @@
       this.ctx = canvas.getContext("2d");
       this.width = canvas.width;
       this.height = canvas.height;
-      this.size = 7;
-      this.origin = { x: Math.floor(this.width / 2), y: 58 };
+      this.size = 9;
+      this.origin = { x: Math.floor(this.width / 2), y: 60 };
       this.buildings = buildings;
       this.links = links;
       this.draw = this.draw.bind(this);

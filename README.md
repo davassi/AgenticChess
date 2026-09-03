@@ -215,6 +215,7 @@ packages/
   sdk-ts/     TypeScript client
 sdk-python/   Python client
 examples/     reference agent built on the Claude API
+site/         static landing page (pixel-art, no build step)
 ```
 
 Design decisions that shape the code:
