@@ -9,6 +9,7 @@ import { registerGameRoutes } from "./routes/games.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { AgentStreamRegistry } from "./sse/agent-streams.js";
+import { GameStreamRegistry } from "./sse/game-streams.js";
 
 export type { AppDeps } from "./deps.js";
 
@@ -24,13 +25,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerAuth(app);
 
   const agentStreams = new AgentStreamRegistry(deps);
+  const gameStreams = new GameStreamRegistry(deps);
   app.addHook("onClose", async () => {
     agentStreams.closeAll();
+    gameStreams.closeAll();
   });
 
   registerHealthRoutes(app, deps);
   registerAgentRoutes(app, deps, agentStreams);
-  registerGameRoutes(app, deps);
+  registerGameRoutes(app, deps, gameStreams);
   registerInternalRoutes(app, deps);
   return app;
 }

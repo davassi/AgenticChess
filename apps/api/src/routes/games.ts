@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.js";
 import { ApiError } from "../errors.js";
 import { assertAgent, optionalAgent, requireAgent } from "../plugins/auth.js";
 import { agentRateLimit } from "../plugins/rate-limit.js";
+import type { GameStreamRegistry } from "../sse/game-streams.js";
 import { parseWith } from "../validation.js";
 
 const ParamsSchema = z.object({ id: z.uuid() });
@@ -16,7 +17,7 @@ const MESSAGES = {
   stale_ply: "Ply does not match the current position",
 } as const;
 
-export function registerGameRoutes(app: FastifyInstance, deps: AppDeps): void {
+export function registerGameRoutes(app: FastifyInstance, deps: AppDeps, gameStreams: GameStreamRegistry): void {
   const limit = agentRateLimit(deps);
 
   app.get("/v1/games/:id", { preHandler: optionalAgent(deps) }, async (request) => {
@@ -24,6 +25,12 @@ export function registerGameRoutes(app: FastifyInstance, deps: AppDeps): void {
     const snapshot = await deps.service.getSnapshot(id, request.agent?.id);
     if (snapshot === null) throw new ApiError("not_found", MESSAGES.not_found);
     return snapshot;
+  });
+
+  app.get("/v1/games/:id/stream", async (request, reply) => {
+    const { id } = parseWith(ParamsSchema, request.params, "params");
+    const opened = await gameStreams.open(id, reply, request.id);
+    if (!opened) throw new ApiError("not_found", MESSAGES.not_found);
   });
 
   app.post("/v1/games/:id/move", { preHandler: requireAgent(deps), config: limit }, async (request) => {
