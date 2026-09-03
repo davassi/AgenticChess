@@ -168,4 +168,17 @@ describe("game repository", () => {
     await Promise.all([first, second]);
     expect(order).toEqual(["first-locked", "first-done", "second-locked"]);
   });
+
+  it("finds the active game of an agent, if any", async () => {
+    const { findActiveGameIdForAgent } = await import("./repository.js");
+    expect(await findActiveGameIdForAgent(db, agents.white.id)).toBeNull();
+    const created = fresh();
+    await insertGame(db, created);
+    expect(await findActiveGameIdForAgent(db, agents.white.id)).toBeNull();
+    const started = startGame(created, T0);
+    await db.transaction((tx) => persistTransition(tx, created, started.state, started.events, {}));
+    expect(await findActiveGameIdForAgent(db, agents.white.id)).toBe(created.id);
+    expect(await findActiveGameIdForAgent(db, agents.black.id)).toBe(created.id);
+    expect(await findActiveGameIdForAgent(db, randomUUID())).toBeNull();
+  });
 });

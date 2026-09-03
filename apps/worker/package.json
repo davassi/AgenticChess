@@ -1,0 +1,28 @@
+{
+  "name": "@aichess/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "start": "node dist/main.js",
+    "dev": "pnpm build && node --env-file=../../.env dist/main.js"
+  },
+  "dependencies": {
+    "@aichess/runtime": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "ioredis": "^5.6.0",
+    "pino": "^10.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@aichess/core": "workspace:*",
+    "@aichess/db": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

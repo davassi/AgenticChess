@@ -1,7 +1,7 @@
 import { START_FEN, type DomainEvent, type GameState, type MoveRecord } from "@aichess/core";
 import type { Color } from "@aichess/core/protocol";
 import { agents, games, moveAttempts, moves, type Database, type Transaction } from "@aichess/db";
-import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import type { GameAgents } from "../events/wire.js";
 
 export type Executor = Database | Transaction;
@@ -181,4 +181,14 @@ export async function listActiveDeadlines(
   return rows.flatMap((r) =>
     r.moveDeadlineAt === null ? [] : [{ gameId: r.gameId, ply: r.ply, moveDeadlineAt: r.moveDeadlineAt.getTime() }],
   );
+}
+
+export async function findActiveGameIdForAgent(ex: Executor, agentId: string): Promise<string | null> {
+  const [row] = await ex
+    .select({ id: games.id })
+    .from(games)
+    .where(and(eq(games.status, "active"), or(eq(games.whiteAgentId, agentId), eq(games.blackAgentId, agentId))))
+    .orderBy(desc(games.startedAt))
+    .limit(1);
+  return row?.id ?? null;
 }

@@ -3,4 +3,8 @@ export * from "./events/wire.js";
 export * from "./events/bus.js";
 export * from "./games/repository.js";
 export * from "./jobs/deadlines.js";
+export * from "./jobs/deadline-worker.js";
+export * from "./jobs/reconciler.js";
+export * from "./runtime.js";
+export * from "./config.js";
 export * from "./games/service.js";

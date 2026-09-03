@@ -65,19 +65,29 @@ function opponentSummary(agents: GameAgents, color: Color): AgentSummary {
   return color === "white" ? agents.black : agents.white;
 }
 
-function yourTurnEvent(state: GameState, event: Extract<DomainEvent, { type: "turn" }>): WireEvent {
+function buildYourTurn(state: GameState, ply: number, deadlineAt: number, attempts: number): WireEvent {
   const last = state.moves[state.moves.length - 1];
   return {
     type: "game.your_turn",
     gameId: state.id,
-    ply: event.ply,
+    ply,
     fen: state.fen,
     history: state.moves.map((m) => m.san),
     lastMove: last === undefined ? null : { san: last.san, uci: last.uci },
     legalMoves: legalMoves(state.fen),
-    deadlineAt: iso(event.deadlineAt),
-    attemptsLeft: event.attemptsLeft,
+    deadlineAt: iso(deadlineAt),
+    attemptsLeft: attempts,
   };
+}
+
+function yourTurnEvent(state: GameState, event: Extract<DomainEvent, { type: "turn" }>): WireEvent {
+  return buildYourTurn(state, event.ply, event.deadlineAt, event.attemptsLeft);
+}
+
+export function toYourTurn(state: GameState, color: Color): WireEvent | null {
+  if (state.status !== "active" || state.moveDeadlineAt === null) return null;
+  if (sideToMove(state) !== color) return null;
+  return buildYourTurn(state, state.ply, state.moveDeadlineAt, attemptsLeft(state));
 }
 
 export function toWireEvents(

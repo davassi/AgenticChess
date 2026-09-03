@@ -403,4 +403,45 @@ describe("GameService", () => {
       expect(await queue.getJob(deadlineJobId(b, 0))).toBeUndefined();
     });
   });
+
+  describe("activeGameFor and yourTurnFor", () => {
+    it("reports the active game and the pending turn per agent", async () => {
+      expect(await service.activeGameFor(agents.white.id)).toBeNull();
+      expect(await service.yourTurnFor(agents.white.id)).toBeNull();
+      const gameId = await newGame();
+      expect((await service.activeGameFor(agents.white.id))?.id).toBe(gameId);
+      expect((await service.activeGameFor(agents.white.id))?.legalMoves).toHaveLength(20);
+      expect((await service.activeGameFor(agents.black.id))?.legalMoves).toBeUndefined();
+      const turn = await service.yourTurnFor(agents.white.id);
+      expect(turn).toMatchObject({ type: "game.your_turn", gameId, ply: 0, attemptsLeft: 3 });
+      expect(await service.yourTurnFor(agents.black.id)).toBeNull();
+    });
+  });
+
+  describe("reconcile", () => {
+    it("re-schedules missing deadline jobs and re-publishes stalled turns", async () => {
+      const gameId = await newGame();
+      const white: WireEvent[] = [];
+      const offWhite = await bus.subscribeAgent(agents.white.id, (e) => white.push(e));
+      await queue.obliterate({ force: true });
+
+      clock = T0 + 5_000;
+      expect(await service.reconcile({ staleTurnMs: 10_000 })).toEqual({ scanned: 1, republished: 0, rescheduled: 1 });
+      expect(await queue.getJob(deadlineJobId(gameId, 0))).toBeDefined();
+
+      clock = T0 + 12_000;
+      expect(await service.reconcile({ staleTurnMs: 10_000 })).toEqual({ scanned: 1, republished: 1, rescheduled: 0 });
+      await waitFor(() => white.some((e) => e.type === "game.your_turn"));
+      const turn = white.find((e) => e.type === "game.your_turn");
+      expect(turn).toMatchObject({ gameId, ply: 0 });
+      await offWhite();
+    });
+
+    it("ignores finished games", async () => {
+      const gameId = await newGame();
+      await service.resign({ gameId, agentId: agents.black.id });
+      clock = T0 + 60_000;
+      expect(await service.reconcile({ staleTurnMs: 1 })).toEqual({ scanned: 0, republished: 0, rescheduled: 0 });
+    });
+  });
 });

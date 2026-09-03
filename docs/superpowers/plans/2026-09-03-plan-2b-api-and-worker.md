@@ -379,7 +379,7 @@ Add the interface and the methods inside the class, after `rearmActiveDeadlines`
       }
     }
     if (report.republished > 0 || report.rescheduled > 0) {
-      this.deps.logger.info(report, "reconcile applied");
+      this.deps.logger.info({ ...report }, "reconcile applied");
     }
     return report;
   }
@@ -609,6 +609,9 @@ describe("app basics", () => {
           throw new Error("kaboom");
         });
         app.get("/__api-error", async () => {
+          throw new ApiError("in_active_game", "Busy", { gameId: "g1" });
+        });
+        app.post("/__api-error", async () => {
           throw new ApiError("in_active_game", "Busy", { gameId: "g1" });
         });
       },
@@ -853,6 +856,11 @@ export interface AppDeps {
 export interface DepsHandle {
   deps: AppDeps;
   close: () => Promise<void>;
+}
+
+function asSharedLogger(logger: RuntimeLogger): FastifyBaseLogger | undefined {
+  const candidate = logger as { child?: unknown };
+  return typeof candidate.child === "function" ? (logger as unknown as FastifyBaseLogger) : undefined;
 }
 
 export async function createDeps(config: ApiConfig, logger: RuntimeLogger): Promise<DepsHandle> {
@@ -1396,9 +1404,10 @@ describe("cors", () => {
     expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:3000");
   });
 
-  it("does not allow other origins", async () => {
+  it("never reflects a foreign origin", async () => {
     const res = await h.app.inject({ method: "GET", url: "/health", headers: { origin: "http://evil.example" } });
-    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(res.headers["access-control-allow-origin"]).not.toBe("http://evil.example");
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:3000");
   });
 
   it("answers preflight with GET only", async () => {
@@ -2964,8 +2973,7 @@ export async function createDeps(
     },
     logger,
   );
-  const shared = "child" in logger && typeof logger.child === "function" ? (logger as FastifyBaseLogger) : undefined;
-  return {
+  const shared = asSharedLogger(logger);
     deps: {
       config,
       db: runtime.db,
