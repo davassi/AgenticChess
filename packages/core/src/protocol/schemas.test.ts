@@ -196,4 +196,12 @@ describe("agent profile, queue and leaderboard schemas", () => {
     expect(LeaderboardPageSchema.parse(page)).toEqual(page);
     expect(LeaderboardPageSchema.safeParse({ ...page, items: [{ ...page.items[0], rank: 0 }] }).success).toBe(false);
   });
+
+  it("requires the queue field in hello", () => {
+    const base = { type: "hello", agentId: randomUUID(), activeGame: null };
+    expect(WireEventSchema.safeParse(base).success).toBe(false);
+    expect(WireEventSchema.safeParse({ ...base, queue: null }).success).toBe(true);
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z" } }).success).toBe(true);
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "yesterday" } }).success).toBe(false);
+  });
 });

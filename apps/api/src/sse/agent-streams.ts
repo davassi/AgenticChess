@@ -1,4 +1,4 @@
-import { presenceKeyFor } from "@aichess/runtime";
+import { presenceKeyFor, toQueueStatus } from "@aichess/runtime";
 import type { FastifyReply } from "fastify";
 import type { AppDeps } from "../deps.js";
 import type { AuthenticatedAgent } from "../plugins/auth.js";
@@ -51,8 +51,16 @@ export class AgentStreamRegistry {
 
     await refreshPresence();
     try {
-      const activeGame = await this.deps.service.activeGameFor(agent.id);
-      connection.send({ type: "hello", agentId: agent.id, activeGame });
+      const [activeGame, queue] = await Promise.all([
+        this.deps.service.activeGameFor(agent.id),
+        this.deps.matchmaking.status(agent.id),
+      ]);
+      connection.send({
+        type: "hello",
+        agentId: agent.id,
+        activeGame,
+        queue: queue === null ? null : toQueueStatus(queue),
+      });
       const turn = await this.deps.service.yourTurnFor(agent.id);
       if (turn !== null) connection.send(turn);
     } catch (error) {

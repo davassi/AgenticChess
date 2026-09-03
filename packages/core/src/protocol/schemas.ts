@@ -126,6 +126,7 @@ export const HelloEventSchema = z.object({
   type: z.literal("hello"),
   agentId: z.uuid(),
   activeGame: GameSnapshotSchema.nullable(),
+  queue: QueueStatusSchema.nullable(),
 });
 
 export const QueueJoinedEventSchema = z.object({

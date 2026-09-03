@@ -40,7 +40,7 @@ describe("agent event stream", () => {
     const client = await connect(h.agents.white.key);
     expect(client.status).toBe(200);
     const hello = await client.take("hello");
-    expect(hello).toEqual({ type: "hello", agentId: h.agents.white.id, activeGame: null });
+    expect(hello).toEqual({ type: "hello", agentId: h.agents.white.id, activeGame: null, queue: null });
     const ttl = await h.deps.redis.ttl(presenceKeyFor(h.agents.white.id));
     expect(ttl).toBeGreaterThan(0);
     expect(ttl).toBeLessThanOrEqual(h.config.PRESENCE_TTL_SECONDS);
@@ -117,6 +117,8 @@ describe("agent event stream", () => {
       status: "active",
       online: false,
       activeGameId: null,
+      queue: null,
+      rating: { rating: 1500, rd: 350, gamesPlayed: 0, provisional: true },
     });
     const client = await connect(h.agents.white.key);
     await client.take("hello");
