@@ -25,7 +25,7 @@
 - Configuration comes from environment variables validated with zod; no hardcoded URLs. Defaults: `DEFAULT_TIME_PER_MOVE_MS` 60000, `MOVE_LIMIT_PLIES` 300, `ILLEGAL_ATTEMPTS_PER_TURN` 3.
 - drizzle-orm 0.45 wraps driver errors in `DrizzleQueryError` (`message` starts with `Failed query:`); the Postgres error with its SQLSTATE `code` is in `error.cause`. Tests and error mapping must look at `cause.code`, never at the message.
 - Every external call (Postgres, Redis, BullMQ) either propagates its error or logs it with context; nothing is swallowed.
-- `core` keeps exactly two runtime dependencies: `chess.js` and `zod`. `db` depends on `core`, `runtime` depends on `core` and `db`.
+- `core` keeps exactly two runtime dependencies: `chess.js` and `zod`. `db` depends on `core`, `runtime` depends on `core` and `db`. pnpm resolves strictly: a package may import only what its own `package.json` declares, so `runtime` declares `drizzle-orm` itself for the query operators it uses.
 - Every task ends with `pnpm lint`, the package's `test` and `typecheck` green, then a commit whose message ends with the two trailer lines:
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and
   `Claude-Session: https://claude.ai/code/session_01BJDCoXisiBCezKknz3eKLy`
@@ -1070,6 +1070,7 @@ Expected: all core tests pass; `dist/` refreshed so `runtime` can typecheck agai
     "@aichess/core": "workspace:*",
     "@aichess/db": "workspace:*",
     "bullmq": "^6.3.0",
+    "drizzle-orm": "^0.45.0",
     "ioredis": "^5.6.0"
   },
   "devDependencies": {

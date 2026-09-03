@@ -91,6 +91,9 @@ importers:
       bullmq:
         specifier: ^6.3.0
         version: 6.3.4(ioredis@5.11.1)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
       ioredis:
         specifier: ^5.6.0
         version: 5.11.1
