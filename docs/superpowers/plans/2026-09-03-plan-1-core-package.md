@@ -26,6 +26,7 @@
   - `termination`: `checkmate`, `stalemate`, `threefold_repetition`, `fifty_move_rule`, `insufficient_material`, `move_limit`, `timeout`, `illegal_moves`, `resignation`, `aborted`
   - `result`: `1-0`, `0-1`, `1/2-1/2`, `*`
   - error codes: `unauthorized`, `agent_suspended`, `not_found`, `validation_error`, `not_your_turn`, `stale_ply`, `game_not_active`, `illegal_move`, `already_in_queue`, `not_in_queue`, `in_active_game`, `rate_limited`, `service_unavailable`, `internal_error`
+- chess.js 1.4 writes the en passant square in a FEN only when an en passant capture is actually possible. After `1. e4` the FEN ends with `KQkq - 0 1`, not `KQkq e3 0 1`.
 - Every task ends with `pnpm --filter @aichess/core test` and `pnpm --filter @aichess/core typecheck` green, then a commit.
 - Commit messages end with the two trailer lines:
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and
@@ -745,7 +746,7 @@ describe("tryMove", () => {
 
   it("returns the FEN after the move", () => {
     const r = tryMove(START_FEN, "e4");
-    expect(r.ok && r.move.fenAfter).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+    expect(r.ok && r.move.fenAfter).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
   });
 });
 
@@ -1263,7 +1264,7 @@ describe("applyMove: legal move", () => {
     expect(r.idempotent).toBe(false);
     expect(r.state.ply).toBe(1);
     expect(r.state.status).toBe("active");
-    expect(r.state.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+    expect(r.state.fen).toBe("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
     expect(r.state.fenHistory).toHaveLength(2);
     expect(r.state.turnStartedAt).toBe(T0 + 1_500);
     expect(r.state.moveDeadlineAt).toBe(T0 + 1_500 + DEFAULT_GAME_CONFIG.timePerMoveMs);
