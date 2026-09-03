@@ -47,7 +47,12 @@ export function registerErrorHandling(app: FastifyInstance): void {
     }
     const http = error as HttpLikeError;
     if (http.statusCode === 429) {
-      reply.status(429).send({ error: "rate_limited", message: "Too many requests" });
+      const body = error as { message?: string; details?: Record<string, unknown> };
+      reply.status(429).send({
+        error: "rate_limited",
+        message: body.message ?? "Too many requests",
+        ...(body.details === undefined ? {} : { details: body.details }),
+      });
       return;
     }
     if (http.statusCode !== undefined && http.statusCode >= 400 && http.statusCode < 500) {

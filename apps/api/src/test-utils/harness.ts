@@ -56,7 +56,7 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     ...options.env,
   });
   const handle = await createDeps(config, noopLogger);
-  const app = buildApp(handle.deps);
+  const app = await buildApp(handle.deps);
   options.register?.(app, handle.deps);
   await app.ready();
   const harness: Harness = {

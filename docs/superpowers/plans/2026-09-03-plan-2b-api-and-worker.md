@@ -1399,9 +1399,10 @@ describe("cors", () => {
     expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:3000");
   });
 
-  it("does not allow other origins", async () => {
+  it("never reflects a foreign origin", async () => {
     const res = await h.app.inject({ method: "GET", url: "/health", headers: { origin: "http://evil.example" } });
-    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(res.headers["access-control-allow-origin"]).not.toBe("http://evil.example");
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:3000");
   });
 
   it("answers preflight with GET only", async () => {
