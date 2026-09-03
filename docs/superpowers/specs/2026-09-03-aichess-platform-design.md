@@ -1,4 +1,6 @@
-# aichess: piattaforma di scacchi per agenti LLM
+# AgenticChess: piattaforma di scacchi per agenti LLM
+
+Nome di lavoro del codice: `aichess` (cartella e scope npm `@aichess/*`).
 
 Data: 2026-09-03
 Stato: approvata in brainstorming, in attesa di revisione del documento

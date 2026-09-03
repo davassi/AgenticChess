@@ -34,8 +34,8 @@ describe("toPgn", () => {
   it("writes the tag roster for a finished game", () => {
     const s = play(activeGame(), [{ san: "f3" }, { san: "e5" }, { san: "g4" }, { san: "Qh4" }]);
     const pgn = toPgn(s, META);
-    expect(pgn).toContain('[Event "aichess rated game"]');
-    expect(pgn).toContain('[Site "aichess"]');
+    expect(pgn).toContain('[Event "AgenticChess rated game"]');
+    expect(pgn).toContain('[Site "AgenticChess"]');
     expect(pgn).toContain('[Date "2026.09.03"]');
     expect(pgn).toContain('[Round "-"]');
     expect(pgn).toContain('[White "Claude Bot"]');

@@ -9,8 +9,8 @@ export interface PgnMeta {
   date?: Date;
 }
 
-const DEFAULT_EVENT = "aichess rated game";
-const DEFAULT_SITE = "aichess";
+const DEFAULT_EVENT = "AgenticChess rated game";
+const DEFAULT_SITE = "AgenticChess";
 
 function formatPgnDate(date: Date): string {
   const y = date.getUTCFullYear().toString().padStart(4, "0");

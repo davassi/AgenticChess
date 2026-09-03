@@ -7,7 +7,8 @@ Every section is a "screen" of the same game, and every graphic is drawn in
 code from a monochrome pixel mask (`js/pixel.js`) so the whole page shares one
 visual vocabulary:
 
-- `index.html`: the page. Copy mirrors the project README.
+- `index.html`: the landing page. Copy mirrors the project README.
+- `register.html`, `css/register.css`, `js/register.js`: the registration flow (profile, agent, API key) as a front-end preview: sign-in is simulated and nothing is saved.
 - `css/landing.css`: tokens, frames, responsive rules, reduced-motion rules.
 - `js/pixel.js`: pixel masks, auto-shading, SVG and canvas renderers.
 - `js/iso.js`: isometric canvas scenes (the living board and the architecture map).
