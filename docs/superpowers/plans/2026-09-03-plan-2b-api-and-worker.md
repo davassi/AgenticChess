@@ -2658,3 +2658,1656 @@ git commit -m "feat(api): public spectator stream with snapshot-first delivery"
 ```
 
 ---
+
+### Task 8: Shared `createRuntime`, API entrypoint with re-arm and graceful shutdown
+
+**Files:**
+
+- Create: `packages/runtime/src/runtime.ts`
+- Modify: `packages/runtime/src/index.ts`
+- Modify: `apps/api/src/deps.ts` (wrap `createRuntime`)
+- Modify: `apps/api/src/app.ts` (optional shared logger instance)
+- Modify: `apps/api/package.json` (add `pino`)
+- Create: `apps/api/src/start.ts`
+- Create: `apps/api/src/server.ts`
+- Test: `packages/runtime/src/runtime.test.ts`, `apps/api/src/start.test.ts`
+
+**Interfaces:**
+
+- Consumes: `createDb`, `createRedis`, `EventBus`, `createDeadlineQueue`, `GameService`.
+- Produces (runtime):
+  - `interface RuntimeConfig { databaseUrl: string; redisUrl: string; game: GameConfig; dbPoolMax?: number }`
+  - `interface RuntimeHandle { db: Database; redis: Redis; bus: EventBus; deadlines: DeadlineQueue; service: GameService; close: () => Promise<void> }`
+  - `createRuntime(config: RuntimeConfig, logger: RuntimeLogger): Promise<RuntimeHandle>`; `close` shuts the queue, its connection, the bus, the general Redis connection and the database pool, in that order, and is safe to call once.
+- Produces (api):
+  - `AppDeps` now `{ config: ApiConfig; logger?: FastifyBaseLogger } & Omit<RuntimeHandle, "close">`; `createDeps(config, logger)` delegates to `createRuntime`.
+  - `buildApp` uses `loggerInstance` when `deps.logger` is set, otherwise its own logger at `LOG_LEVEL`.
+  - `startServer(config: ApiConfig, logger: pino.Logger): Promise<RunningServer>` with `interface RunningServer { app: FastifyInstance; deps: AppDeps; stop: () => Promise<void> }`. It creates deps, builds the app, re-arms deadlines, listens on `API_HOST:API_PORT`, and on any failure closes what it opened before rethrowing.
+  - `server.ts`: loads config (exit 1 with the `ConfigError` message on failure), creates a pino logger, calls `startServer`, and stops on `SIGINT`/`SIGTERM` exactly once.
+- Duplicated wiring between the API and the worker is not allowed; both go through `createRuntime`.
+
+- [ ] **Step 1: Write the failing runtime test**
+
+`packages/runtime/src/runtime.test.ts`:
+
+```ts
+import { DEFAULT_GAME_CONFIG } from "@aichess/core/protocol";
+import { startTestDatabase, type TestDatabase } from "@aichess/db/testing";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { noopLogger } from "./logger.js";
+import { createRuntime } from "./runtime.js";
+import { seedTwoAgents, startTestRedis, type TestRedis } from "./testing.js";
+
+describe("createRuntime", () => {
+  let tdb: TestDatabase;
+  let redis: TestRedis;
+
+  beforeAll(async () => {
+    tdb = await startTestDatabase();
+    redis = await startTestRedis();
+  });
+
+  afterAll(async () => {
+    await redis.stop();
+    await tdb.stop();
+  });
+
+  it("wires a working service and closes every connection", async () => {
+    const runtime = await createRuntime(
+      { databaseUrl: tdb.url, redisUrl: redis.url, game: DEFAULT_GAME_CONFIG },
+      noopLogger,
+    );
+    const agents = await seedTwoAgents(runtime.db);
+    const created = await runtime.service.createAndStartGame({
+      whiteAgentId: agents.white.id,
+      blackAgentId: agents.black.id,
+    });
+    expect(created.ok).toBe(true);
+    expect(await runtime.redis.ping()).toBe("PONG");
+    await runtime.close();
+    expect(runtime.redis.status).toBe("end");
+    await expect(runtime.redis.ping()).rejects.toThrow();
+  });
+
+  it("fails fast when Redis is unreachable", async () => {
+    await expect(
+      createRuntime({ databaseUrl: tdb.url, redisUrl: "redis://127.0.0.1:1", game: DEFAULT_GAME_CONFIG }, noopLogger),
+    ).rejects.toThrow();
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `pnpm --filter @aichess/runtime test -- runtime`
+Expected: FAIL, cannot resolve `./runtime.js`.
+
+- [ ] **Step 3: Write `createRuntime`**
+
+`packages/runtime/src/runtime.ts`:
+
+```ts
+import type { GameConfig } from "@aichess/core/protocol";
+import { createDb, type Database } from "@aichess/db";
+import type { Redis } from "ioredis";
+import { EventBus, createRedis } from "./events/bus.js";
+import { GameService } from "./games/service.js";
+import { createDeadlineQueue, type DeadlineQueue } from "./jobs/deadlines.js";
+import type { RuntimeLogger } from "./logger.js";
+
+export interface RuntimeConfig {
+  databaseUrl: string;
+  redisUrl: string;
+  game: GameConfig;
+  dbPoolMax?: number;
+}
+
+export interface RuntimeHandle {
+  db: Database;
+  redis: Redis;
+  bus: EventBus;
+  deadlines: DeadlineQueue;
+  service: GameService;
+  close: () => Promise<void>;
+}
+
+async function connectOrThrow(redis: Redis): Promise<void> {
+  try {
+    await redis.connect();
+  } catch (error) {
+    redis.disconnect();
+    throw error;
+  }
+}
+
+export async function createRuntime(config: RuntimeConfig, logger: RuntimeLogger): Promise<RuntimeHandle> {
+  const dbHandle = createDb(config.databaseUrl, config.dbPoolMax === undefined ? {} : { max: config.dbPoolMax });
+  const redis = createRedis(config.redisUrl);
+  const queueConnection = createRedis(config.redisUrl);
+  let bus: EventBus | null = null;
+  try {
+    await connectOrThrow(redis);
+    await connectOrThrow(queueConnection);
+    bus = await EventBus.connect(config.redisUrl, logger);
+  } catch (error) {
+    redis.disconnect();
+    queueConnection.disconnect();
+    await dbHandle.close();
+    throw error;
+  }
+  const deadlines = createDeadlineQueue(queueConnection);
+  const service = new GameService({ db: dbHandle.db, bus, deadlines, logger, config: config.game });
+  const openBus = bus;
+  let closed = false;
+  return {
+    db: dbHandle.db,
+    redis,
+    bus: openBus,
+    deadlines,
+    service,
+    close: async () => {
+      if (closed) return;
+      closed = true;
+      await deadlines.close();
+      await queueConnection.quit();
+      await openBus.close();
+      await redis.quit();
+      await dbHandle.close();
+    },
+  };
+}
+```
+
+Add `export * from "./runtime.js";` to `packages/runtime/src/index.ts`.
+
+Run: `pnpm --filter @aichess/runtime test -- runtime && pnpm --filter @aichess/runtime build`
+Expected: 2 tests pass; `dist/` refreshed for the api.
+
+- [ ] **Step 4: Write the failing API start test**
+
+`apps/api/src/start.test.ts`:
+
+```ts
+import { createServer } from "node:net";
+import { startTestDatabase, type TestDatabase } from "@aichess/db/testing";
+import { createDeadlineQueue, createRedis, deadlineJobId } from "@aichess/runtime";
+import { seedTwoAgents, startTestRedis, type TestRedis } from "@aichess/runtime/testing";
+import pino from "pino";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { loadConfig } from "./config.js";
+import { startServer } from "./start.js";
+import { TEST_INTERNAL_TOKEN } from "./test-utils/harness.js";
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("no port"));
+        return;
+      }
+      const { port } = address;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+describe("startServer", () => {
+  let tdb: TestDatabase;
+  let redis: TestRedis;
+
+  beforeAll(async () => {
+    tdb = await startTestDatabase();
+    redis = await startTestRedis();
+  });
+
+  afterAll(async () => {
+    await redis.stop();
+    await tdb.stop();
+  });
+
+  it("listens, serves health, re-arms deadlines on boot and stops cleanly", async () => {
+    const port = await freePort();
+    const config = loadConfig({
+      DATABASE_URL: tdb.url,
+      REDIS_URL: redis.url,
+      API_PORT: String(port),
+      API_HOST: "127.0.0.1",
+      INTERNAL_API_TOKEN: TEST_INTERNAL_TOKEN,
+      LOG_LEVEL: "silent",
+    });
+    const logger = pino({ level: "silent" });
+
+    const first = await startServer(config, logger);
+    const base = `http://127.0.0.1:${port}`;
+    expect((await fetch(`${base}/health`)).status).toBe(200);
+
+    const agents = await seedTwoAgents(first.deps.db);
+    const created = await fetch(`${base}/v1/internal/games`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-internal-token": TEST_INTERNAL_TOKEN },
+      body: JSON.stringify({ whiteAgentId: agents.white.id, blackAgentId: agents.black.id }),
+    });
+    expect(created.status).toBe(201);
+    const gameId = ((await created.json()) as { id: string }).id;
+    await first.stop();
+    expect(first.deps.redis.status).toBe("end");
+    await expect(fetch(`${base}/health`)).rejects.toThrow();
+
+    const connection = createRedis(redis.url);
+    await connection.connect();
+    const queue = createDeadlineQueue(connection);
+    await queue.obliterate({ force: true });
+    expect(await queue.getJob(deadlineJobId(gameId, 0))).toBeUndefined();
+
+    const second = await startServer(config, logger);
+    expect(await queue.getJob(deadlineJobId(gameId, 0))).toBeDefined();
+    await second.stop();
+    await queue.close();
+    await connection.quit();
+  });
+
+  it("cleans up when the port is taken", async () => {
+    const port = await freePort();
+    const blocker = createServer();
+    await new Promise<void>((resolve) => blocker.listen(port, "127.0.0.1", resolve));
+    const config = loadConfig({
+      DATABASE_URL: tdb.url,
+      REDIS_URL: redis.url,
+      API_PORT: String(port),
+      API_HOST: "127.0.0.1",
+      LOG_LEVEL: "silent",
+    });
+    await expect(startServer(config, pino({ level: "silent" }))).rejects.toThrow(/EADDRINUSE/);
+    await new Promise<void>((resolve) => blocker.close(() => resolve()));
+  });
+});
+```
+
+Run: `pnpm --filter @aichess/api add pino@^10.0.0 && pnpm --filter @aichess/api test -- start`
+Expected: FAIL, cannot resolve `./start.js`.
+
+- [ ] **Step 5: Rewrite deps, adjust the app, write start and server**
+
+`apps/api/src/deps.ts`:
+
+```ts
+import { createRuntime, type RuntimeHandle, type RuntimeLogger } from "@aichess/runtime";
+import type { FastifyBaseLogger } from "fastify";
+import type { ApiConfig } from "./config.js";
+
+export interface AppDeps extends Omit<RuntimeHandle, "close"> {
+  config: ApiConfig;
+  logger?: FastifyBaseLogger;
+}
+
+export interface DepsHandle {
+  deps: AppDeps;
+  close: () => Promise<void>;
+}
+
+export async function createDeps(
+  config: ApiConfig,
+  logger: RuntimeLogger & Partial<FastifyBaseLogger>,
+): Promise<DepsHandle> {
+  const runtime = await createRuntime(
+    {
+      databaseUrl: config.DATABASE_URL,
+      redisUrl: config.REDIS_URL,
+      game: {
+        timePerMoveMs: config.DEFAULT_TIME_PER_MOVE_MS,
+        moveLimitPlies: config.MOVE_LIMIT_PLIES,
+        illegalAttemptsPerTurn: config.ILLEGAL_ATTEMPTS_PER_TURN,
+      },
+    },
+    logger,
+  );
+  const shared = "child" in logger && typeof logger.child === "function" ? (logger as FastifyBaseLogger) : undefined;
+  return {
+    deps: {
+      config,
+      db: runtime.db,
+      redis: runtime.redis,
+      bus: runtime.bus,
+      deadlines: runtime.deadlines,
+      service: runtime.service,
+      ...(shared === undefined ? {} : { logger: shared }),
+    },
+    close: runtime.close,
+  };
+}
+```
+
+`noopLogger` has no `child`, so the harness keeps Fastify's own silent logger; a pino instance is shared.
+
+In `apps/api/src/app.ts`, replace the `Fastify({...})` call with:
+
+```ts
+const app = Fastify({
+  ...(deps.logger === undefined ? { logger: { level: deps.config.LOG_LEVEL } } : { loggerInstance: deps.logger }),
+  requestIdHeader: "x-request-id",
+  trustProxy: deps.config.TRUST_PROXY,
+});
+```
+
+`apps/api/src/start.ts`:
+
+```ts
+import type { FastifyInstance } from "fastify";
+import type { Logger } from "pino";
+import { buildApp } from "./app.js";
+import type { ApiConfig } from "./config.js";
+import { createDeps, type AppDeps } from "./deps.js";
+
+export interface RunningServer {
+  app: FastifyInstance;
+  deps: AppDeps;
+  stop: () => Promise<void>;
+}
+
+export async function startServer(config: ApiConfig, logger: Logger): Promise<RunningServer> {
+  const handle = await createDeps(config, logger);
+  let app: FastifyInstance | null = null;
+  try {
+    app = await buildApp(handle.deps);
+    const rearmed = await handle.deps.service.rearmActiveDeadlines();
+    logger.info({ rearmed }, "deadlines re-armed on boot");
+    await app.listen({ port: config.API_PORT, host: config.API_HOST });
+  } catch (error) {
+    if (app !== null) await app.close();
+    await handle.close();
+    throw error;
+  }
+  const running = app;
+  let stopped = false;
+  return {
+    app: running,
+    deps: handle.deps,
+    stop: async () => {
+      if (stopped) return;
+      stopped = true;
+      await running.close();
+      await handle.close();
+    },
+  };
+}
+```
+
+`apps/api/src/server.ts`:
+
+```ts
+import pino from "pino";
+import { ConfigError, loadConfig } from "./config.js";
+import { startServer } from "./start.js";
+
+function readConfig(): ReturnType<typeof loadConfig> {
+  try {
+    return loadConfig();
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+const config = readConfig();
+const logger = pino({ level: config.LOG_LEVEL });
+const server = await startServer(config, logger);
+logger.info({ port: config.API_PORT, host: config.API_HOST }, "api listening");
+
+let shuttingDown = false;
+const shutdown = async (signal: string): Promise<void> => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "shutting down");
+  try {
+    await server.stop();
+    process.exit(0);
+  } catch (error) {
+    logger.error({ err: error }, "shutdown failed");
+    process.exit(1);
+  }
+};
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+```
+
+- [ ] **Step 6: Run tests, lint, build and typecheck**
+
+Run: `pnpm --filter @aichess/api test && pnpm lint && pnpm build && pnpm --filter @aichess/api typecheck && pnpm format:check`
+Expected: all api tests pass, including `start`. Then a manual smoke, with `docker compose up -d` and `.env` in place:
+
+```bash
+DATABASE_URL=postgres://aichess:aichess@localhost:5432/aichess pnpm --filter @aichess/db migrate
+pnpm --filter @aichess/api dev &
+curl -s localhost:3001/health
+kill %1
+```
+
+Expected: `{"status":"ok","checks":{"postgres":"ok","redis":"ok"}}` and a clean exit on SIGTERM.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/runtime apps/api pnpm-lock.yaml
+git commit -m "feat(api): shared createRuntime, server entrypoint with re-arm and graceful shutdown"
+```
+
+---
+
+### Task 9: Deadline processor in runtime
+
+**Files:**
+
+- Create: `packages/runtime/src/jobs/deadline-worker.ts`
+- Modify: `packages/runtime/src/index.ts`
+- Test: `packages/runtime/src/jobs/deadline-worker.test.ts`
+
+**Interfaces:**
+
+- Consumes: `Worker`, `Job` from `bullmq`; `DEADLINES_QUEUE`, `DeadlineJobData`, `DeadlineNotReachedError`, `deadlineBackoffStrategy`; `GameService.expireDeadline`.
+- Produces:
+  - `processDeadline(job: Pick<Job<DeadlineJobData>, "data" | "id" | "attemptsMade">, service: GameService, logger: RuntimeLogger): Promise<ExpireResult>`; throws `DeadlineNotReachedError` when the service reports `deadline_not_reached`, so BullMQ retries at `fireAt`.
+  - `createDeadlineWorker(input: { connection: Redis; service: GameService; logger: RuntimeLogger; concurrency?: number }): Worker<DeadlineJobData>` with the custom backoff strategy installed and `failed`/`error` events logged. The caller owns `connection` and closes it after `worker.close()`.
+- The processor lives in `runtime` so that `apps/worker` stays a thin shell and the end-to-end test in `apps/api` can run a real worker in-process.
+
+- [ ] **Step 1: Write the failing tests**
+
+`packages/runtime/src/jobs/deadline-worker.test.ts`:
+
+```ts
+import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
+import { DEFAULT_GAME_CONFIG } from "@aichess/core/protocol";
+import type { Redis } from "ioredis";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createRedis } from "../events/bus.js";
+import type { GameAgents } from "../events/wire.js";
+import { noopLogger } from "../logger.js";
+import { createRuntime, type RuntimeHandle } from "../runtime.js";
+import { seedTwoAgents, startTestRedis, type TestRedis } from "../testing.js";
+import { createDeadlineWorker, processDeadline } from "./deadline-worker.js";
+import { DeadlineNotReachedError, deadlineJobId, scheduleDeadline } from "./deadlines.js";
+
+async function waitFor(predicate: () => Promise<boolean>, timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  while (!(await predicate())) {
+    if (Date.now() - start > timeoutMs) throw new Error("timed out waiting for condition");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+describe("deadline worker", () => {
+  let tdb: TestDatabase;
+  let redis: TestRedis;
+  let runtime: RuntimeHandle;
+  let workerConnection: Redis;
+  let agents: GameAgents;
+
+  beforeAll(async () => {
+    tdb = await startTestDatabase();
+    redis = await startTestRedis();
+    runtime = await createRuntime({ databaseUrl: tdb.url, redisUrl: redis.url, game: DEFAULT_GAME_CONFIG }, noopLogger);
+    workerConnection = createRedis(redis.url);
+    await workerConnection.connect();
+  });
+
+  afterAll(async () => {
+    await workerConnection.quit();
+    await runtime.close();
+    await redis.stop();
+    await tdb.stop();
+  });
+
+  beforeEach(async () => {
+    await truncateAll(runtime.db);
+    await runtime.deadlines.obliterate({ force: true });
+    agents = await seedTwoAgents(runtime.db);
+  });
+
+  it("throws DeadlineNotReachedError for an early job so BullMQ retries it later", async () => {
+    const created = await runtime.service.createAndStartGame({
+      whiteAgentId: agents.white.id,
+      blackAgentId: agents.black.id,
+    });
+    if (!created.ok) throw new Error(created.code);
+    await expect(
+      processDeadline(
+        { id: "x", attemptsMade: 0, data: { gameId: created.snapshot.id, ply: 0 } },
+        runtime.service,
+        noopLogger,
+      ),
+    ).rejects.toBeInstanceOf(DeadlineNotReachedError);
+  });
+
+  it("aborts a game nobody played once the clock runs out", async () => {
+    const worker = createDeadlineWorker({ connection: workerConnection, service: runtime.service, logger: noopLogger });
+    try {
+      const created = await runtime.service.createAndStartGame({
+        whiteAgentId: agents.white.id,
+        blackAgentId: agents.black.id,
+        config: { timePerMoveMs: 1_000 },
+      });
+      if (!created.ok) throw new Error(created.code);
+      const gameId = created.snapshot.id;
+      await waitFor(async () => (await runtime.service.getSnapshot(gameId))?.status === "aborted", 8_000);
+      expect(await runtime.service.getSnapshot(gameId)).toMatchObject({ status: "aborted", termination: "aborted" });
+    } finally {
+      await worker.close();
+    }
+  });
+
+  it("makes the side on move lose after both have played, even if the job was scheduled early", async () => {
+    const worker = createDeadlineWorker({ connection: workerConnection, service: runtime.service, logger: noopLogger });
+    try {
+      const created = await runtime.service.createAndStartGame({
+        whiteAgentId: agents.white.id,
+        blackAgentId: agents.black.id,
+        config: { timePerMoveMs: 1_500 },
+      });
+      if (!created.ok) throw new Error(created.code);
+      const gameId = created.snapshot.id;
+      const w = await runtime.service.submitMove({ gameId, agentId: agents.white.id, ply: 0, move: "e4" });
+      if (!w.ok) throw new Error(w.code);
+      const b = await runtime.service.submitMove({ gameId, agentId: agents.black.id, ply: 1, move: "e5" });
+      if (!b.ok) throw new Error(b.code);
+      await runtime.deadlines.remove(deadlineJobId(gameId, 2));
+      await scheduleDeadline(runtime.deadlines, { gameId, ply: 2 }, Date.now() - 10_000, Date.now());
+      await waitFor(async () => (await runtime.service.getSnapshot(gameId))?.status === "finished", 8_000);
+      expect(await runtime.service.getSnapshot(gameId)).toMatchObject({
+        status: "finished",
+        result: "0-1",
+        termination: "timeout",
+      });
+    } finally {
+      await worker.close();
+    }
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `pnpm --filter @aichess/runtime test -- deadline-worker`
+Expected: FAIL, cannot resolve `./deadline-worker.js`.
+
+- [ ] **Step 3: Write the processor and the worker factory**
+
+`packages/runtime/src/jobs/deadline-worker.ts`:
+
+```ts
+import { Worker, type Job } from "bullmq";
+import type { Redis } from "ioredis";
+import type { ExpireResult, GameService } from "../games/service.js";
+import type { RuntimeLogger } from "../logger.js";
+import {
+  DEADLINES_QUEUE,
+  DeadlineNotReachedError,
+  deadlineBackoffStrategy,
+  type DeadlineJobData,
+} from "./deadlines.js";
+
+const DEFAULT_CONCURRENCY = 10;
+
+export type DeadlineJobLike = Pick<Job<DeadlineJobData>, "data" | "id" | "attemptsMade">;
+
+export async function processDeadline(
+  job: DeadlineJobLike,
+  service: GameService,
+  logger: RuntimeLogger,
+): Promise<ExpireResult> {
+  const result = await service.expireDeadline(job.data);
+  if (!result.ok && result.code === "deadline_not_reached") {
+    throw new DeadlineNotReachedError(result.fireAt);
+  }
+  if (result.ok && result.applied) {
+    logger.info(
+      { jobId: job.id, gameId: job.data.gameId, ply: job.data.ply, termination: result.snapshot.termination },
+      "deadline applied",
+    );
+  }
+  return result;
+}
+
+export interface DeadlineWorkerInput {
+  connection: Redis;
+  service: GameService;
+  logger: RuntimeLogger;
+  concurrency?: number;
+}
+
+export function createDeadlineWorker(input: DeadlineWorkerInput): Worker<DeadlineJobData> {
+  const worker = new Worker<DeadlineJobData>(
+    DEADLINES_QUEUE,
+    (job) => processDeadline(job, input.service, input.logger),
+    {
+      connection: input.connection,
+      concurrency: input.concurrency ?? DEFAULT_CONCURRENCY,
+      settings: {
+        backoffStrategy: (attemptsMade: number, type?: string, err?: Error) =>
+          deadlineBackoffStrategy(attemptsMade, type, err),
+      },
+    },
+  );
+  worker.on("failed", (job, error) => {
+    if (error instanceof DeadlineNotReachedError) return;
+    input.logger.warn({ jobId: job?.id, attemptsMade: job?.attemptsMade, err: error }, "deadline job failed");
+  });
+  worker.on("error", (error) => {
+    input.logger.error({ err: error }, "deadline worker error");
+  });
+  return worker;
+}
+```
+
+Add `export * from "./jobs/deadline-worker.js";` to `packages/runtime/src/index.ts`.
+
+- [ ] **Step 4: Run tests, lint, build and typecheck**
+
+Run: `pnpm --filter @aichess/runtime test && pnpm lint && pnpm build && pnpm --filter @aichess/runtime typecheck && pnpm format:check`
+Expected: all runtime tests pass. The abort test takes about 2 to 3 seconds (1 s clock, 1 s grace, BullMQ delayed-job polling). If BullMQ rejects the `backoffStrategy` signature, match it to the installed `WorkerOptions["settings"]` type exactly rather than loosening `deadlineBackoffStrategy`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/runtime
+git commit -m "feat(runtime): deadline processor and worker factory with retry-at-fire-time backoff"
+```
+
+---
+
+### Task 10: Shared env schema, reconciler in runtime, worker app
+
+**Files:**
+
+- Create: `packages/runtime/src/config.ts`
+- Create: `packages/runtime/src/jobs/reconciler.ts`
+- Modify: `packages/runtime/package.json` (add `zod`)
+- Modify: `packages/runtime/src/index.ts`
+- Modify: `apps/api/src/config.ts` (extend the shared schema)
+- Create: `apps/worker/package.json`, `apps/worker/tsconfig.json`, `apps/worker/tsconfig.build.json`, `apps/worker/vitest.config.ts`
+- Create: `apps/worker/src/config.ts`
+- Create: `apps/worker/src/health.ts`
+- Create: `apps/worker/src/start.ts`
+- Create: `apps/worker/src/main.ts`
+- Test: `packages/runtime/src/config.test.ts`, `packages/runtime/src/jobs/reconciler.test.ts`, `apps/worker/src/health.test.ts`, `apps/worker/src/start.test.ts`
+
+**Interfaces:**
+
+- Produces (runtime config): `RuntimeEnvSchema` (zod object with `DATABASE_URL`, `REDIS_URL`, `LOG_LEVEL`, `DEFAULT_TIME_PER_MOVE_MS`, `MOVE_LIMIT_PLIES`, `ILLEGAL_ATTEMPTS_PER_TURN`), `LOG_LEVELS`, `BooleanFromString`, `class ConfigError`, `parseEnv<T>(schema: z.ZodType<T>, env: NodeJS.ProcessEnv): T` (throws `ConfigError` naming every invalid variable), `gameConfigFrom(env: { DEFAULT_TIME_PER_MOVE_MS; MOVE_LIMIT_PLIES; ILLEGAL_ATTEMPTS_PER_TURN }): GameConfig`, `runtimeConfigFrom(env): RuntimeConfig`.
+- Produces (reconciler): `RECONCILE_LOCK_KEY = "lock:reconcile"`, `startReconciler(input: { redis: Redis; service: GameService; logger: RuntimeLogger; intervalMs: number; staleTurnMs: number; lockTtlMs?: number; instanceId?: string }): Reconciler` where `interface Reconciler { runOnce(): Promise<ReconcileReport | null>; stop(): Promise<void> }`. `runOnce` returns `null` when another instance holds the lock. The lock is `SET NX PX` and released with a compare-and-delete Lua script.
+- Produces (worker app): `loadConfig(env)` → `WorkerConfig` = runtime env plus `RECONCILE_INTERVAL_MS` (10000), `RECONCILE_STALE_TURN_MS` (10000), `DEADLINE_CONCURRENCY` (10), `WORKER_HEALTH_PORT` (3002), `WORKER_HEALTH_HOST` ("0.0.0.0"); `startHealthServer(input: { host: string; port: number; check: () => Promise<boolean> }): Promise<{ port: number; close: () => Promise<void> }>`; `startWorker(config: WorkerConfig, logger: Logger): Promise<{ stop: () => Promise<void>; healthPort: number }>`; `main.ts` entrypoint with signal handling.
+- The api's `loadConfig` keeps its exported name and shape; internally it becomes `parseEnv(RuntimeEnvSchema.extend({...}), env)` and re-exports `ConfigError` from runtime so existing tests keep passing.
+
+- [ ] **Step 1: Write the failing runtime tests**
+
+`packages/runtime/src/config.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { ConfigError, RuntimeEnvSchema, gameConfigFrom, parseEnv, runtimeConfigFrom } from "./config.js";
+
+const base = { DATABASE_URL: "postgres://u:p@localhost:5432/db", REDIS_URL: "redis://localhost:6379" };
+
+describe("runtime config", () => {
+  it("parses the shared variables with defaults", () => {
+    const env = parseEnv(RuntimeEnvSchema, base);
+    expect(env).toMatchObject({
+      LOG_LEVEL: "info",
+      DEFAULT_TIME_PER_MOVE_MS: 60_000,
+      MOVE_LIMIT_PLIES: 300,
+      ILLEGAL_ATTEMPTS_PER_TURN: 3,
+    });
+    expect(gameConfigFrom(env)).toEqual({ timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 });
+    expect(runtimeConfigFrom(env)).toEqual({
+      databaseUrl: base.DATABASE_URL,
+      redisUrl: base.REDIS_URL,
+      game: gameConfigFrom(env),
+    });
+  });
+
+  it("names every invalid variable", () => {
+    expect(() => parseEnv(RuntimeEnvSchema, { REDIS_URL: "redis://x", MOVE_LIMIT_PLIES: "1" })).toThrow(ConfigError);
+    try {
+      parseEnv(RuntimeEnvSchema, { REDIS_URL: "redis://x", MOVE_LIMIT_PLIES: "1" });
+    } catch (error) {
+      expect((error as Error).message).toContain("DATABASE_URL");
+      expect((error as Error).message).toContain("MOVE_LIMIT_PLIES");
+    }
+  });
+
+  it("lets apps extend the schema", () => {
+    const schema = RuntimeEnvSchema.extend({ EXTRA_PORT: z.coerce.number().int().default(9) });
+    expect(parseEnv(schema, base).EXTRA_PORT).toBe(9);
+  });
+});
+```
+
+`packages/runtime/src/jobs/reconciler.test.ts`:
+
+```ts
+import { DEFAULT_GAME_CONFIG, type WireEvent } from "@aichess/core/protocol";
+import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { GameAgents } from "../events/wire.js";
+import { noopLogger } from "../logger.js";
+import { createRuntime, type RuntimeHandle } from "../runtime.js";
+import { seedTwoAgents, startTestRedis, type TestRedis } from "../testing.js";
+import { RECONCILE_LOCK_KEY, startReconciler } from "./reconciler.js";
+
+async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error("timed out waiting for condition");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
+describe("reconciler", () => {
+  let tdb: TestDatabase;
+  let redis: TestRedis;
+  let runtime: RuntimeHandle;
+  let agents: GameAgents;
+
+  beforeAll(async () => {
+    tdb = await startTestDatabase();
+    redis = await startTestRedis();
+    runtime = await createRuntime({ databaseUrl: tdb.url, redisUrl: redis.url, game: DEFAULT_GAME_CONFIG }, noopLogger);
+  });
+
+  afterAll(async () => {
+    await runtime.close();
+    await redis.stop();
+    await tdb.stop();
+  });
+
+  beforeEach(async () => {
+    await truncateAll(runtime.db);
+    await runtime.deadlines.obliterate({ force: true });
+    await runtime.redis.del(RECONCILE_LOCK_KEY);
+    agents = await seedTwoAgents(runtime.db);
+  });
+
+  it("lets only one instance run a sweep at a time and releases the lock afterwards", async () => {
+    const make = (id: string) =>
+      startReconciler({
+        redis: runtime.redis,
+        service: runtime.service,
+        logger: noopLogger,
+        intervalMs: 60_000,
+        staleTurnMs: 60_000,
+        instanceId: id,
+      });
+    const a = make("a");
+    const b = make("b");
+    try {
+      const [ra, rb] = await Promise.all([a.runOnce(), b.runOnce()]);
+      expect([ra, rb].filter((r) => r !== null)).toHaveLength(1);
+      expect(await runtime.redis.exists(RECONCILE_LOCK_KEY)).toBe(0);
+      expect(await b.runOnce()).toEqual({ scanned: 0, republished: 0, rescheduled: 0 });
+    } finally {
+      await a.stop();
+      await b.stop();
+    }
+  });
+
+  it("re-publishes a stalled turn on its interval", async () => {
+    const created = await runtime.service.createAndStartGame({
+      whiteAgentId: agents.white.id,
+      blackAgentId: agents.black.id,
+    });
+    if (!created.ok) throw new Error(created.code);
+    const white: WireEvent[] = [];
+    const off = await runtime.bus.subscribeAgent(agents.white.id, (e) => white.push(e));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    white.length = 0;
+    const reconciler = startReconciler({
+      redis: runtime.redis,
+      service: runtime.service,
+      logger: noopLogger,
+      intervalMs: 200,
+      staleTurnMs: 100,
+    });
+    try {
+      await waitFor(() => white.some((e) => e.type === "game.your_turn"), 3_000);
+      expect(white.find((e) => e.type === "game.your_turn")).toMatchObject({ gameId: created.snapshot.id, ply: 0 });
+    } finally {
+      await reconciler.stop();
+      await off();
+    }
+  });
+});
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `pnpm --filter @aichess/runtime add zod@^4.1.0 && pnpm --filter @aichess/runtime test -- "config|reconciler"`
+Expected: FAIL, cannot resolve `./config.js` and `./reconciler.js`.
+
+- [ ] **Step 3: Write the runtime config and the reconciler**
+
+`packages/runtime/src/config.ts`:
+
+```ts
+import type { GameConfig } from "@aichess/core/protocol";
+import { z } from "zod";
+import type { RuntimeConfig } from "./runtime.js";
+
+export const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"] as const;
+
+export const BooleanFromString = z
+  .union([z.boolean(), z.string()])
+  .transform((v) => (typeof v === "boolean" ? v : v.trim().toLowerCase() === "true" || v.trim() === "1"));
+
+export const RuntimeEnvSchema = z.object({
+  DATABASE_URL: z.string().min(1),
+  REDIS_URL: z.string().min(1),
+  LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
+  DEFAULT_TIME_PER_MOVE_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
+  MOVE_LIMIT_PLIES: z.coerce.number().int().min(2).max(2_000).default(300),
+  ILLEGAL_ATTEMPTS_PER_TURN: z.coerce.number().int().min(1).max(10).default(3),
+});
+
+export type RuntimeEnv = z.infer<typeof RuntimeEnvSchema>;
+
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigError";
+  }
+}
+
+export function parseEnv<T>(schema: z.ZodType<T>, env: NodeJS.ProcessEnv): T {
+  const parsed = schema.safeParse(env);
+  if (parsed.success) return parsed.data;
+  const lines = parsed.error.issues.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`);
+  throw new ConfigError(`Invalid configuration:\n${lines.join("\n")}`);
+}
+
+export function gameConfigFrom(
+  env: Pick<RuntimeEnv, "DEFAULT_TIME_PER_MOVE_MS" | "MOVE_LIMIT_PLIES" | "ILLEGAL_ATTEMPTS_PER_TURN">,
+): GameConfig {
+  return {
+    timePerMoveMs: env.DEFAULT_TIME_PER_MOVE_MS,
+    moveLimitPlies: env.MOVE_LIMIT_PLIES,
+    illegalAttemptsPerTurn: env.ILLEGAL_ATTEMPTS_PER_TURN,
+  };
+}
+
+export function runtimeConfigFrom(env: RuntimeEnv): RuntimeConfig {
+  return { databaseUrl: env.DATABASE_URL, redisUrl: env.REDIS_URL, game: gameConfigFrom(env) };
+}
+```
+
+`packages/runtime/src/jobs/reconciler.ts`:
+
+```ts
+import { randomUUID } from "node:crypto";
+import type { Redis } from "ioredis";
+import type { GameService, ReconcileReport } from "../games/service.js";
+import type { RuntimeLogger } from "../logger.js";
+
+export const RECONCILE_LOCK_KEY = "lock:reconcile";
+
+const RELEASE_SCRIPT = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`;
+
+export interface ReconcilerInput {
+  redis: Redis;
+  service: GameService;
+  logger: RuntimeLogger;
+  intervalMs: number;
+  staleTurnMs: number;
+  lockTtlMs?: number;
+  instanceId?: string;
+}
+
+export interface Reconciler {
+  runOnce(): Promise<ReconcileReport | null>;
+  stop(): Promise<void>;
+}
+
+export function startReconciler(input: ReconcilerInput): Reconciler {
+  const instanceId = input.instanceId ?? randomUUID();
+  const lockTtlMs = input.lockTtlMs ?? Math.max(input.intervalMs, 1_000);
+  let inFlight: Promise<ReconcileReport | null> | null = null;
+
+  const runOnce = async (): Promise<ReconcileReport | null> => {
+    const acquired = await input.redis.set(RECONCILE_LOCK_KEY, instanceId, "PX", lockTtlMs, "NX");
+    if (acquired !== "OK") return null;
+    try {
+      return await input.service.reconcile({ staleTurnMs: input.staleTurnMs });
+    } finally {
+      await input.redis.eval(RELEASE_SCRIPT, 1, RECONCILE_LOCK_KEY, instanceId);
+    }
+  };
+
+  const tick = (): void => {
+    if (inFlight !== null) return;
+    inFlight = runOnce()
+      .catch((error: unknown) => {
+        input.logger.error({ err: error }, "reconcile failed");
+        return null;
+      })
+      .finally(() => {
+        inFlight = null;
+      });
+  };
+
+  const timer = setInterval(tick, input.intervalMs);
+  return {
+    runOnce,
+    stop: async () => {
+      clearInterval(timer);
+      if (inFlight !== null) await inFlight;
+    },
+  };
+}
+```
+
+Add to `packages/runtime/src/index.ts`:
+
+```ts
+export * from "./config.js";
+export * from "./jobs/reconciler.js";
+```
+
+Replace `apps/api/src/config.ts` with:
+
+```ts
+import { BooleanFromString, ConfigError, LOG_LEVELS, RuntimeEnvSchema, parseEnv } from "@aichess/runtime";
+import { z } from "zod";
+
+export { ConfigError, LOG_LEVELS };
+
+const EnvSchema = RuntimeEnvSchema.extend({
+  API_PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
+  API_HOST: z.string().min(1).default("0.0.0.0"),
+  WEB_ORIGIN: z.url().optional(),
+  INTERNAL_API_TOKEN: z.string().min(32).optional(),
+  RATE_LIMIT_AGENT_PER_MINUTE: z.coerce.number().int().min(1).default(120),
+  RATE_LIMIT_PUBLIC_PER_MINUTE: z.coerce.number().int().min(1).default(300),
+  SSE_PING_INTERVAL_MS: z.coerce.number().int().min(1_000).default(15_000),
+  PRESENCE_TTL_SECONDS: z.coerce.number().int().min(5).default(30),
+  TRUST_PROXY: BooleanFromString.default(false),
+});
+
+export type ApiConfig = z.infer<typeof EnvSchema>;
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
+  return parseEnv(EnvSchema, env);
+}
+```
+
+and in `apps/api/src/deps.ts` use `gameConfigFrom(config)` from `@aichess/runtime` instead of the inline `game` object.
+
+Run: `pnpm --filter @aichess/runtime test && pnpm build && pnpm --filter @aichess/api test -- config`
+Expected: runtime tests pass, the api config tests still pass.
+
+- [ ] **Step 4: Scaffold the worker app and write its failing tests**
+
+`apps/worker/package.json`:
+
+```json
+{
+  "name": "@aichess/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "start": "node dist/main.js",
+    "dev": "pnpm build && node --env-file=../../.env dist/main.js"
+  },
+  "dependencies": {
+    "@aichess/runtime": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "ioredis": "^5.6.0",
+    "pino": "^10.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@aichess/core": "workspace:*",
+    "@aichess/db": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
+```
+
+`apps/worker/tsconfig.json`, `tsconfig.build.json` and `vitest.config.ts`: identical to the api ones (Task 2, Step 1), with the same six aliases.
+
+`apps/worker/src/health.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { startHealthServer } from "./health.js";
+
+describe("worker health server", () => {
+  it("reports ok or degraded from the check", async () => {
+    let healthy = true;
+    const server = await startHealthServer({ host: "127.0.0.1", port: 0, check: async () => healthy });
+    try {
+      const ok = await fetch(`http://127.0.0.1:${server.port}/health`);
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({ status: "ok" });
+      healthy = false;
+      const degraded = await fetch(`http://127.0.0.1:${server.port}/health`);
+      expect(degraded.status).toBe(503);
+      expect((await fetch(`http://127.0.0.1:${server.port}/other`)).status).toBe(404);
+    } finally {
+      await server.close();
+    }
+  });
+});
+```
+
+`apps/worker/src/start.test.ts`:
+
+```ts
+import { startTestDatabase, type TestDatabase } from "@aichess/db/testing";
+import { createRuntime, type RuntimeHandle } from "@aichess/runtime";
+import { DEFAULT_GAME_CONFIG } from "@aichess/core/protocol";
+import { noopLogger } from "@aichess/runtime";
+import { seedTwoAgents, startTestRedis, type TestRedis } from "@aichess/runtime/testing";
+import pino from "pino";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { loadConfig } from "./config.js";
+import { startWorker } from "./start.js";
+
+async function waitFor(predicate: () => Promise<boolean>, timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  while (!(await predicate())) {
+    if (Date.now() - start > timeoutMs) throw new Error("timed out waiting for condition");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+describe("startWorker", () => {
+  let tdb: TestDatabase;
+  let redis: TestRedis;
+  let runtime: RuntimeHandle;
+
+  beforeAll(async () => {
+    tdb = await startTestDatabase();
+    redis = await startTestRedis();
+    runtime = await createRuntime({ databaseUrl: tdb.url, redisUrl: redis.url, game: DEFAULT_GAME_CONFIG }, noopLogger);
+  });
+
+  afterAll(async () => {
+    await runtime.close();
+    await redis.stop();
+    await tdb.stop();
+  });
+
+  it("expires deadlines, serves health and stops cleanly", async () => {
+    const config = loadConfig({
+      DATABASE_URL: tdb.url,
+      REDIS_URL: redis.url,
+      LOG_LEVEL: "silent",
+      WORKER_HEALTH_PORT: "0",
+      WORKER_HEALTH_HOST: "127.0.0.1",
+      RECONCILE_INTERVAL_MS: "1000",
+    });
+    const worker = await startWorker(config, pino({ level: "silent" }));
+    try {
+      expect((await fetch(`http://127.0.0.1:${worker.healthPort}/health`)).status).toBe(200);
+      const agents = await seedTwoAgents(runtime.db);
+      const created = await runtime.service.createAndStartGame({
+        whiteAgentId: agents.white.id,
+        blackAgentId: agents.black.id,
+        config: { timePerMoveMs: 1_000 },
+      });
+      if (!created.ok) throw new Error(created.code);
+      await waitFor(async () => (await runtime.service.getSnapshot(created.snapshot.id))?.status === "aborted", 8_000);
+    } finally {
+      await worker.stop();
+    }
+    await expect(fetch(`http://127.0.0.1:${worker.healthPort}/health`)).rejects.toThrow();
+  });
+});
+```
+
+`WORKER_HEALTH_PORT` accepts `0` (ephemeral) so tests can bind anywhere; production sets a real port.
+
+Run: `pnpm install && pnpm --filter @aichess/worker test`
+Expected: FAIL, cannot resolve `./health.js`, `./config.js`, `./start.js`.
+
+- [ ] **Step 5: Write the worker app**
+
+`apps/worker/src/config.ts`:
+
+```ts
+import { ConfigError, RuntimeEnvSchema, parseEnv } from "@aichess/runtime";
+import { z } from "zod";
+
+export { ConfigError };
+
+const EnvSchema = RuntimeEnvSchema.extend({
+  RECONCILE_INTERVAL_MS: z.coerce.number().int().min(500).default(10_000),
+  RECONCILE_STALE_TURN_MS: z.coerce.number().int().min(100).default(10_000),
+  DEADLINE_CONCURRENCY: z.coerce.number().int().min(1).max(100).default(10),
+  WORKER_HEALTH_PORT: z.coerce.number().int().min(0).max(65_535).default(3002),
+  WORKER_HEALTH_HOST: z.string().min(1).default("0.0.0.0"),
+});
+
+export type WorkerConfig = z.infer<typeof EnvSchema>;
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
+  return parseEnv(EnvSchema, env);
+}
+```
+
+`apps/worker/src/health.ts`:
+
+```ts
+import { createServer, type Server } from "node:http";
+
+export interface HealthServerInput {
+  host: string;
+  port: number;
+  check: () => Promise<boolean>;
+}
+
+export interface HealthServer {
+  port: number;
+  close: () => Promise<void>;
+}
+
+export async function startHealthServer(input: HealthServerInput): Promise<HealthServer> {
+  const server: Server = createServer((request, response) => {
+    if (request.method !== "GET" || request.url !== "/health") {
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: "not_found", message: "Route not found" }));
+      return;
+    }
+    input
+      .check()
+      .then((healthy) => {
+        response.writeHead(healthy ? 200 : 503, { "content-type": "application/json" });
+        response.end(JSON.stringify({ status: healthy ? "ok" : "degraded" }));
+      })
+      .catch(() => {
+        response.writeHead(503, { "content-type": "application/json" });
+        response.end(JSON.stringify({ status: "degraded" }));
+      });
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(input.port, input.host, () => resolve());
+  });
+  const address = server.address();
+  const port = address !== null && typeof address !== "string" ? address.port : input.port;
+  return {
+    port,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error === undefined ? resolve() : reject(error)));
+        server.closeAllConnections();
+      }),
+  };
+}
+```
+
+`apps/worker/src/start.ts`:
+
+```ts
+import { createDeadlineWorker, createRedis, createRuntime, runtimeConfigFrom, startReconciler } from "@aichess/runtime";
+import { sql } from "drizzle-orm";
+import type { Logger } from "pino";
+import type { WorkerConfig } from "./config.js";
+import { startHealthServer } from "./health.js";
+
+export interface RunningWorker {
+  healthPort: number;
+  stop: () => Promise<void>;
+}
+
+export async function startWorker(config: WorkerConfig, logger: Logger): Promise<RunningWorker> {
+  const runtime = await createRuntime(runtimeConfigFrom(config), logger);
+  const workerConnection = createRedis(config.REDIS_URL);
+  try {
+    await workerConnection.connect();
+  } catch (error) {
+    workerConnection.disconnect();
+    await runtime.close();
+    throw error;
+  }
+
+  const worker = createDeadlineWorker({
+    connection: workerConnection,
+    service: runtime.service,
+    logger,
+    concurrency: config.DEADLINE_CONCURRENCY,
+  });
+  const reconciler = startReconciler({
+    redis: runtime.redis,
+    service: runtime.service,
+    logger,
+    intervalMs: config.RECONCILE_INTERVAL_MS,
+    staleTurnMs: config.RECONCILE_STALE_TURN_MS,
+  });
+
+  const rearmed = await runtime.service.rearmActiveDeadlines();
+  logger.info({ rearmed }, "deadlines re-armed on boot");
+
+  let health: Awaited<ReturnType<typeof startHealthServer>>;
+  try {
+    health = await startHealthServer({
+      host: config.WORKER_HEALTH_HOST,
+      port: config.WORKER_HEALTH_PORT,
+      check: async () => {
+        const [db, redis] = await Promise.allSettled([runtime.db.execute(sql`select 1`), runtime.redis.ping()]);
+        return db.status === "fulfilled" && redis.status === "fulfilled";
+      },
+    });
+  } catch (error) {
+    await reconciler.stop();
+    await worker.close();
+    await workerConnection.quit();
+    await runtime.close();
+    throw error;
+  }
+
+  let stopped = false;
+  return {
+    healthPort: health.port,
+    stop: async () => {
+      if (stopped) return;
+      stopped = true;
+      await reconciler.stop();
+      await worker.close();
+      await workerConnection.quit();
+      await health.close();
+      await runtime.close();
+    },
+  };
+}
+```
+
+`apps/worker/src/main.ts`:
+
+```ts
+import pino from "pino";
+import { ConfigError, loadConfig } from "./config.js";
+import { startWorker } from "./start.js";
+
+function readConfig(): ReturnType<typeof loadConfig> {
+  try {
+    return loadConfig();
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+const config = readConfig();
+const logger = pino({ level: config.LOG_LEVEL });
+const worker = await startWorker(config, logger);
+logger.info({ healthPort: worker.healthPort }, "worker running");
+
+let shuttingDown = false;
+const shutdown = async (signal: string): Promise<void> => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "shutting down");
+  try {
+    await worker.stop();
+    process.exit(0);
+  } catch (error) {
+    logger.error({ err: error }, "shutdown failed");
+    process.exit(1);
+  }
+};
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+```
+
+- [ ] **Step 6: Run tests, lint, build and typecheck**
+
+Run: `pnpm --filter @aichess/worker test && pnpm lint && pnpm build && pnpm --filter @aichess/worker typecheck && pnpm --filter @aichess/api typecheck && pnpm format:check`
+Expected: 2 worker test files pass; api still typechecks against the refactored config.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/runtime apps/api apps/worker pnpm-lock.yaml
+git commit -m "feat(worker): shared env schema, locked reconciliation sweep, worker process with health"
+```
+
+---
+
+### Task 11: End-to-end: two agents over HTTP and SSE with a live worker
+
+**Files:**
+
+- Create: `apps/api/src/e2e.test.ts`
+
+**Interfaces:**
+
+- Consumes: the harness (`listen: true`), `openSseClient`, `createDeadlineWorker`, `createRedis` from `@aichess/runtime`.
+- Produces: nothing new; this is the acceptance test for roadmap step 2.
+
+- [ ] **Step 1: Write the end-to-end test**
+
+`apps/api/src/e2e.test.ts`:
+
+```ts
+import { createDeadlineWorker, createRedis } from "@aichess/runtime";
+import { noopLogger } from "@aichess/runtime";
+import type { Worker } from "bullmq";
+import type { Redis } from "ioredis";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { openSseClient, type SseClient } from "./test-utils/sse-client.js";
+import { startHarness, type Harness, type SeededAgent } from "./test-utils/harness.js";
+
+describe("end to end", () => {
+  let h: Harness;
+  let workerConnection: Redis;
+  let worker: Worker;
+  const clients: SseClient[] = [];
+
+  beforeAll(async () => {
+    h = await startHarness({ listen: true });
+    workerConnection = createRedis(h.config.REDIS_URL);
+    await workerConnection.connect();
+    worker = createDeadlineWorker({ connection: workerConnection, service: h.deps.service, logger: noopLogger });
+  });
+
+  afterAll(async () => {
+    await worker.close();
+    await workerConnection.quit();
+    await h.stop();
+  });
+
+  beforeEach(async () => {
+    await h.reseed();
+  });
+
+  afterEach(async () => {
+    for (const c of clients.splice(0)) c.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
+  async function connect(agent: SeededAgent): Promise<SseClient> {
+    const client = await openSseClient(`${h.baseUrl}/v1/agent/events`, { authorization: `Bearer ${agent.key}` });
+    clients.push(client);
+    await client.take("hello");
+    return client;
+  }
+
+  async function post(agent: SeededAgent, path: string, body?: unknown): Promise<Response> {
+    return fetch(`${h.baseUrl}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${agent.key}` },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  }
+
+  async function playScript(client: SseClient, agent: SeededAgent, gameId: string, moves: string[]): Promise<void> {
+    for (const san of moves) {
+      const turn = await client.take("game.your_turn", 10_000);
+      if (turn.type !== "game.your_turn") throw new Error("expected your_turn");
+      expect(turn.gameId).toBe(gameId);
+      const res = await post(agent, `/v1/games/${gameId}/move`, {
+        ply: turn.ply,
+        move: san,
+        comment: `playing ${san}`,
+      });
+      expect(res.status).toBe(200);
+    }
+  }
+
+  it("plays a complete game to checkmate over the wire", async () => {
+    const white = await connect(h.agents.white);
+    const black = await connect(h.agents.black);
+    const gameId = await h.createGame();
+    const spectator = await openSseClient(`${h.baseUrl}/v1/games/${gameId}/stream`);
+    clients.push(spectator);
+    await spectator.take("game.snapshot");
+
+    await Promise.all([
+      playScript(white, h.agents.white, gameId, ["f3", "g4"]),
+      playScript(black, h.agents.black, gameId, ["e5", "Qh4#"]),
+    ]);
+
+    const whiteEnd = await white.take("game.end");
+    const blackEnd = await black.take("game.end");
+    expect(whiteEnd).toMatchObject({ gameId, result: "0-1", termination: "checkmate" });
+    expect(blackEnd).toMatchObject({ gameId, result: "0-1", termination: "checkmate" });
+    if (whiteEnd.type === "game.end") expect(whiteEnd.pgn).toContain("Qh4#");
+
+    const seen: string[] = [];
+    for (;;) {
+      const event = await spectator.take(undefined, 2_000);
+      if (event.type === "ping") continue;
+      seen.push(event.type);
+      if (event.type === "game.end") break;
+    }
+    expect(seen).toEqual([
+      "game.move",
+      "game.turn",
+      "game.move",
+      "game.turn",
+      "game.move",
+      "game.turn",
+      "game.move",
+      "game.end",
+    ]);
+
+    const snapshot = await (await fetch(`${h.baseUrl}/v1/games/${gameId}`)).json();
+    expect(snapshot).toMatchObject({ status: "finished", history: ["f3", "e5", "g4", "Qh4#"] });
+  });
+
+  it("lets the worker end a game on time", async () => {
+    const white = await connect(h.agents.white);
+    const black = await connect(h.agents.black);
+    const gameId = await h.createGame(1_000);
+    await playScript(white, h.agents.white, gameId, ["e4"]);
+    await playScript(black, h.agents.black, gameId, ["e5"]);
+    await white.take("game.your_turn");
+    const end = await black.take("game.end", 10_000);
+    expect(end).toMatchObject({ gameId, result: "0-1", termination: "timeout" });
+    expect(await white.take("game.end", 10_000)).toMatchObject({ gameId, termination: "timeout" });
+  });
+
+  it("aborts a game where nobody moved", async () => {
+    const white = await connect(h.agents.white);
+    const gameId = await h.createGame(1_000);
+    await white.take("game.your_turn");
+    expect(await white.take("game.end", 10_000)).toMatchObject({ gameId, result: "*", termination: "aborted" });
+  });
+
+  it("re-syncs an agent that reconnects mid-game", async () => {
+    const white = await connect(h.agents.white);
+    const black = await connect(h.agents.black);
+    const gameId = await h.createGame();
+    await playScript(white, h.agents.white, gameId, ["d4"]);
+    await playScript(black, h.agents.black, gameId, ["d5"]);
+    await white.take("game.your_turn");
+    white.close();
+    await white.closed;
+
+    const again = await openSseClient(`${h.baseUrl}/v1/agent/events`, {
+      authorization: `Bearer ${h.agents.white.key}`,
+    });
+    clients.push(again);
+    const hello = await again.take("hello");
+    if (hello.type !== "hello") throw new Error("expected hello");
+    expect(hello.activeGame).toMatchObject({ id: gameId, ply: 2, turn: "white" });
+    expect(hello.activeGame?.legalMoves?.length).toBeGreaterThan(0);
+    expect(await again.take("game.your_turn")).toMatchObject({ gameId, ply: 2 });
+  });
+
+  it("forfeits an agent after three illegal attempts, visibly", async () => {
+    const white = await connect(h.agents.white);
+    const black = await connect(h.agents.black);
+    const gameId = await h.createGame();
+    const spectator = await openSseClient(`${h.baseUrl}/v1/games/${gameId}/stream`);
+    clients.push(spectator);
+    await spectator.take("game.snapshot");
+    await white.take("game.your_turn");
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const res = await post(h.agents.white, `/v1/games/${gameId}/move`, { ply: 0, move: "Ke2" });
+      expect(res.status).toBe(422);
+      const body = (await res.json()) as { details: { attemptsLeft: number } };
+      expect(body.details.attemptsLeft).toBe(2 - attempt);
+      expect(await spectator.take("game.illegal_attempt")).toMatchObject({ gameId, attemptsLeft: 2 - attempt });
+    }
+    expect(await black.take("game.end")).toMatchObject({ gameId, result: "0-1", termination: "illegal_moves" });
+    expect(await spectator.take("game.end")).toMatchObject({ gameId, termination: "illegal_moves" });
+  });
+});
+```
+
+- [ ] **Step 2: Run it**
+
+Run: `pnpm --filter @aichess/api test -- e2e`
+Expected: 5 tests pass in under a minute. If the spectator's event order differs, check that `game.turn` is published after `game.move` in `toWireEvents` and that the bus pipeline preserves order.
+
+- [ ] **Step 3: Run the whole workspace and commit**
+
+Run: `pnpm lint && pnpm test && pnpm typecheck && pnpm format:check`
+Expected: green across core, db, runtime, api, worker.
+
+```bash
+git add apps/api
+git commit -m "test(api): end-to-end games over HTTP and SSE with a live deadline worker"
+```
+
+---
+
+### Task 12: Documentation, env example, spec alignment, README status
+
+**Files:**
+
+- Create: `apps/api/README.md`
+- Create: `apps/worker/README.md`
+- Modify: `.env.example`
+- Modify: `docs/superpowers/specs/2026-09-03-aichess-platform-design.md` (sections 4, 6, 7, 13)
+- Modify: `README.md` (status table, roadmap step 2, test badge)
+
+- [ ] **Step 1: Write the app READMEs**
+
+`apps/api/README.md`:
+
+```markdown
+# @aichess/api
+
+Fastify process exposing the game runtime to agents and spectators.
+
+| Route                       | Auth               | Purpose                                                                                      |
+| --------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| `GET /health`               | none               | Postgres and Redis checks, 200 or 503                                                        |
+| `GET /v1/agent/events`      | bearer             | Agent SSE stream: `hello`, `game.*`, `ping`                                                  |
+| `GET /v1/agent/me`          | bearer             | Agent summary, `online`, `activeGameId`                                                      |
+| `GET /v1/games/:id`         | optional           | Snapshot; legal moves when it is the caller's turn                                           |
+| `POST /v1/games/:id/move`   | bearer             | `{ ply, move, comment? }`; 422 with legal moves when illegal                                 |
+| `POST /v1/games/:id/resign` | bearer             | Resign                                                                                       |
+| `GET /v1/games/:id/stream`  | none               | Spectator SSE: `game.snapshot`, `game.turn`, `game.move`, `game.illegal_attempt`, `game.end` |
+| `POST /v1/internal/games`   | `x-internal-token` | Operator route to start a game between two agents                                            |
+
+Errors are `{ error, message, details? }` with stable codes. Rate limits: per API key on agent routes, per IP elsewhere; `Retry-After` on 429.
+
+## Run
+```
+
+cp .env.example .env
+docker compose up -d
+pnpm --filter @aichess/db migrate
+pnpm --filter @aichess/api dev
+
+```
+
+## Notes
+
+- One SSE stream per agent per API instance; presence lives in Redis (`presence:agent:{id}`, TTL 30 s, refreshed on every ping).
+- Events are published after the database commit. If Redis is down at that moment the move is still durable; the worker's reconciliation sweep re-publishes the pending turn.
+- `startServer` re-arms deadline jobs for active games on boot.
+```
+
+`apps/worker/README.md`:
+
+```markdown
+# @aichess/worker
+
+BullMQ process for everything that happens without an HTTP request.
+
+- **Deadline processor** on the `deadlines` queue: applies timeouts with the game row locked. A job that fires before `deadline + grace` throws `DeadlineNotReachedError` and is retried at the right time by the custom backoff strategy.
+- **Reconciliation sweep** every `RECONCILE_INTERVAL_MS` under the Redis lock `lock:reconcile`: re-schedules missing deadline jobs and re-publishes `game.your_turn` for turns stalled longer than `RECONCILE_STALE_TURN_MS`.
+- **Health** on `WORKER_HEALTH_PORT`: `GET /health` checks Postgres and Redis.
+```
+
+pnpm --filter @aichess/worker dev
+
+```
+
+Several workers can run at once: BullMQ distributes deadline jobs, and the lock keeps a single sweep running.
+```
+
+- [ ] **Step 2: Extend `.env.example`**
+
+Append:
+
+```
+API_PORT=3001
+API_HOST=0.0.0.0
+WEB_ORIGIN=http://localhost:3000
+# INTERNAL_API_TOKEN=<at least 32 random characters, enables POST /v1/internal/games>
+RATE_LIMIT_AGENT_PER_MINUTE=120
+RATE_LIMIT_PUBLIC_PER_MINUTE=300
+SSE_PING_INTERVAL_MS=15000
+PRESENCE_TTL_SECONDS=30
+TRUST_PROXY=false
+RECONCILE_INTERVAL_MS=10000
+RECONCILE_STALE_TURN_MS=10000
+DEADLINE_CONCURRENCY=10
+WORKER_HEALTH_PORT=3002
+```
+
+- [ ] **Step 3: Align the spec**
+
+In `docs/superpowers/specs/2026-09-03-aichess-platform-design.md`:
+
+- Section 6, under "### Endpoint", add: ``- `GET /v1/agent/me`: `{ agent, status, online, activeGameId }`.`` and, as a new bullet at the end of the section: ``- `POST /v1/internal/games` con header `x-internal-token` (`INTERNAL_API_TOKEN`): crea e avvia una partita tra due agenti. Route per operatori e test, disattivata se la variabile manca.``
+- Section 7, after the "Scadenze" paragraph, add: "Riconciliazione: il worker esegue ogni `RECONCILE_INTERVAL_MS` uno sweep sotto lock Redis che riaccoda i job di scadenza mancanti e ripubblica `game.your_turn` per i turni fermi da piu' di `RECONCILE_STALE_TURN_MS`. I client trattano un `your_turn` ripetuto per la stessa coppia (partita, semimossa) come duplicato."
+- Section 7, in the "Stream SSE nell'api" paragraph, add: "La regola di un solo stream per agente vale per istanza; la presenza in Redis e' condivisa."
+- Section 13, extend the variable list with `API_HOST`, `INTERNAL_API_TOKEN`, `RATE_LIMIT_AGENT_PER_MINUTE`, `RATE_LIMIT_PUBLIC_PER_MINUTE`, `SSE_PING_INTERVAL_MS`, `PRESENCE_TTL_SECONDS`, `TRUST_PROXY`, `RECONCILE_INTERVAL_MS`, `RECONCILE_STALE_TURN_MS`, `DEADLINE_CONCURRENCY`, `WORKER_HEALTH_PORT`, `WORKER_HEALTH_HOST`.
+
+- [ ] **Step 4: Update the README**
+
+In `README.md`:
+
+- Status table: replace the `apps/api`, `apps/worker` row with `| \`apps/api\`, \`apps/worker\` | Implemented. Bearer auth, rate limits, agent and spectator SSE, deadline worker, reconciliation sweep, end-to-end tests over HTTP |`.
+- Roadmap: mark step 2 done: `- [x] **2. Game runtime.** ...` (drop the "(done)" parenthetical).
+- Test badge: update the count to the number reported by `pnpm test` at the root.
+
+- [ ] **Step 5: Verify and commit**
+
+Run: `pnpm format && pnpm format:check && pnpm lint && pnpm test && pnpm typecheck`
+Expected: green.
+
+```bash
+git add apps/api/README.md apps/worker/README.md .env.example docs/superpowers/specs README.md
+git commit -m "docs: api and worker READMEs, env example, spec and status for roadmap step 2"
+```
+
+---
+
+## Plan Self-Review Notes
+
+- Spec coverage for roadmap step 2: section 6 agent endpoints (`events`, `me`, game snapshot, move, resign, public stream) in Tasks 5 to 7; the queue endpoints are Plan 3. Section 7 SSE registries and presence in Task 6, deadline jobs processed by the worker in Task 9, re-arm on boot in Tasks 8 and 10. Section 13 API keys and constant-time comparison in Task 3, rate limiting in Task 4, CORS in Task 4, zod-validated configuration in Tasks 2 and 10. Section 14 request ids, error mapping, 503 on connectivity failures and health checks in Tasks 2, 3 and 10. Section 15 integration tests with real containers throughout and the end-to-end test in Task 11.
+- The spec's "deadline job fires at `move_deadline_at + 1000 ms`" is honoured in `runtime`; the worker only adds retry-at-fire-time semantics for jobs that arrive early.
+- Type consistency checked while writing: `AppDeps` is defined once in `deps.ts` and re-exported from `app.ts`; `startHarness` gains `listen`, `baseUrl`, `createGame`, `seedAgent` across Tasks 5 and 6 and every later test uses those names; `registerGameRoutes` takes the `GameStreamRegistry` from Task 7 onward; `ConfigError` moves to `runtime` in Task 10 and the api re-exports it so `config.test.ts` from Task 2 keeps importing it from `./config.js`.
+- Not in this plan: matchmaking and queue routes (Plan 3), ratings in `game.end` (Plan 3), web app (Plan 4), SDKs (Plan 5), Docker images and TLS (Plan 7).
