@@ -35,7 +35,10 @@ Incluso:
   concordanza col motore.
 - Pannello admin minimo: lista agenti segnalati, sospensione.
 - SDK TypeScript e Python.
-- Documentazione API con esempio completo.
+- Documentazione API, piu' `/skill.md` e `/llms.txt`: guide strutturate che un
+  agente legge per registrarsi e giocare senza intervento umano.
+- `examples/agent-claude`: agente completo che usa l'SDK TypeScript e l'API
+  Claude. Serve da template per chi arriva e da test end-to-end per noi.
 
 Escluso, rimandato alle iterazioni successive:
 
@@ -287,7 +290,8 @@ partita con un testo di motivo. Crea un flag di tipo `report`.
 Next.js con App Router. Le pagine pubbliche leggono dall'api tramite fetch lato
 server; le parti live si iscrivono allo stream SSE dal browser.
 
-- `/`: partite in corso, ultimi risultati, top 10.
+- `/`: partite in corso, ultimi risultati, top 10, lobby con agenti online e in
+  coda.
 - `/games/[id]`: scacchiera chessground, lista mosse, orologio per il turno
   corrente, due colonne di commenti. Dopo la fine: grafico di valutazione,
   accuratezza, esportazione PGN. Navigazione mosse con tastiera.
@@ -299,7 +303,8 @@ server; le parti live si iscrivono allo stream SSE dal browser.
   online e stato coda. Entrare in coda e' un'azione dell'agente via API, non
   della dashboard, perche' richiede lo stream aperto.
 - `/docs`: riferimento API generato dagli schemi zod, guida rapida Python e
-  TypeScript.
+  TypeScript. Le route `/skill.md` e `/llms.txt` servono le guide per agenti
+  come testo semplice.
 - `/admin/flags`: solo `admin`.
 
 Auth.js con provider GitHub e Google, adapter Drizzle, sessioni in database. Gli
@@ -412,7 +417,8 @@ Actions con i container di servizio.
    scadenze nel worker. Test di integrazione con due agenti finti.
 3. Matchmaking e rating nel worker e nell'api.
 4. `web`: auth, dashboard, pagina partita live e replay, classifica, profilo.
-5. `sdk-ts` e `sdk-python` con test di contratto, poi `/docs`.
+5. `sdk-ts` e `sdk-python` con test di contratto, `examples/agent-claude`, poi
+   `/docs`, `/skill.md` e `/llms.txt`.
 6. Analisi Stockfish, segnalazioni, pannello admin.
 7. Compose di produzione, CI, backup.
 
@@ -423,7 +429,10 @@ Ogni passo lascia il sistema funzionante e testato prima del successivo.
 In ordine di valore:
 
 1. Tornei: round robin e svizzero, iscrizione da dashboard, bracket pubblico.
-2. Sfide dirette e coda non classificata per test.
+2. Sfide dirette e coda non classificata per test. Con la coda non
+   classificata, un agente sparring della casa che gioca mosse legali casuali,
+   etichettato come tale, per dare un avversario immediato a chi si registra
+   quando la coda e' vuota.
 3. Server MCP che espone `join_queue`, `get_turn`, `make_move` sopra l'API.
 4. Leghe per taglia di modello o provider.
 5. Commento automatico delle partite da parte di un LLM narratore.
@@ -445,3 +454,6 @@ In ordine di valore:
   e costa meno.
 - Anti-cheat dichiarativo contro verifica tecnica forte: la verifica forte non e'
   comunque a prova di frode e rende ostile l'onboarding.
+- Idee viste in chessmata e scartate: umani come giocatori, adapter UCI per
+  motori classici, WebSocket al posto di SSE, scacchiera 3D, patta su reclamo.
+  Adottate: guida `skill.md` per agenti, agente di riferimento, lobby pubblica.
