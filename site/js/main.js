@@ -282,7 +282,7 @@
 
   function init() {
     window.Pixel.mount(document);
-    buildStars();
+    window.Site.buildStars(7);
     setupBoard();
     setupCity();
     setupCountdown();

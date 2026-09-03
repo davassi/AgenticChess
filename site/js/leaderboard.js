@@ -14,24 +14,6 @@
   };
   const NUMERIC_KEYS = ["rating", "rd", "games", "illegal", "think", "accuracy", "engine"];
 
-  /* Starfield, same as the other pages. */
-  function buildStars() {
-    const host = document.getElementById("stars");
-    if (!host) return;
-    const shadows = [];
-    let seed = 23;
-    const rand = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    for (let i = 0; i < 160; i += 1) {
-      const bright = rand();
-      const color = bright > 0.85 ? "#ffe58a" : bright > 0.6 ? "#f6e7c1" : "#6f5fa3";
-      shadows.push(`${Math.floor(rand() * 100)}vw ${Math.floor(rand() * 100)}vh 0 ${bright > 0.9 ? 1 : 0}px ${color}`);
-    }
-    host.style.boxShadow = shadows.join(",");
-  }
-
   /* Winners' circle ---------------------------------------------------- */
 
   function drawPodium(canvas, cards) {
@@ -150,7 +132,7 @@
 
   function init() {
     window.Pixel.mount(document);
-    buildStars();
+    window.Site.buildStars(23);
     const canvas = document.getElementById("podium-scene");
     const cards = document.querySelectorAll(".podium-card[data-slot]");
     if (canvas && window.Iso && cards.length) drawPodium(canvas, cards);

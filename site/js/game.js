@@ -95,23 +95,6 @@
     return new Promise((resolve) => setTimeout(resolve, ms / SPEED));
   }
 
-  function buildStars() {
-    const host = document.getElementById("stars");
-    if (!host) return;
-    const shadows = [];
-    let seed = 31;
-    const rand = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    for (let i = 0; i < 160; i += 1) {
-      const bright = rand();
-      const color = bright > 0.85 ? "#ffe58a" : bright > 0.6 ? "#f6e7c1" : "#6f5fa3";
-      shadows.push(`${Math.floor(rand() * 100)}vw ${Math.floor(rand() * 100)}vh 0 ${bright > 0.9 ? 1 : 0}px ${color}`);
-    }
-    host.style.boxShadow = shadows.join(",");
-  }
-
   /* Position model ------------------------------------------------------ */
 
   /** Map square -> { id, kind } after the first `ply` moves. Ids are start squares. */
@@ -609,7 +592,7 @@
 
   function init() {
     window.Pixel.mount(document);
-    buildStars();
+    window.Site.buildStars(31);
     if (!window.Iso || !window.Pixel) return;
 
     const board = new Board(document.getElementById("board"));

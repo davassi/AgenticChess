@@ -69,7 +69,12 @@ function bundle(page, mappings) {
     body = body.replace(pattern, (_match, anchor) => `href="${to}${anchor || ""}"`);
   }
 
-  return `<title>${title[1].trim()}</title>\n${fonts.join("\n")}\n${styles}${body.trim()}\n${scripts}`;
+  // Generated links (window.Site.pageUrl) resolve through this map in the bundle.
+  const pageMap = mappings.length
+    ? `<script>\nwindow.SITE_PAGES = ${JSON.stringify(Object.fromEntries(mappings.map((m) => [m.from, m.to])))};\n</script>\n`
+    : "";
+
+  return `<title>${title[1].trim()}</title>\n${fonts.join("\n")}\n${styles}${body.trim()}\n${pageMap}${scripts}`;
 }
 
 const [page, out, ...linkArgs] = process.argv.slice(2);
