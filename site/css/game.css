@@ -1,0 +1,333 @@
+/* Agentic Chess live game: a 2D board, two agents, their words. */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.screen--game { padding-top: 48px; }
+.frame--game { background-color: var(--dusk-deep); }
+.hud--live { display: inline-flex; align-items: center; gap: 10px; }
+.hud--right { left: auto; right: 28px; color: var(--muted); }
+.live-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--lime);
+  box-shadow: 0 0 0 2px var(--ink);
+  animation: pulse 1.2s steps(2, start) infinite;
+}
+@keyframes pulse { to { visibility: hidden; } }
+
+.game {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(240px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.stage { display: grid; gap: 12px; }
+
+/* Players ------------------------------------------------------------ */
+
+.player {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(160px, 200px);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--ink);
+  border: 4px solid var(--muted);
+}
+.player.is-active { border-color: var(--gold); }
+.player--white.is-active { border-color: var(--cyan); }
+.player--black.is-active { border-color: var(--magenta); }
+.player-avatar svg { display: block; }
+.player--black .player-avatar svg { transform: scaleX(-1); }
+.player-id { display: grid; gap: 2px; min-width: 0; }
+.player-id b { font-family: var(--font-display); font-weight: 400; font-size: 10px; color: var(--ivory); }
+.player-id span { font-size: 14px; color: var(--muted); }
+.player .clock { margin: 0; }
+
+/* Board -------------------------------------------------------------- */
+
+.board-shell {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 20px;
+  gap: 4px;
+}
+.ranks, .files {
+  display: grid;
+  font-family: var(--font-display);
+  font-size: 8px;
+  color: var(--muted);
+}
+.ranks { grid-template-rows: repeat(8, 1fr); align-items: center; }
+.files { grid-column: 2; grid-template-columns: repeat(8, 1fr); justify-items: center; align-items: center; }
+
+.board2d {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 4px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--ink);
+  background: var(--rust);
+  overflow: hidden;
+  --px-scale: 3;
+}
+.board2d:focus-visible { outline: 4px solid var(--gold); outline-offset: 4px; }
+.squares, .marks, .pieces {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+}
+.sq--light { background: var(--ivory); }
+.sq--dark { background: var(--rust); }
+.marks { pointer-events: none; }
+.mark { position: absolute; width: 12.5%; height: 12.5%; }
+.mark--last { background: rgba(255, 194, 51, 0.45); box-shadow: inset 0 0 0 3px rgba(255, 194, 51, 0.8); }
+.mark--check { background: rgba(255, 68, 68, 0.55); }
+.mark--illegal {
+  background: rgba(255, 68, 68, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--red);
+  text-shadow: 2px 2px 0 var(--ink);
+  animation: blink-fast 0.25s steps(2, start) 6;
+}
+@keyframes blink-fast { to { visibility: hidden; } }
+
+.pieces { display: block; pointer-events: none; }
+.piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12.5%;
+  height: 12.5%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4%;
+  transition: transform 280ms steps(6), opacity 200ms steps(4);
+}
+.piece svg {
+  display: block;
+  width: calc(15px * var(--px-scale));
+  height: calc(20px * var(--px-scale));
+  filter: drop-shadow(2px 2px 0 rgba(6, 3, 20, 0.35));
+}
+.piece.is-captured { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(1.3); }
+.piece.is-shaking { animation: shake 0.5s steps(8); }
+@keyframes shake {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: -4%; }
+  75% { margin-left: 4%; }
+}
+
+.result {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: rgba(11, 7, 22, 0.86);
+  color: var(--ivory);
+}
+.result-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(16px, 3vw, 28px);
+  color: var(--gold);
+  text-shadow: 4px 4px 0 var(--ink), 8px 8px 0 var(--rust);
+}
+.result-score { margin: 0; font-family: var(--font-display); font-size: 11px; }
+.result-ratings { margin: 0; font-size: 17px; color: var(--muted); }
+.result-next { margin: 8px 0 0; font-size: 15px; color: var(--muted); }
+.board-hint { margin: 0; font-size: 14px; color: var(--muted); }
+
+/* Move list ------------------------------------------------------------ */
+
+.movelist-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  background: var(--ink);
+  border: 4px solid var(--ivory);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.5);
+  padding: 14px;
+  min-height: 420px;
+  max-height: 720px;
+}
+.panel-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 9px;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.moves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+}
+.moves li {
+  display: grid;
+  grid-template-columns: 4ch 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+.moves .num { font-family: var(--font-code); font-size: 13px; color: var(--muted); }
+.moves button {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 9px;
+  color: var(--text);
+  padding: 6px 8px;
+}
+.moves button:hover { background: var(--dusk-deep); }
+.moves button:focus-visible { outline: 4px solid var(--gold); }
+.moves button.is-current { background: var(--gold); color: var(--ink); }
+.moves button.has-illegal::after { content: " ✗"; color: var(--red); }
+.moves button.is-current.has-illegal::after { color: var(--ink); }
+.panel-foot { margin: 0; font-size: 14px; color: var(--muted); }
+
+/* Comment feeds --------------------------------------------------------- */
+
+.feeds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+.feed {
+  background: var(--ink);
+  border: 4px solid var(--ivory);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.feed--white { border-color: var(--cyan); }
+.feed--black { border-color: var(--magenta); }
+.dot { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--ink); }
+.dot--w { background: var(--cyan); }
+.dot--b { background: var(--magenta); }
+.feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  font-size: 16px;
+}
+.feed-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 10px;
+  background: var(--dusk-deep);
+}
+.feed-list b { font-family: var(--font-display); font-weight: 400; font-size: 9px; color: var(--ivory); }
+.feed-list q { quotes: "“" "”"; color: var(--text); }
+.feed-list small { font-size: 13px; color: var(--muted); }
+.feed-list .is-illegal { background: rgba(255, 68, 68, 0.12); }
+.feed-list .is-illegal b { color: var(--red); }
+.feed-list .is-illegal span { color: #ff9a9a; }
+.feed-list:empty::after { content: "Waiting for the first move."; color: var(--muted); font-size: 15px; }
+
+/* Replay --------------------------------------------------------------- */
+
+.replay-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.eval {
+  margin: 0;
+  background: var(--ink);
+  border: 4px solid var(--ivory);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+.eval-plot svg { display: block; width: 100%; height: auto; }
+.eval-tip { margin: 0; font-size: 15px; color: var(--muted); min-height: 1.3em; font-variant-numeric: tabular-nums; }
+.eval-table summary { cursor: pointer; font-size: 15px; color: var(--muted); }
+.eval-table table { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.eval-table th, .eval-table td { text-align: left; padding: 4px 8px; border-top: 2px solid rgba(246, 231, 193, 0.08); }
+.replay-side { display: grid; gap: 20px; }
+.tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.tiles li {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--ink);
+  border: 4px solid var(--dusk);
+  font-size: 16px;
+}
+.tiles b { font-family: var(--font-display); font-weight: 400; font-size: 9px; color: var(--gold); margin-bottom: 4px; }
+.tiles span { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
+.pgn { background: var(--ink); border: 4px solid var(--ivory); padding: 14px; display: grid; gap: 10px; }
+.pgn textarea {
+  width: 100%;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ivory);
+  background: var(--dusk-deep);
+  border: 4px solid var(--muted);
+  padding: 10px;
+  resize: vertical;
+}
+.pgn-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.btn--copy { cursor: pointer; padding: 12px 16px; }
+.pgn-status { font-size: 15px; color: var(--lime); }
+
+/* Responsive --------------------------------------------------------- */
+
+@media (max-width: 1000px) {
+  .game { grid-template-columns: 1fr; }
+  .movelist-panel { min-height: 0; max-height: 320px; }
+}
+@media (max-width: 700px) {
+  .player { grid-template-columns: auto 1fr; }
+  .player .clock { grid-column: 1 / 3; }
+  .feeds, .replay-grid { grid-template-columns: 1fr; }
+  .hud--right { display: none; }
+  .board2d { box-shadow: 4px 4px 0 var(--ink); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece { transition: none; }
+  .live-dot, .mark--illegal { animation: none; }
+  .piece.is-shaking { animation: none; }
+}

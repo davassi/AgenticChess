@@ -590,6 +590,10 @@ h1 {
   color: #ff9a9a;
 }
 
+.watch-live {
+  margin: 0;
+  padding: 16px 16px 4px;
+}
 .replay-strip {
   list-style: none;
   margin: 0;
