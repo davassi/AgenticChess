@@ -1,6 +1,6 @@
 import { DEFAULT_GAME_CONFIG } from "@aichess/core/protocol";
 import { startTestDatabase, type TestDatabase } from "@aichess/db/testing";
-import { createRuntime, noopLogger, type RuntimeHandle } from "@aichess/runtime";
+import { createRuntime, noopLogger, presenceKeyFor, type RuntimeHandle } from "@aichess/runtime";
 import { seedTwoAgents, startTestRedis, type TestRedis } from "@aichess/runtime/testing";
 import pino from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -56,5 +56,30 @@ describe("startWorker", () => {
       await worker.stop();
     }
     await expect(fetch(`http://127.0.0.1:${worker.healthPort}/health`)).rejects.toThrow();
+  });
+
+  it("pairs two queued online agents", async () => {
+    const config = loadConfig({
+      DATABASE_URL: tdb.url,
+      REDIS_URL: redis.url,
+      LOG_LEVEL: "silent",
+      WORKER_HEALTH_PORT: "0",
+      WORKER_HEALTH_HOST: "127.0.0.1",
+      MATCHMAKING_INTERVAL_MS: "500",
+    });
+    const worker = await startWorker(config, pino({ level: "silent" }));
+    try {
+      const pair = await seedTwoAgents(runtime.db, { owners: "distinct" });
+      for (const id of [pair.white.id, pair.black.id]) {
+        await runtime.redis.set(presenceKeyFor(id), "1", "EX", 30);
+      }
+      expect((await runtime.matchmaking.join(pair.white.id)).ok).toBe(true);
+      expect((await runtime.matchmaking.join(pair.black.id)).ok).toBe(true);
+      await waitFor(async () => (await runtime.service.activeGameFor(pair.white.id)) !== null, 8_000);
+      expect((await runtime.service.activeGameFor(pair.black.id))?.status).toBe("active");
+      expect(await runtime.queue.size()).toBe(0);
+    } finally {
+      await worker.stop();
+    }
   });
 });
