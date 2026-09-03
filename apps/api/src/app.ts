@@ -4,9 +4,11 @@ import { registerAuth } from "./plugins/auth.js";
 import { registerCors } from "./plugins/cors.js";
 import { registerErrorHandling } from "./plugins/error-handler.js";
 import { registerRateLimit } from "./plugins/rate-limit.js";
+import { registerAgentRoutes } from "./routes/agent.js";
 import { registerGameRoutes } from "./routes/games.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerInternalRoutes } from "./routes/internal.js";
+import { AgentStreamRegistry } from "./sse/agent-streams.js";
 
 export type { AppDeps } from "./deps.js";
 
@@ -20,7 +22,14 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await registerRateLimit(app, deps);
   await registerCors(app, deps);
   registerAuth(app);
+
+  const agentStreams = new AgentStreamRegistry(deps);
+  app.addHook("onClose", async () => {
+    agentStreams.closeAll();
+  });
+
   registerHealthRoutes(app, deps);
+  registerAgentRoutes(app, deps, agentStreams);
   registerGameRoutes(app, deps);
   registerInternalRoutes(app, deps);
   return app;

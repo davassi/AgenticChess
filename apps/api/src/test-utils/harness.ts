@@ -23,14 +23,17 @@ export interface Harness {
   config: ApiConfig;
   deps: AppDeps;
   db: Database;
+  baseUrl: string;
   agents: { white: SeededAgent; black: SeededAgent };
   seedAgent: () => Promise<SeededAgent>;
+  createGame: (timePerMoveMs?: number) => Promise<string>;
   reseed: () => Promise<void>;
   stop: () => Promise<void>;
 }
 
 export interface HarnessOptions {
   env?: Record<string, string>;
+  listen?: boolean;
   register?: (app: FastifyInstance, deps: AppDeps) => void;
 }
 
@@ -64,15 +67,39 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
   const app = await buildApp(handle.deps);
   options.register?.(app, handle.deps);
   await app.ready();
+
+  let baseUrl = "";
+  if (options.listen === true) {
+    await app.listen({ port: 0, host: "127.0.0.1" });
+    const address = app.server.address();
+    if (address === null || typeof address === "string") throw new Error("server did not bind to a TCP port");
+    baseUrl = `http://127.0.0.1:${address.port}`;
+  }
+
   const harness: Harness = {
     app,
     config,
     deps: handle.deps,
     db: handle.deps.db,
+    baseUrl,
     agents: await seedWithKeys(handle.deps.db),
     seedAgent: async () => {
       const extra = await seedTwoAgents(handle.deps.db);
       return assignKey(handle.deps.db, extra.white);
+    },
+    createGame: async (timePerMoveMs) => {
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/internal/games",
+        headers: { "x-internal-token": TEST_INTERNAL_TOKEN },
+        payload: {
+          whiteAgentId: harness.agents.white.id,
+          blackAgentId: harness.agents.black.id,
+          ...(timePerMoveMs === undefined ? {} : { timePerMoveMs }),
+        },
+      });
+      if (res.statusCode !== 201) throw new Error(`createGame failed: ${res.statusCode} ${res.body}`);
+      return (res.json() as { id: string }).id;
     },
     reseed: async () => {
       await truncateAll(handle.deps.db);
