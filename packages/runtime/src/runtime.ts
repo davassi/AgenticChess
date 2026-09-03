@@ -35,6 +35,8 @@ export async function createRuntime(config: RuntimeConfig, logger: RuntimeLogger
   const dbHandle = createDb(config.databaseUrl, config.dbPoolMax === undefined ? {} : { max: config.dbPoolMax });
   const redis = createRedis(config.redisUrl);
   const queueConnection = createRedis(config.redisUrl);
+  redis.on("error", (error: Error) => logger.error({ err: error, connection: "general" }, "redis error"));
+  queueConnection.on("error", (error: Error) => logger.error({ err: error, connection: "queue" }, "redis error"));
   let bus: EventBus | null = null;
   try {
     await connectOrThrow(redis);
