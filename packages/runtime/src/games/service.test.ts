@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { applyGameRatings, initialRating } from "@aichess/core";
 import { DEFAULT_GAME_CONFIG, NETWORK_GRACE_MS, type WireEvent } from "@aichess/core/protocol";
-import { games, moveAttempts, type Database } from "@aichess/db";
+import { games, moveAttempts, ratingHistory, ratings, type Database } from "@aichess/db";
 import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
 import { eq } from "drizzle-orm";
 import type { Redis } from "ioredis";
@@ -442,6 +443,113 @@ describe("GameService", () => {
       await service.resign({ gameId, agentId: agents.black.id });
       clock = T0 + 60_000;
       expect(await service.reconcile({ staleTurnMs: 1 })).toEqual({ scanned: 0, republished: 0, rescheduled: 0 });
+    });
+  });
+
+  describe("ratings", () => {
+    async function foolsMate(gameId: string): Promise<void> {
+      for (const san of ["f3", "e5", "g4", "Qh4#"]) await play(gameId, san);
+    }
+
+    function endEvent(list: WireEvent[]): Extract<WireEvent, { type: "game.end" }> {
+      const found = list.find((e) => e.type === "game.end");
+      if (found === undefined || found.type !== "game.end") throw new Error("expected game.end");
+      return found;
+    }
+
+    it("settles both ratings in the finishing transaction and reports them in game.end", async () => {
+      const white: WireEvent[] = [];
+      const black: WireEvent[] = [];
+      const pub: WireEvent[] = [];
+      const offWhite = await bus.subscribeAgent(agents.white.id, (e) => white.push(e));
+      const offBlack = await bus.subscribeAgent(agents.black.id, (e) => black.push(e));
+      const gameId = await newGame();
+      const offPublic = await bus.subscribeGame(gameId, (e) => pub.push(e));
+      await foolsMate(gameId);
+
+      const expected = applyGameRatings(initialRating(), initialRating(), "0-1");
+      if (expected === null) throw new Error("expected a rated result");
+
+      const rows = await db.select().from(ratings);
+      const w = rows.find((r) => r.agentId === agents.white.id);
+      const b = rows.find((r) => r.agentId === agents.black.id);
+      expect(w?.rating).toBeCloseTo(expected.white.rating, 6);
+      expect(w?.gamesPlayed).toBe(1);
+      expect(w?.lastGameAt?.getTime()).toBe(clock);
+      expect(b?.rating).toBeCloseTo(expected.black.rating, 6);
+
+      expect(await db.select().from(ratingHistory).where(eq(ratingHistory.gameId, gameId))).toHaveLength(2);
+      const [game] = await db.select().from(games).where(eq(games.id, gameId));
+      expect(game?.whiteRatingBefore).toBe(1500);
+      expect(game?.whiteRatingAfter).toBeCloseTo(expected.white.rating, 6);
+      expect(game?.blackRatingBefore).toBe(1500);
+      expect(game?.blackRatingAfter).toBeCloseTo(expected.black.rating, 6);
+
+      await waitFor(
+        () =>
+          white.some((e) => e.type === "game.end") &&
+          black.some((e) => e.type === "game.end") &&
+          pub.some((e) => e.type === "game.end"),
+      );
+      expect(endEvent(white).rating?.before).toBe(1500);
+      expect(endEvent(white).rating?.after).toBeCloseTo(expected.white.rating, 6);
+      expect(endEvent(black).rating?.before).toBe(1500);
+      expect(endEvent(black).rating?.after).toBeCloseTo(expected.black.rating, 6);
+      expect(endEvent(pub).rating).toBeNull();
+
+      await offWhite();
+      await offBlack();
+      await offPublic();
+    });
+
+    it("uses the current ratings as the before values of the next game", async () => {
+      const first = await newGame();
+      await foolsMate(first);
+      const second = await newGame();
+      const resigned = await service.resign({ gameId: second, agentId: agents.white.id });
+      expect(resigned.ok).toBe(true);
+
+      const afterFirst = applyGameRatings(initialRating(), initialRating(), "0-1");
+      if (afterFirst === null) throw new Error("expected a rated result");
+      const [game] = await db.select().from(games).where(eq(games.id, second));
+      expect(game?.whiteRatingBefore).toBeCloseTo(afterFirst.white.rating, 6);
+      expect(game?.blackRatingBefore).toBeCloseTo(afterFirst.black.rating, 6);
+      const [w] = await db.select().from(ratings).where(eq(ratings.agentId, agents.white.id));
+      expect(w?.gamesPlayed).toBe(2);
+      expect(await db.select().from(ratingHistory)).toHaveLength(4);
+    });
+
+    it("settles a forfeit by illegal moves", async () => {
+      const gameId = await newGame();
+      for (let i = 0; i < 3; i += 1) {
+        const r = await service.submitMove({ gameId, agentId: agents.white.id, ply: 0, move: "Ke2" });
+        expect(r.ok).toBe(false);
+      }
+      const [game] = await db.select().from(games).where(eq(games.id, gameId));
+      expect(game?.termination).toBe("illegal_moves");
+      expect(game?.whiteRatingAfter).toBeLessThan(1500);
+      expect(game?.blackRatingAfter).toBeGreaterThan(1500);
+    });
+
+    it("leaves ratings untouched when a game is aborted", async () => {
+      const r = await service.createAndStartGame({
+        whiteAgentId: agents.white.id,
+        blackAgentId: agents.black.id,
+        config: { timePerMoveMs: 1_000 },
+      });
+      if (!r.ok) throw new Error(r.code);
+      const white: WireEvent[] = [];
+      const off = await bus.subscribeAgent(agents.white.id, (e) => white.push(e));
+      clock = T0 + 1_000 + NETWORK_GRACE_MS;
+      const expired = await service.expireDeadline({ gameId: r.snapshot.id, ply: 0 });
+      expect(expired).toMatchObject({ ok: true, applied: true });
+      expect(await db.select().from(ratings)).toHaveLength(0);
+      expect(await db.select().from(ratingHistory)).toHaveLength(0);
+      const [game] = await db.select().from(games).where(eq(games.id, r.snapshot.id));
+      expect(game?.whiteRatingAfter).toBeNull();
+      await waitFor(() => white.some((e) => e.type === "game.end"));
+      expect(endEvent(white)).toMatchObject({ termination: "aborted", rating: null });
+      await off();
     });
   });
 });

@@ -94,6 +94,14 @@ export async function loadGameForUpdate(tx: Transaction, gameId: string): Promis
 
 export interface PersistOptions {
   pgn?: string | null;
+  ratings?: GameRatingColumns;
+}
+
+export interface GameRatingColumns {
+  whiteBefore: number;
+  whiteAfter: number;
+  blackBefore: number;
+  blackAfter: number;
 }
 
 export async function persistTransition(
@@ -118,6 +126,14 @@ export async function persistTransition(
       startedAt: date(after.startedAt),
       finishedAt: date(after.finishedAt),
       ...(options.pgn === undefined ? {} : { pgn: options.pgn }),
+      ...(options.ratings === undefined
+        ? {}
+        : {
+            whiteRatingBefore: options.ratings.whiteBefore,
+            whiteRatingAfter: options.ratings.whiteAfter,
+            blackRatingBefore: options.ratings.blackBefore,
+            blackRatingAfter: options.ratings.blackAfter,
+          }),
       updatedAt: now,
     })
     .where(eq(games.id, after.id));

@@ -8,3 +8,5 @@ export * from "./jobs/reconciler.js";
 export * from "./runtime.js";
 export * from "./config.js";
 export * from "./games/service.js";
+export * from "./rating/repository.js";
+export * from "./rating/settle.js";
