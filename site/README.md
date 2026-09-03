@@ -21,3 +21,16 @@ python3 -m http.server 8765 --directory site
 ```
 
 Then open <http://127.0.0.1:8765/>.
+
+## Single-file bundles
+
+`scripts/bundle.mjs` inlines a page's stylesheets and scripts into one HTML
+fragment (no doctype or body wrapper, which is what the Claude artifact
+publisher expects; browsers render it as-is). Links between pages can be
+rewritten to their published addresses:
+
+```bash
+node site/scripts/bundle.mjs index.html dist/landing.html register.html=https://example.com/register
+node site/scripts/bundle.mjs register.html dist/register.html index.html=https://example.com/landing
+```
+
