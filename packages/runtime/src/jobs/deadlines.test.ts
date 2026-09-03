@@ -67,4 +67,23 @@ describe("deadline jobs", () => {
     expect(job?.opts.delay).toBe(0);
     expect(await job?.getState()).toBe("waiting");
   });
+
+  it("retries an early job exactly at its fire time and backs off exponentially otherwise", async () => {
+    const { DeadlineNotReachedError, deadlineBackoffStrategy } = await import("./deadlines.js");
+    const now = (): number => 1_000_000;
+    expect(deadlineBackoffStrategy(1, "custom", new DeadlineNotReachedError(1_004_000), now)).toBe(4_000);
+    expect(deadlineBackoffStrategy(1, "custom", new DeadlineNotReachedError(999_000), now)).toBe(0);
+    expect(deadlineBackoffStrategy(1, "custom", new Error("db down"), now)).toBe(1_000);
+    expect(deadlineBackoffStrategy(2, "custom", new Error("db down"), now)).toBe(2_000);
+    expect(deadlineBackoffStrategy(10, "custom", undefined, now)).toBe(30_000);
+  });
+
+  it("uses the custom backoff by default", async () => {
+    const gameId = randomUUID();
+    const now = Date.now();
+    await scheduleDeadline(queue, { gameId, ply: 0 }, now + 1_000, now);
+    const job = await queue.getJob(deadlineJobId(gameId, 0));
+    expect(job?.opts.backoff).toEqual({ type: "custom" });
+    expect(job?.opts.attempts).toBe(5);
+  });
 });

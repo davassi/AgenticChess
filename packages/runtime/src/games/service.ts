@@ -4,18 +4,20 @@ import {
   applyResign,
   applyTimeout,
   createGame,
+  sideToMove,
   startGame,
   toPgn,
   type DomainEvent,
   type GameState,
 } from "@aichess/core";
-import type { GameConfig, GameSnapshot, IllegalReason, LegalMove } from "@aichess/core/protocol";
+import type { GameConfig, GameSnapshot, IllegalReason, LegalMove, WireEvent } from "@aichess/core/protocol";
 import type { Database } from "@aichess/db";
 import type { EventBus, GameParties } from "../events/bus.js";
-import { toSnapshot, toWireEvents, type GameAgents } from "../events/wire.js";
-import { deadlineFireAt, scheduleDeadline, type DeadlineQueue } from "../jobs/deadlines.js";
+import { toSnapshot, toWireEvents, toYourTurn, type GameAgents, type Outgoing } from "../events/wire.js";
+import { deadlineFireAt, deadlineJobId, scheduleDeadline, type DeadlineQueue } from "../jobs/deadlines.js";
 import type { RuntimeLogger } from "../logger.js";
 import {
+  findActiveGameIdForAgent,
   insertGame,
   listActiveDeadlines,
   loadAgentSummaries,
@@ -80,6 +82,16 @@ export type ExpireResult =
   | { ok: true; applied: false; reason: "stale_ply" | "not_active" }
   | { ok: false; code: "not_found" }
   | { ok: false; code: "deadline_not_reached"; fireAt: number };
+
+export interface ReconcileInput {
+  staleTurnMs: number;
+}
+
+export interface ReconcileReport {
+  scanned: number;
+  republished: number;
+  rescheduled: number;
+}
 
 type PostCommit = () => Promise<void>;
 
@@ -248,6 +260,52 @@ export class GameService {
       this.deps.logger.info({ count: rows.length }, "deadlines re-armed");
     }
     return rows.length;
+  }
+
+  async activeGameFor(agentId: string): Promise<GameSnapshot | null> {
+    const gameId = await findActiveGameIdForAgent(this.deps.db, agentId);
+    if (gameId === null) return null;
+    return this.getSnapshot(gameId, agentId);
+  }
+
+  async yourTurnFor(agentId: string): Promise<WireEvent | null> {
+    const gameId = await findActiveGameIdForAgent(this.deps.db, agentId);
+    if (gameId === null) return null;
+    const state = await loadGame(this.deps.db, gameId);
+    if (state === null) return null;
+    const color = state.whiteAgentId === agentId ? "white" : "black";
+    return toYourTurn(state, color);
+  }
+
+  async reconcile(input: ReconcileInput): Promise<ReconcileReport> {
+    const rows = await listActiveDeadlines(this.deps.db);
+    const now = this.now();
+    const report: ReconcileReport = { scanned: rows.length, republished: 0, rescheduled: 0 };
+    for (const row of rows) {
+      const job = await this.deps.deadlines.getJob(deadlineJobId(row.gameId, row.ply));
+      if (job === undefined) {
+        await scheduleDeadline(this.deps.deadlines, { gameId: row.gameId, ply: row.ply }, row.moveDeadlineAt, now);
+        report.rescheduled += 1;
+      }
+      const state = await loadGame(this.deps.db, row.gameId);
+      if (state === null || state.status !== "active" || state.turnStartedAt === null) continue;
+      if (now - state.turnStartedAt < input.staleTurnMs) continue;
+      const color = sideToMove(state);
+      const event = toYourTurn(state, color);
+      if (event === null) continue;
+      const outgoing: Outgoing = { toWhite: [], toBlack: [], toPublic: [] };
+      (color === "white" ? outgoing.toWhite : outgoing.toBlack).push(event);
+      try {
+        await this.deps.bus.publish(partiesOf(state), outgoing);
+        report.republished += 1;
+      } catch (error) {
+        this.deps.logger.error({ gameId: state.id, error }, "reconcile_publish_failed");
+      }
+    }
+    if (report.republished > 0 || report.rescheduled > 0) {
+      this.deps.logger.info({ ...report }, "reconcile applied");
+    }
+    return report;
   }
 
   private async agentsOf(ex: Executor, state: GameState): Promise<GameAgents> {

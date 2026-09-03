@@ -210,3 +210,33 @@ describe("toSnapshot", () => {
     expect(snapshot.finishedAt).toBe(new Date(T0 + 5).toISOString());
   });
 });
+
+describe("toYourTurn", () => {
+  it("builds the event for the side to move from the state alone", async () => {
+    const { toYourTurn } = await import("./wire.js");
+    const started = startGame(created(), T0);
+    const bad = applyMove(started.state, { agentId: agents.white.id, ply: 0, move: "Ke2", now: T0 + 1 });
+    if (bad.ok || bad.code !== "illegal_move") throw new Error("expected illegal_move");
+    const event = toYourTurn(bad.state, "white");
+    expect(event).toEqual({
+      type: "game.your_turn",
+      gameId: bad.state.id,
+      ply: 0,
+      fen: bad.state.fen,
+      history: [],
+      lastMove: null,
+      legalMoves: expect.arrayContaining([{ san: "e4", uci: "e2e4" }]),
+      deadlineAt: new Date(T0 + 60_000).toISOString(),
+      attemptsLeft: 2,
+    });
+    expect(toYourTurn(bad.state, "black")).toBeNull();
+  });
+
+  it("returns null for a finished game", async () => {
+    const { toYourTurn } = await import("./wire.js");
+    const started = startGame(created(), T0).state;
+    const r = applyResign(started, agents.black.id, T0 + 5);
+    if (!r.ok) throw new Error(r.code);
+    expect(toYourTurn(r.state, "white")).toBeNull();
+  });
+});

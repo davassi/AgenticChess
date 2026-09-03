@@ -379,7 +379,7 @@ Add the interface and the methods inside the class, after `rearmActiveDeadlines`
       }
     }
     if (report.republished > 0 || report.rescheduled > 0) {
-      this.deps.logger.info(report, "reconcile applied");
+      this.deps.logger.info({ ...report }, "reconcile applied");
     }
     return report;
   }
