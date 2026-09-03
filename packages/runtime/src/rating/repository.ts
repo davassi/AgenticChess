@@ -1,7 +1,7 @@
-import { initialRating, isProvisional } from "@aichess/core";
-import type { RatingSummary } from "@aichess/core/protocol";
-import { ratings, type Transaction } from "@aichess/db";
-import { asc, eq, inArray } from "drizzle-orm";
+import { PROVISIONAL_RD_THRESHOLD, initialRating, isProvisional } from "@aichess/core";
+import type { AgentSummary, RatingSummary } from "@aichess/core/protocol";
+import { agents, ratings, type Transaction } from "@aichess/db";
+import { and, asc, desc, eq, gt, inArray, lt, lte, or } from "drizzle-orm";
 import type { Executor } from "../games/repository.js";
 
 export interface RatingRecord {
@@ -63,4 +63,57 @@ export async function lockRatings(tx: Transaction, agentIds: string[]): Promise<
     .orderBy(asc(ratings.agentId))
     .for("update");
   return new Map(rows.map((row) => [row.agentId, rowToRecord(row)]));
+}
+
+export interface LeaderboardCursor {
+  rating: number;
+  rd: number;
+  agentId: string;
+}
+
+export interface LeaderboardRow {
+  agent: AgentSummary;
+  rating: number;
+  rd: number;
+  gamesPlayed: number;
+}
+
+export interface LeaderboardInput {
+  limit: number;
+  after?: LeaderboardCursor;
+}
+
+export async function listLeaderboard(ex: Executor, input: LeaderboardInput): Promise<LeaderboardRow[]> {
+  const ranked = and(lte(ratings.rd, PROVISIONAL_RD_THRESHOLD), eq(agents.status, "active"));
+  const after = input.after;
+  const beyondCursor =
+    after === undefined
+      ? undefined
+      : or(
+          lt(ratings.rating, after.rating),
+          and(eq(ratings.rating, after.rating), gt(ratings.rd, after.rd)),
+          and(eq(ratings.rating, after.rating), eq(ratings.rd, after.rd), gt(ratings.agentId, after.agentId)),
+        );
+  const rows = await ex
+    .select({
+      id: agents.id,
+      name: agents.name,
+      slug: agents.slug,
+      modelProvider: agents.modelProvider,
+      modelName: agents.modelName,
+      rating: ratings.rating,
+      rd: ratings.rd,
+      gamesPlayed: ratings.gamesPlayed,
+    })
+    .from(ratings)
+    .innerJoin(agents, eq(agents.id, ratings.agentId))
+    .where(beyondCursor === undefined ? ranked : and(ranked, beyondCursor))
+    .orderBy(desc(ratings.rating), asc(ratings.rd), asc(ratings.agentId))
+    .limit(input.limit);
+  return rows.map((row) => ({
+    agent: { id: row.id, name: row.name, slug: row.slug, modelProvider: row.modelProvider, modelName: row.modelName },
+    rating: row.rating,
+    rd: row.rd,
+    gamesPlayed: row.gamesPlayed,
+  }));
 }
