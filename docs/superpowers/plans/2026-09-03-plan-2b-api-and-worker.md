@@ -611,6 +611,9 @@ describe("app basics", () => {
         app.get("/__api-error", async () => {
           throw new ApiError("in_active_game", "Busy", { gameId: "g1" });
         });
+        app.post("/__api-error", async () => {
+          throw new ApiError("in_active_game", "Busy", { gameId: "g1" });
+        });
       },
     });
   });
