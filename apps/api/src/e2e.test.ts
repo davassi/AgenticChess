@@ -1,4 +1,5 @@
-import { createDeadlineWorker, createRedis, noopLogger } from "@aichess/runtime";
+import type { AgentMe, LeaderboardPage } from "@aichess/core/protocol";
+import { Matchmaker, createDeadlineWorker, createRedis, noopLogger } from "@aichess/runtime";
 import type { Worker } from "bullmq";
 import type { Redis } from "ioredis";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -12,7 +13,7 @@ describe("end to end", () => {
   const clients: SseClient[] = [];
 
   beforeAll(async () => {
-    h = await startHarness({ listen: true });
+    h = await startHarness({ listen: true, owners: "distinct" });
     workerConnection = createRedis(h.config.REDIS_URL);
     await workerConnection.connect();
     worker = createDeadlineWorker({ connection: workerConnection, service: h.deps.service, logger: noopLogger });
@@ -43,7 +44,10 @@ describe("end to end", () => {
   async function post(agent: SeededAgent, path: string, body?: unknown): Promise<Response> {
     return fetch(`${h.baseUrl}${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${agent.key}` },
+      headers: {
+        authorization: `Bearer ${agent.key}`,
+        ...(body === undefined ? {} : { "content-type": "application/json" }),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }
@@ -161,5 +165,58 @@ describe("end to end", () => {
     }
     expect(await black.take("game.end")).toMatchObject({ gameId, result: "0-1", termination: "illegal_moves" });
     expect(await spectator.take("game.end")).toMatchObject({ gameId, termination: "illegal_moves" });
+  });
+
+  it("pairs two queued agents and rates the result", async () => {
+    const matchmaker = new Matchmaker({
+      db: h.deps.db,
+      redis: h.deps.redis,
+      queue: h.deps.queue,
+      matchmaking: h.deps.matchmaking,
+      games: h.deps.service,
+      logger: noopLogger,
+      offlineGraceMs: 15_000,
+    });
+    const a = await connect(h.agents.white);
+    const b = await connect(h.agents.black);
+    for (const agent of [h.agents.white, h.agents.black]) {
+      expect((await post(agent, "/v1/agent/queue")).status).toBe(200);
+    }
+    expect(await a.take("queue.joined")).toMatchObject({ type: "queue.joined" });
+    expect(await b.take("queue.joined")).toMatchObject({ type: "queue.joined" });
+
+    expect(await matchmaker.runOnce()).toEqual({ scanned: 2, paired: 1, dropped: 0 });
+
+    const startA = await a.take("game.start");
+    const startB = await b.take("game.start");
+    if (startA.type !== "game.start" || startB.type !== "game.start") throw new Error("expected game.start");
+    expect(startA.gameId).toBe(startB.gameId);
+    expect(startA.color).not.toBe(startB.color);
+    expect(startA.opponent.id).toBe(h.agents.black.id);
+    const gameId = startA.gameId;
+    const [whiteClient, whiteAgent, blackClient, blackAgent] =
+      startA.color === "white" ? [a, h.agents.white, b, h.agents.black] : [b, h.agents.black, a, h.agents.white];
+
+    await Promise.all([
+      playScript(whiteClient, whiteAgent, gameId, ["f3", "g4"]),
+      playScript(blackClient, blackAgent, gameId, ["e5", "Qh4#"]),
+    ]);
+
+    const whiteEnd = await whiteClient.take("game.end");
+    const blackEnd = await blackClient.take("game.end");
+    if (whiteEnd.type !== "game.end" || blackEnd.type !== "game.end") throw new Error("expected game.end");
+    expect(whiteEnd).toMatchObject({ gameId, result: "0-1", termination: "checkmate" });
+    expect(whiteEnd.rating?.before).toBe(1500);
+    expect(whiteEnd.rating?.after).toBeLessThan(1500);
+    expect(blackEnd.rating?.before).toBe(1500);
+    expect(blackEnd.rating?.after).toBeGreaterThan(1500);
+
+    const meRes = await fetch(`${h.baseUrl}/v1/agent/me`, { headers: { authorization: `Bearer ${blackAgent.key}` } });
+    const me = (await meRes.json()) as AgentMe;
+    expect(me).toMatchObject({ activeGameId: null, queue: null, rating: { gamesPlayed: 1, provisional: true } });
+    expect(me.rating.rating).toBe(blackEnd.rating?.after);
+
+    const board = (await (await fetch(`${h.baseUrl}/v1/leaderboard`)).json()) as LeaderboardPage;
+    expect(board).toEqual({ items: [], nextCursor: null });
   });
 });
