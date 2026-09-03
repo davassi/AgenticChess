@@ -13,4 +13,7 @@ export * from "./rating/settle.js";
 export * from "./matchmaking/queue.js";
 export * from "./matchmaking/pairing.js";
 export * from "./matchmaking/service.js";
+export * from "./matchmaking/repository.js";
+export * from "./matchmaking/matchmaker.js";
+export * from "./jobs/locked-interval.js";
 export * from "./presence.js";
