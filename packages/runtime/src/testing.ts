@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { RedisContainer } from "@testcontainers/redis";
 import { agents, users, type Database } from "@aichess/db";
 import type { GameAgents } from "./events/wire.js";
 
@@ -42,4 +43,16 @@ export async function seedTwoAgents(db: Database): Promise<GameAgents> {
     modelName: row.modelName,
   });
   return { white: summary(white), black: summary(black) };
+}
+
+const REDIS_IMAGE = "redis:7-alpine";
+
+export interface TestRedis {
+  url: string;
+  stop: () => Promise<void>;
+}
+
+export async function startTestRedis(): Promise<TestRedis> {
+  const container = await new RedisContainer(REDIS_IMAGE).start();
+  return { url: container.getConnectionUrl(), stop: () => container.stop().then(() => undefined) };
 }
