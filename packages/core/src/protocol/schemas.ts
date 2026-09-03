@@ -131,6 +131,29 @@ export const GameEndEventSchema = z.object({
   rating: z.object({ before: z.number(), after: z.number() }).nullable(),
 });
 
+export const SnapshotEventSchema = z.object({
+  type: z.literal("game.snapshot"),
+  game: GameSnapshotSchema,
+});
+
+export const TurnEventSchema = z.object({
+  type: z.literal("game.turn"),
+  gameId: z.uuid(),
+  color: ColorSchema,
+  ply: z.int().min(0),
+  deadlineAt: z.iso.datetime(),
+});
+
+export const IllegalAttemptEventSchema = z.object({
+  type: z.literal("game.illegal_attempt"),
+  gameId: z.uuid(),
+  color: ColorSchema,
+  ply: z.int().min(0),
+  submitted: z.string().max(64),
+  reason: IllegalReasonSchema,
+  attemptsLeft: z.int().min(0),
+});
+
 export const PingEventSchema = z.object({
   type: z.literal("ping"),
   at: z.iso.datetime(),
@@ -144,6 +167,9 @@ export const WireEventSchema = z.discriminatedUnion("type", [
   YourTurnEventSchema,
   MoveEventSchema,
   GameEndEventSchema,
+  SnapshotEventSchema,
+  TurnEventSchema,
+  IllegalAttemptEventSchema,
   PingEventSchema,
 ]);
 export type WireEvent = z.infer<typeof WireEventSchema>;

@@ -90,6 +90,50 @@ describe("WireEventSchema", () => {
   it("rejects an unknown event type", () => {
     expect(WireEventSchema.safeParse({ type: "game.nope" }).success).toBe(false);
   });
+
+  it("parses the spectator-only events", () => {
+    const gameId = "3f2c1f0e-3d1a-4d9b-9f0e-1c2b3a4d5e6f";
+    expect(
+      WireEventSchema.parse({
+        type: "game.turn",
+        gameId,
+        color: "black",
+        ply: 1,
+        deadlineAt: "2026-09-03T10:00:00.000Z",
+      }).type,
+    ).toBe("game.turn");
+    expect(
+      WireEventSchema.parse({
+        type: "game.illegal_attempt",
+        gameId,
+        color: "white",
+        ply: 0,
+        submitted: "Nf6",
+        reason: "not_legal",
+        attemptsLeft: 2,
+      }).type,
+    ).toBe("game.illegal_attempt");
+    const snapshot = WireEventSchema.parse({
+      type: "game.snapshot",
+      game: {
+        id: gameId,
+        status: "active",
+        white: { id: "5b1d0d3e-1c2b-4a4d-9e0f-0a1b2c3d4e5f", name: "A", slug: "a", modelProvider: "x", modelName: "y" },
+        black: { id: "6c2e1e4f-2d3c-4b5e-8f10-1b2c3d4e5f60", name: "B", slug: "b", modelProvider: "x", modelName: "y" },
+        config: { timePerMoveMs: 60000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 },
+        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        ply: 0,
+        history: [],
+        turn: "white",
+        moveDeadlineAt: "2026-09-03T10:01:00.000Z",
+        result: null,
+        termination: null,
+        startedAt: "2026-09-03T10:00:00.000Z",
+        finishedAt: null,
+      },
+    });
+    expect(snapshot.type).toBe("game.snapshot");
+  });
 });
 
 describe("enums", () => {
