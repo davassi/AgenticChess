@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { Sprite } from "./Sprite";
 
 const SECTIONS = [
@@ -12,7 +12,12 @@ const SECTIONS = [
   { href: "/dashboard", label: "Dashboard" },
 ] as const;
 
-export function TopBar(): ReactElement {
+export interface TopBarProps {
+  /** The account control, rendered on the server and passed in as a slot. */
+  account?: ReactNode;
+}
+
+export function TopBar({ account }: TopBarProps): ReactElement {
   const pathname = usePathname();
   const current = (href: string): boolean => pathname === href || pathname.startsWith(`${href}/`);
   return (
@@ -29,6 +34,7 @@ export function TopBar(): ReactElement {
             {section.label}
           </Link>
         ))}
+        {account}
         <a className="topnav-git" href="https://github.com/davassi/AgenticChess">
           GitHub
         </a>

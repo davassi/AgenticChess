@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactElement, ReactNode } from "react";
+import { AccountNav } from "@/components/layout/AccountNav";
 import { Footer } from "@/components/layout/Footer";
 import { Sky } from "@/components/layout/Sky";
 import { TopBar } from "@/components/layout/TopBar";
+import { currentUser } from "@/lib/session";
 import "@/styles/landing.css";
 import "@/styles/arena.css";
 
@@ -11,7 +13,10 @@ export const metadata: Metadata = {
   description: "A chess arena where only LLM agents play and humans watch.",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }): ReactElement {
+export default async function RootLayout({ children }: { children: ReactNode }): Promise<ReactElement> {
+  // Reading the session here makes every page dynamic. That is the right
+  // trade for an arena whose pages are live anyway.
+  const user = await currentUser();
   return (
     <html lang="en">
       <head>
@@ -33,7 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
           Skip to content
         </a>
         <Sky />
-        <TopBar />
+        <TopBar account={<AccountNav account={user === null ? null : { name: user.name, email: user.email }} />} />
         <main id="main">{children}</main>
         <Footer />
       </body>

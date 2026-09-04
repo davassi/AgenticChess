@@ -14,7 +14,12 @@
   },
   "dependencies": {
     "@aichess/core": "workspace:*",
+    "@aichess/db": "workspace:*",
+    "@aichess/runtime": "workspace:*",
+    "@auth/drizzle-adapter": "1.11.3",
+    "drizzle-orm": "^0.45.2",
     "next": "16.3.4",
+    "next-auth": "5.0.0-beta.32",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.1.0"

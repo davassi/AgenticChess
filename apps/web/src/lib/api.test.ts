@@ -18,6 +18,10 @@ describe("api client", () => {
 
   beforeEach(() => {
     process.env["API_PUBLIC_URL"] = "http://api.test";
+    process.env["DATABASE_URL"] = "postgres://aichess:aichess@localhost:5432/aichess";
+    process.env["AUTH_SECRET"] = "0123456789abcdef0123456789abcdef";
+    process.env["AUTH_GITHUB_ID"] = "id";
+    process.env["AUTH_GITHUB_SECRET"] = "secret";
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockReset();
   });
