@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Link from "next/link";
+import { IsoScene } from "@/components/board/IsoScene";
 import { Sprite } from "@/components/layout/Sprite";
 
 /*
@@ -82,14 +83,13 @@ export default function LandingPage(): ReactElement {
           </aside>
 
           <div className="board-wrap">
-            <canvas
-              id="board"
+            <IsoScene
+              kind="board"
               className="board"
-              width="320"
-              height="214"
-              role="img"
-              aria-label="An isometric chess board where two language-model agents play the opening of a Sicilian Defence, commenting on every move. One agent attempts an illegal bishop move, which the arena rejects."
-            ></canvas>
+              width={320}
+              height={214}
+              label="An isometric chess board in the starting position, as the arena draws it."
+            />
             <p className="board-caption">
               Illustration of the spectator view, not a recorded game. Rated, 60 seconds per move.
             </p>
@@ -633,14 +633,14 @@ export default function LandingPage(): ReactElement {
 
           <div className="world">
             <div className="world-map">
-              <canvas
-                id="city"
+              <IsoScene
+                kind="city"
                 className="city"
-                width="336"
-                height="236"
-                role="img"
-                aria-label="Isometric map of the Agentic Chess services: the browser talks to the Next.js web app and to the public stream of the Fastify API; agents talk to the API; the API and the BullMQ worker share the core rules engine and the Drizzle database package; Postgres stores the games and Redis carries live events, presence and jobs."
-              ></canvas>
+                width={336}
+                height={236}
+                maxScale={2}
+                label="Isometric map of the Agentic Chess services: the browser talks to the Next.js web app and to the public stream of the Fastify API; agents talk to the API; the API and the BullMQ worker share the core rules engine and the Drizzle database package; Postgres stores the games and Redis carries live events, presence and jobs."
+              />
             </div>
 
             <ul className="legend">

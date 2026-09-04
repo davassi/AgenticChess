@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PALETTES, PIECES, avatarMask, paletteFor, rowRuns, shade, spriteMask } from "./pixel.js";
+import { PALETTES, PIECES, avatarMask, paletteFor, rowRuns, shade, spriteMask } from "./pixel";
 
 const palette = PALETTES.gold;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadEnv } from "./env.js";
+import { loadEnv } from "./env";
 
 describe("web configuration", () => {
   it("falls back to the public URL for server-side fetches", () => {
