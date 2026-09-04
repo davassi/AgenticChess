@@ -30,7 +30,7 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
   const positions = useMemo(() => positionsFrom(live.moves.map((move) => move.uci)), [live.moves]);
 
   const snapshot = live.snapshot;
-  const active = snapshot.status === "active";
+  const active = !live.finished;
   // Replaying the moves is what gives each piece the identity that makes it
   // slide, so the snapshot's FEN is only worth falling back to while the list
   // is provably short — and only once the cursor has caught up with it, since
@@ -40,6 +40,18 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
   const shownPly = fromSnapshot ? snapshot.ply : playback.ply;
   const shown = fromSnapshot ? undefined : live.moves[playback.ply - 1];
   const lastMove = shown === undefined ? null : { from: shown.uci.slice(0, 2), to: shown.uci.slice(2, 4) };
+
+  // Everything the spectator sees is read from the cursor; the truth is only
+  // how far there is left to catch up. The clocks are the one exception, in
+  // player() above: freezing them whenever the cursor is not exactly at the
+  // live edge would freeze them permanently, since being a ply or two behind
+  // is the normal state of paced viewing.
+  const arrived = playback.ply >= live.moves.length;
+  const revealed = live.finished && arrived;
+  // A live game's move list is trimmed, because nobody knows the future. A
+  // finished game's is not: everyone knows the outcome and the complete score
+  // sheet is the point.
+  const shownMoves = live.finished ? live.moves : live.moves.slice(0, playback.ply);
 
   function player(color: "white" | "black"): ReactElement {
     const agent = color === "white" ? snapshot.white : snapshot.black;
@@ -64,12 +76,12 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
   return (
     <section className="screen screen--game" aria-labelledby="game-heading">
       <div className="frame frame--game">
-        <span className={active ? "hud hud--live" : "hud"}>
-          {active ? <span className="live-dot" aria-hidden="true" /> : null}
-          {active ? "Live" : "Finished"} · rated · {Math.round(snapshot.config.timePerMoveMs / 1000)} s per move
+        <span className={revealed ? "hud" : "hud hud--live"}>
+          {revealed ? null : <span className="live-dot" aria-hidden="true" />}
+          {revealed ? "Finished" : "Live"} · rated · {Math.round(snapshot.config.timePerMoveMs / 1000)} s per move
         </span>
         <span className="hud hud--right">
-          move {Math.floor(snapshot.ply / 2) + 1} · {snapshot.ply} plies
+          move {Math.floor(shownPly / 2) + 1} · {shownPly} plies
         </span>
         <h2 id="game-heading" className="visually-hidden">
           {snapshot.white.name} against {snapshot.black.name}
@@ -109,7 +121,7 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
             <aside className="movelist-panel" aria-label="Moves">
               <p className="panel-title">Moves</p>
               <MoveList
-                moves={live.moves.map((move) => ({
+                moves={shownMoves.map((move) => ({
                   ply: move.ply,
                   color: move.color,
                   san: move.san,
@@ -136,11 +148,23 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
         </div>
 
         <div className="feeds">
-          <CommentFeed color="white" name={snapshot.white.name} moves={live.moves} attempts={live.attempts} />
-          <CommentFeed color="black" name={snapshot.black.name} moves={live.moves} attempts={live.attempts} />
+          <CommentFeed
+            color="white"
+            name={snapshot.white.name}
+            moves={live.moves}
+            attempts={live.attempts}
+            throughPly={playback.ply}
+          />
+          <CommentFeed
+            color="black"
+            name={snapshot.black.name}
+            moves={live.moves}
+            attempts={live.attempts}
+            throughPly={playback.ply}
+          />
         </div>
 
-        {live.finished ? (
+        {revealed ? (
           <div className="result">
             <p className="result-title">{snapshot.termination === null ? "Finished" : spaced(snapshot.termination)}</p>
             <p className="result-score">

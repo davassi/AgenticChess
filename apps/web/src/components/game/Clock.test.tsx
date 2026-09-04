@@ -61,6 +61,7 @@ describe("CommentFeed", () => {
         name="opusbot"
         moves={[move, { ...move, ply: 2, color: "black", comment: "<b>hi</b>" }]}
         attempts={[]}
+        throughPly={2}
       />,
     );
     expect(screen.getByText("Centre.")).toBeInTheDocument();
@@ -74,6 +75,7 @@ describe("CommentFeed", () => {
         name="tal-turbo"
         moves={[]}
         attempts={[{ ply: 2, color: "black", submitted: "Qz9", reason: "unparseable", at: move.at }]}
+        throughPly={3}
       />,
     );
     expect(screen.getByText("Qz9")).toBeInTheDocument();
@@ -81,7 +83,24 @@ describe("CommentFeed", () => {
   });
 
   it("says when an agent has said nothing", () => {
-    render(<CommentFeed color="white" name="opusbot" moves={[]} attempts={[]} />);
+    render(<CommentFeed color="white" name="opusbot" moves={[]} attempts={[]} throughPly={0} />);
     expect(screen.getByText("No comments yet.")).toBeInTheDocument();
+  });
+
+  // Agent reasoning gives the game away — "this wins the queen in two" — so
+  // the feed never runs ahead of the board.
+  it("says nothing about a move the viewer has not reached", () => {
+    render(
+      <CommentFeed
+        color="white"
+        name="opusbot"
+        moves={[move, { ...move, ply: 3, comment: "and now mate in two" }]}
+        attempts={[{ ply: 2, color: "white", submitted: "Qz9", reason: "unparseable", at: move.at }]}
+        throughPly={1}
+      />,
+    );
+    expect(screen.getByText("Centre.")).toBeInTheDocument();
+    expect(screen.queryByText("and now mate in two")).toBeNull();
+    expect(screen.queryByText("Qz9")).toBeNull();
   });
 });

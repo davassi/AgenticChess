@@ -1,5 +1,6 @@
 import type { GameSnapshot, TimelineMove } from "@aichess/core/protocol";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveGame } from "@/lib/live";
 import { GameView } from "./GameView";
@@ -43,20 +44,31 @@ const E4: TimelineMove = {
   at: "2026-09-04T10:00:10.000Z",
 };
 
+const E5: TimelineMove = {
+  ply: 2,
+  color: "black",
+  san: "e5",
+  uci: "e7e5",
+  fen: AFTER_E5,
+  comment: null,
+  thinkTimeMs: 1_200,
+  at: "2026-09-04T10:00:20.000Z",
+};
+
 class SilentEventSource {
   addEventListener(): void {}
   close(): void {}
+}
+
+function draw(initial: LiveGame): HTMLElement {
+  vi.stubGlobal("EventSource", SilentEventSource);
+  return render(<GameView initial={initial} apiPublicUrl="http://api.test" />).container;
 }
 
 describe("GameView", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
-
-  function draw(initial: LiveGame): HTMLElement {
-    vi.stubGlobal("EventSource", SilentEventSource);
-    return render(<GameView initial={initial} apiPublicUrl="http://api.test" />).container;
-  }
 
   it("replays the moves when the list and the snapshot agree, so the pieces keep their identity", () => {
     const container = draw({ snapshot: SNAPSHOT, moves: [E4], attempts: [], finished: false, gap: false });
@@ -79,5 +91,80 @@ describe("GameView", () => {
     });
     expect(container.querySelector('[data-piece-id="e5"]')).not.toBeNull();
     expect(container.querySelector('[data-piece-id="e7"]')).toBeNull();
+  });
+});
+
+describe("what the viewer is allowed to see", () => {
+  function twoMoves(overrides: Partial<LiveGame> = {}): LiveGame {
+    return {
+      snapshot: { ...SNAPSHOT, fen: AFTER_E5, ply: 2, history: ["e4", "e5"], turn: "white" },
+      moves: [
+        { ...E4, comment: "solid" },
+        { ...E5, comment: "the losing move" },
+      ],
+      attempts: [],
+      finished: false,
+      gap: false,
+      ...overrides,
+    };
+  }
+
+  // Clicking a move is how a viewer parks the cursor behind the live edge,
+  // which is the state every rule below is about.
+  async function park(container: HTMLElement): Promise<void> {
+    await userEvent.click(screen.getByRole("button", { name: "e4" }));
+    expect(container.querySelector(".moves .is-current")).toHaveTextContent("e4");
+  }
+
+  it("counts the plies the viewer has seen, not the ones the server has", async () => {
+    const container = draw(twoMoves());
+    expect(container.textContent).toContain("2 plies");
+    await park(container);
+    expect(container.textContent).toContain("1 plies");
+    expect(container.textContent).not.toContain("2 plies");
+  });
+
+  it("does not print a comment the viewer has not reached", async () => {
+    const container = draw(twoMoves());
+    expect(container.textContent).toContain("the losing move");
+    await park(container);
+    expect(container.textContent).toContain("solid");
+    expect(container.textContent).not.toContain("the losing move");
+  });
+
+  it("trims a live game's move list to the cursor", async () => {
+    const container = draw(twoMoves());
+    expect(container.querySelectorAll(".moves button")).toHaveLength(2);
+    await park(container);
+    expect(container.querySelectorAll(".moves button")).toHaveLength(1);
+  });
+
+  it("keeps the result panel closed until the cursor arrives at the end", async () => {
+    const finished = twoMoves({
+      snapshot: {
+        ...SNAPSHOT,
+        status: "finished",
+        fen: AFTER_E5,
+        ply: 2,
+        history: ["e4", "e5"],
+        result: "1-0",
+        termination: "checkmate",
+      },
+      finished: true,
+    });
+    const container = draw(finished);
+    expect(container.textContent).toContain("1-0");
+
+    await park(container);
+    expect(container.textContent).not.toContain("1-0");
+    expect(container.textContent).toContain("Live");
+  });
+
+  // A score sheet is a record and the outcome is already known, so unlike the
+  // comments it is not trimmed once the game is over.
+  it("keeps the whole score sheet of a finished game while replaying it", async () => {
+    const container = draw(twoMoves({ finished: true }));
+    await park(container);
+    expect(container.querySelectorAll(".moves button")).toHaveLength(2);
   });
 });
