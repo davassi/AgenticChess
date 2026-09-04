@@ -7,7 +7,7 @@ import { MoveList } from "@/components/board/MoveList";
 import { resultLabel, spaced } from "@/components/games/GameRow";
 import { AgentCell } from "@/components/layout/AgentCell";
 import { useGameStream } from "@/hooks/useGameStream";
-import { useReplay } from "@/hooks/useReplay";
+import { usePlayback } from "@/hooks/usePlayback";
 import { gameStreamUrl, pgnUrl } from "@/lib/api";
 import type { LiveGame } from "@/lib/live";
 import { positionFromFen, positionsFrom, startingPosition } from "@/lib/position";
@@ -25,7 +25,7 @@ const RANKS = [8, 7, 6, 5, 4, 3, 2, 1];
 
 export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement {
   const live = useGameStream(gameStreamUrl(apiPublicUrl, initial.snapshot.id), initial);
-  const replay = useReplay(live.moves.length);
+  const playback = usePlayback(live.moves.length, !live.finished);
   const positions = useMemo(() => positionsFrom(live.moves.map((move) => move.uci)), [live.moves]);
 
   const snapshot = live.snapshot;
@@ -36,16 +36,19 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
   // between the server render and the subscription — leaves the replay behind
   // the header, the clock and the result, so the board takes the position the
   // server vouches for instead.
-  const fromSnapshot = replay.isLive && live.moves.length !== snapshot.ply;
-  const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[replay.ply] ?? startingPosition());
-  const shownPly = fromSnapshot ? snapshot.ply : replay.ply;
-  const shown = fromSnapshot ? undefined : live.moves[replay.ply - 1];
+  const fromSnapshot = playback.ply >= live.moves.length && live.moves.length !== snapshot.ply;
+  const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[playback.ply] ?? startingPosition());
+  const shownPly = fromSnapshot ? snapshot.ply : playback.ply;
+  const shown = fromSnapshot ? undefined : live.moves[playback.ply - 1];
   const lastMove = shown === undefined ? null : { from: shown.uci.slice(0, 2), to: shown.uci.slice(2, 4) };
 
   function player(color: "white" | "black"): ReactElement {
     const agent = color === "white" ? snapshot.white : snapshot.black;
-    // The clock only runs on the live position: rewinding is not a pause.
-    const running = active && snapshot.turn === color && replay.isLive;
+    // The clock runs while the cursor is chasing the live edge, not only when
+    // it is exactly there: being a ply or two behind is the normal state of
+    // paced viewing, and freezing it there would freeze it for ever. It stops
+    // when the viewer parks on a move, because rewinding is not a pause.
+    const running = active && snapshot.turn === color && playback.following;
     return (
       <div className={`player player--${color}`} data-side={color}>
         <AgentCell agent={agent} scale={2} extra={`${agent.modelProvider} · ${agent.modelName}`} />
@@ -82,7 +85,7 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
                   <span key={rank}>{rank}</span>
                 ))}
               </div>
-              <div className="board-views" onKeyDown={replay.onKeyDown}>
+              <div className="board-views" onKeyDown={playback.onKeyDown}>
                 <Board2D
                   position={position}
                   lastMove={lastMove}
@@ -109,18 +112,18 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
                   san: move.san,
                   thinkTimeMs: move.thinkTimeMs,
                 }))}
-                selectedPly={replay.ply}
-                onSelect={replay.setPly}
+                selectedPly={playback.ply}
+                onSelect={playback.setPly}
               />
               <p className="panel-foot">
-                {replay.isLive ? (
+                {playback.atLive ? (
                   active ? (
                     "Following live"
                   ) : (
                     "Final position"
                   )
                 ) : (
-                  <button type="button" className="btn btn--ghost btn--small" onClick={replay.goLive}>
+                  <button type="button" className="btn btn--ghost btn--small" onClick={playback.goLive}>
                     Back to the {active ? "live" : "final"} position
                   </button>
                 )}

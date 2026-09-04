@@ -1,7 +1,6 @@
-import { act, render, renderHook, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { useReplay } from "@/hooks/useReplay";
 import { applyUci, startingPosition } from "@/lib/position";
 import { Board2D } from "./Board2D";
 import { MoveList } from "./MoveList";
@@ -44,37 +43,5 @@ describe("MoveList", () => {
     expect(container.querySelectorAll("li")).toHaveLength(1);
     expect(container.querySelector(".num")).toHaveTextContent("1.");
     expect(screen.getByRole("button", { name: "e4" })).toHaveAttribute("title", "8.1 s of thinking");
-  });
-});
-
-describe("useReplay", () => {
-  it("follows the live position until the viewer steps back", () => {
-    const { result, rerender } = renderHook(({ total }) => useReplay(total), { initialProps: { total: 2 } });
-    expect(result.current).toMatchObject({ ply: 2, isLive: true });
-
-    act(() => {
-      result.current.setPly(1);
-    });
-    expect(result.current).toMatchObject({ ply: 1, isLive: false });
-
-    rerender({ total: 3 });
-    expect(result.current.ply).toBe(1);
-
-    act(() => {
-      result.current.goLive();
-    });
-    expect(result.current).toMatchObject({ ply: 3, isLive: true });
-  });
-
-  it("clamps the ends and ignores keys it does not own", () => {
-    const { result } = renderHook(() => useReplay(2));
-    act(() => {
-      result.current.setPly(-5);
-    });
-    expect(result.current.ply).toBe(0);
-    act(() => {
-      result.current.setPly(99);
-    });
-    expect(result.current).toMatchObject({ ply: 2, isLive: true });
   });
 });
