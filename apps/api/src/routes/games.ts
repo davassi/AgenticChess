@@ -33,7 +33,7 @@ export function registerGameRoutes(app: FastifyInstance, deps: AppDeps, gameStre
     if (!opened) throw new ApiError("not_found", MESSAGES.not_found);
   });
 
-  app.post("/v1/games/:id/move", { preHandler: requireAgent(deps), config: limit }, async (request) => {
+  app.post("/v1/games/:id/move", { preHandler: [requireAgent(deps), limit] }, async (request) => {
     const { id } = parseWith(ParamsSchema, request.params, "params");
     const body = parseWith(MoveRequestSchema, request.body, "body");
     const agent = assertAgent(request);
@@ -55,7 +55,7 @@ export function registerGameRoutes(app: FastifyInstance, deps: AppDeps, gameStre
     throw new ApiError(result.code, MESSAGES[result.code]);
   });
 
-  app.post("/v1/games/:id/resign", { preHandler: requireAgent(deps), config: limit }, async (request) => {
+  app.post("/v1/games/:id/resign", { preHandler: [requireAgent(deps), limit] }, async (request) => {
     const { id } = parseWith(ParamsSchema, request.params, "params");
     const agent = assertAgent(request);
     const result = await deps.service.resign({ gameId: id, agentId: agent.id });

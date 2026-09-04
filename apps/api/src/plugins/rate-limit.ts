@@ -1,19 +1,16 @@
-import { splitApiKey } from "@aichess/core";
 import rateLimit from "@fastify/rate-limit";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, preHandlerAsyncHookHandler } from "fastify";
 import type { AppDeps } from "../deps.js";
+import { ApiError } from "../errors.js";
 
 const WINDOW = "1 minute";
+const WINDOW_MS = 60_000;
 
-function keyFor(request: FastifyRequest): string {
-  const header = request.headers.authorization;
-  if (header !== undefined) {
-    const token = header.trim().split(/\s+/)[1];
-    const parts = token === undefined ? null : splitApiKey(token);
-    if (parts !== null) return `key:${parts.prefix}`;
-  }
-  return `ip:${request.ip}`;
-}
+const INCR_FIXED_WINDOW = `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return n
+`;
 
 export async function registerRateLimit(app: FastifyInstance, deps: AppDeps): Promise<void> {
   await app.register(rateLimit, {
@@ -22,7 +19,7 @@ export async function registerRateLimit(app: FastifyInstance, deps: AppDeps): Pr
     timeWindow: WINDOW,
     redis: deps.redis,
     nameSpace: "ratelimit:",
-    keyGenerator: keyFor,
+    keyGenerator: (request) => `ip:${request.ip}`,
     addHeaders: {
       "x-ratelimit-limit": true,
       "x-ratelimit-remaining": true,
@@ -38,6 +35,19 @@ export async function registerRateLimit(app: FastifyInstance, deps: AppDeps): Pr
   });
 }
 
-export function agentRateLimit(deps: AppDeps): { rateLimit: { max: number; timeWindow: string } } {
-  return { rateLimit: { max: deps.config.RATE_LIMIT_AGENT_PER_MINUTE, timeWindow: WINDOW } };
+export function agentRateLimit(deps: AppDeps): preHandlerAsyncHookHandler {
+  const max = deps.config.RATE_LIMIT_AGENT_PER_MINUTE;
+  return async (request, reply) => {
+    const agent = request.agent;
+    if (agent === null) return;
+    const key = `ratelimit:agent:${agent.id}`;
+    const count = (await deps.redis.eval(INCR_FIXED_WINDOW, 1, key, String(WINDOW_MS))) as number;
+    if (count <= max) return;
+    const ttl = Math.max(await deps.redis.pttl(key), 0);
+    reply.header("retry-after", Math.max(1, Math.ceil(ttl / 1000)));
+    throw new ApiError("rate_limited", `Too many requests, retry in ${Math.ceil(ttl / 1000)} seconds`, {
+      limit: max,
+      retryAfterMs: ttl,
+    });
+  };
 }

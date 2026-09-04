@@ -47,6 +47,10 @@ export function openSse(reply: FastifyReply, requestId: string): SseConnection {
       finish();
     },
     onClose(handler) {
+      if (closed) {
+        handler();
+        return;
+      }
       handlers.push(handler);
     },
     get closed() {

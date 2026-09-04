@@ -1,4 +1,4 @@
-import { Worker, type Job } from "bullmq";
+import { DelayedError, Worker, type Job } from "bullmq";
 import type { Redis } from "ioredis";
 import type { ExpireResult, GameService } from "../games/service.js";
 import type { RuntimeLogger } from "../logger.js";
@@ -11,15 +11,22 @@ import {
 
 const DEFAULT_CONCURRENCY = 10;
 
-export type DeadlineJobLike = Pick<Job<DeadlineJobData>, "data" | "id" | "attemptsMade">;
+export type DeadlineJobLike = Pick<Job<DeadlineJobData>, "data" | "id" | "attemptsMade"> & {
+  moveToDelayed?: (timestamp: number, token?: string) => Promise<void>;
+};
 
 export async function processDeadline(
   job: DeadlineJobLike,
   service: GameService,
   logger: RuntimeLogger,
+  token?: string,
 ): Promise<ExpireResult> {
   const result = await service.expireDeadline(job.data);
   if (!result.ok && result.code === "deadline_not_reached") {
+    if (job.moveToDelayed !== undefined && token !== undefined) {
+      await job.moveToDelayed(result.fireAt, token);
+      throw new DelayedError();
+    }
     throw new DeadlineNotReachedError(result.fireAt);
   }
   if (result.ok && result.applied) {
@@ -41,7 +48,7 @@ export interface DeadlineWorkerInput {
 export function createDeadlineWorker(input: DeadlineWorkerInput): Worker<DeadlineJobData> {
   const worker = new Worker<DeadlineJobData>(
     DEADLINES_QUEUE,
-    (job) => processDeadline(job, input.service, input.logger),
+    (job, token) => processDeadline(job, input.service, input.logger, token),
     {
       connection: input.connection,
       concurrency: input.concurrency ?? DEFAULT_CONCURRENCY,
@@ -52,7 +59,7 @@ export function createDeadlineWorker(input: DeadlineWorkerInput): Worker<Deadlin
     },
   );
   worker.on("failed", (job, error) => {
-    if (error instanceof DeadlineNotReachedError) return;
+    if (error instanceof DeadlineNotReachedError || error instanceof DelayedError) return;
     input.logger.warn({ jobId: job?.id, attemptsMade: job?.attemptsMade, err: error }, "deadline job failed");
   });
   worker.on("error", (error) => {

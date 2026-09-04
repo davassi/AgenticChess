@@ -58,12 +58,22 @@ export function deadlineBackoffStrategy(
   return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** Math.max(0, attemptsMade - 1));
 }
 
+const TERMINAL_JOB_STATES = new Set(["failed", "completed"]);
+
 export async function scheduleDeadline(
   queue: DeadlineQueue,
   data: DeadlineJobData,
   moveDeadlineAt: number,
   now: number,
-): Promise<void> {
+): Promise<boolean> {
+  const id = deadlineJobId(data.gameId, data.ply);
+  const existing = await queue.getJob(id);
+  if (existing !== undefined) {
+    const state = await existing.getState();
+    if (!TERMINAL_JOB_STATES.has(state)) return false;
+    await existing.remove();
+  }
   const delay = Math.max(0, deadlineFireAt(moveDeadlineAt) - now);
-  await queue.add(DEADLINE_JOB_NAME, data, { jobId: deadlineJobId(data.gameId, data.ply), delay });
+  await queue.add(DEADLINE_JOB_NAME, data, { jobId: id, delay });
+  return true;
 }

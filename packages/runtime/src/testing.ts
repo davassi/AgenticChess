@@ -1,7 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { RedisContainer } from "@testcontainers/redis";
 import { agents, users, type Database } from "@aichess/db";
+import type { Redis } from "ioredis";
 import type { GameAgents } from "./events/wire.js";
+
+export async function forceJobFailed(redis: Redis, queueName: string, jobId: string, prefix = "bull"): Promise<void> {
+  const base = `${prefix}:${queueName}`;
+  await redis.zrem(`${base}:delayed`, jobId);
+  await redis.lrem(`${base}:wait`, 0, jobId);
+  await redis.lrem(`${base}:paused`, 0, jobId);
+  await redis.zadd(`${base}:failed`, Date.now(), jobId);
+}
 
 export async function seedTwoAgents(db: Database): Promise<GameAgents> {
   const suffix = randomUUID().slice(0, 8);

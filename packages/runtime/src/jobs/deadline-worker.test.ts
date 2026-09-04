@@ -7,6 +7,7 @@ import type { GameAgents } from "../events/wire.js";
 import { noopLogger } from "../logger.js";
 import { createRuntime, type RuntimeHandle } from "../runtime.js";
 import { seedTwoAgents, startTestRedis, type TestRedis } from "../testing.js";
+import { DelayedError } from "bullmq";
 import { createDeadlineWorker, processDeadline } from "./deadline-worker.js";
 import { DeadlineNotReachedError, deadlineJobId, scheduleDeadline } from "./deadlines.js";
 
@@ -44,6 +45,31 @@ describe("deadline worker", () => {
     await truncateAll(runtime.db);
     await runtime.deadlines.obliterate({ force: true });
     agents = await seedTwoAgents(runtime.db);
+  });
+
+  it("moves an early job to delayed when the worker token is present", async () => {
+    const created = await runtime.service.createAndStartGame({
+      whiteAgentId: agents.white.id,
+      blackAgentId: agents.black.id,
+    });
+    if (!created.ok) throw new Error(created.code);
+    const moved: number[] = [];
+    await expect(
+      processDeadline(
+        {
+          id: "x",
+          attemptsMade: 0,
+          data: { gameId: created.snapshot.id, ply: 0 },
+          moveToDelayed: async (timestamp) => {
+            moved.push(timestamp);
+          },
+        },
+        runtime.service,
+        noopLogger,
+        "token",
+      ),
+    ).rejects.toBeInstanceOf(DelayedError);
+    expect(moved).toHaveLength(1);
   });
 
   it("throws DeadlineNotReachedError for an early job so BullMQ retries it later", async () => {

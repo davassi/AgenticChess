@@ -14,7 +14,7 @@ import type { GameConfig, GameSnapshot, IllegalReason, LegalMove, WireEvent } fr
 import type { Database } from "@aichess/db";
 import type { EventBus, GameParties } from "../events/bus.js";
 import { toSnapshot, toWireEvents, toYourTurn, type GameAgents, type Outgoing } from "../events/wire.js";
-import { deadlineFireAt, deadlineJobId, scheduleDeadline, type DeadlineQueue } from "../jobs/deadlines.js";
+import { deadlineFireAt, scheduleDeadline, type DeadlineQueue } from "../jobs/deadlines.js";
 import type { RuntimeLogger } from "../logger.js";
 import {
   findActiveGameIdForAgent,
@@ -282,9 +282,7 @@ export class GameService {
     const now = this.now();
     const report: ReconcileReport = { scanned: rows.length, republished: 0, rescheduled: 0 };
     for (const row of rows) {
-      const job = await this.deps.deadlines.getJob(deadlineJobId(row.gameId, row.ply));
-      if (job === undefined) {
-        await scheduleDeadline(this.deps.deadlines, { gameId: row.gameId, ply: row.ply }, row.moveDeadlineAt, now);
+      if (await scheduleDeadline(this.deps.deadlines, { gameId: row.gameId, ply: row.ply }, row.moveDeadlineAt, now)) {
         report.rescheduled += 1;
       }
       const state = await loadGame(this.deps.db, row.gameId);

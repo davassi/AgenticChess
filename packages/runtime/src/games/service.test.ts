@@ -7,9 +7,9 @@ import type { Redis } from "ioredis";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventBus, createRedis } from "../events/bus.js";
 import type { GameAgents } from "../events/wire.js";
-import { createDeadlineQueue, deadlineJobId, type DeadlineQueue } from "../jobs/deadlines.js";
+import { DEADLINES_QUEUE, createDeadlineQueue, deadlineJobId, type DeadlineQueue } from "../jobs/deadlines.js";
 import { noopLogger } from "../logger.js";
-import { seedTwoAgents, startTestRedis, type TestRedis } from "../testing.js";
+import { forceJobFailed, seedTwoAgents, startTestRedis, type TestRedis } from "../testing.js";
 import { GameService } from "./service.js";
 
 const T0 = Date.UTC(2026, 8, 3, 10, 0, 0);
@@ -442,6 +442,17 @@ describe("GameService", () => {
       await service.resign({ gameId, agentId: agents.black.id });
       clock = T0 + 60_000;
       expect(await service.reconcile({ staleTurnMs: 1 })).toEqual({ scanned: 0, republished: 0, rescheduled: 0 });
+    });
+
+    it("re-schedules a deadline job that exhausted its attempts", async () => {
+      const gameId = await newGame();
+      const jobId = deadlineJobId(gameId, 0);
+      await forceJobFailed(connection, DEADLINES_QUEUE, jobId);
+      expect(await (await queue.getJob(jobId))!.getState()).toBe("failed");
+      expect(await service.reconcile({ staleTurnMs: 10_000 })).toEqual({ scanned: 1, republished: 0, rescheduled: 1 });
+      const replaced = await queue.getJob(jobId);
+      expect(replaced).toBeDefined();
+      expect(await replaced!.getState()).not.toBe("failed");
     });
   });
 });

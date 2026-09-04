@@ -77,9 +77,17 @@ export class EventBus {
     if (set === undefined) {
       set = new Set();
       this.handlers.set(channel, set);
-      await this.subscriber.subscribe(channel);
+      set.add(handler);
+      try {
+        await this.subscriber.subscribe(channel);
+      } catch (error) {
+        set.delete(handler);
+        if (set.size === 0) this.handlers.delete(channel);
+        throw error;
+      }
+    } else {
+      set.add(handler);
     }
-    set.add(handler);
     return async () => {
       const current = this.handlers.get(channel);
       if (current === undefined) return;

@@ -3,9 +3,10 @@ import { NETWORK_GRACE_MS } from "@aichess/core/protocol";
 import type { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedis } from "../events/bus.js";
-import { startTestRedis, type TestRedis } from "../testing.js";
+import { forceJobFailed, startTestRedis, type TestRedis } from "../testing.js";
 import {
   DEADLINE_JOB_NAME,
+  DEADLINES_QUEUE,
   createDeadlineQueue,
   deadlineFireAt,
   deadlineJobId,
@@ -85,5 +86,18 @@ describe("deadline jobs", () => {
     const job = await queue.getJob(deadlineJobId(gameId, 0));
     expect(job?.opts.backoff).toEqual({ type: "custom" });
     expect(job?.opts.attempts).toBe(5);
+  });
+
+  it("replaces a failed job so the same game and ply can fire again", async () => {
+    const gameId = randomUUID();
+    const now = Date.now();
+    expect(await scheduleDeadline(queue, { gameId, ply: 2 }, now - 60_000, now)).toBe(true);
+    const jobId = deadlineJobId(gameId, 2);
+    await forceJobFailed(connection, DEADLINES_QUEUE, jobId);
+    expect(await (await queue.getJob(jobId))!.getState()).toBe("failed");
+    expect(await scheduleDeadline(queue, { gameId, ply: 2 }, now + 8_000, now)).toBe(true);
+    const replaced = await queue.getJob(jobId);
+    expect(await replaced!.getState()).not.toBe("failed");
+    expect(replaced!.opts.delay).toBe(8_000 + NETWORK_GRACE_MS);
   });
 });
