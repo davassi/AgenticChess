@@ -273,6 +273,21 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/node@22.20.1)(jsdom@30.0.1)(tsx@4.23.13)(yaml@2.9.0)
 
+  packages/sdk-ts:
+    devDependencies:
+      '@aichess/core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.1)(jsdom@30.0.1)(tsx@4.23.13)(yaml@2.9.0)
+
 packages:
 
   '@adobe/css-tools@4.5.0':
