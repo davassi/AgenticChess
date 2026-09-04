@@ -5,7 +5,8 @@
  * on `.piece` is what makes a move slide. Replaying the UCI moves gives every
  * piece an id from the square it started on, exactly as the prototype did;
  * `positionFromFen` exists for the places that show a position without its
- * history, like the arena's small boards.
+ * history, like the arena's small boards; given the position it replaces it
+ * carries the identities across rather than inventing thirty-two new ones.
  */
 
 export type Square = string;
@@ -59,10 +60,21 @@ const PROMOTION: Record<string, "queen" | "rook" | "bishop" | "knight"> = {
 
 export const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-/** Only the placement field of the FEN is read; the rest is state the board does not draw. */
-export function positionFromFen(fen: string): Position {
+/**
+ * Only the placement field of the FEN is read; the rest is state the board
+ * does not draw.
+ *
+ * A FEN says where the pieces are and nothing about which piece is which, so
+ * a board drawn from one has no identity to animate: React sees new keys and
+ * remounts all thirty-two nodes. Given the position it is replacing, this
+ * carries the identities across — a piece that did not move keeps its own,
+ * and within a kind a square that emptied hands its id to one that filled.
+ * Where the diff is ambiguous it falls back to a fresh identity, which is
+ * simply the un-reconciled behaviour for that one piece.
+ */
+export function positionFromFen(fen: string, previous?: Position): Position {
   const placement = fen.split(" ")[0] ?? "";
-  const position = new Map<Square, PlacedPiece>();
+  const placed: PlacedPiece[] = [];
   const ranks = placement.split("/");
   for (let rankIndex = 0; rankIndex < ranks.length; rankIndex += 1) {
     const row = ranks[rankIndex];
@@ -79,12 +91,53 @@ export function positionFromFen(fen: string): Position {
       const fileLetter = FILES[file];
       if (kind !== undefined && fileLetter !== undefined) {
         const square = `${fileLetter}${rank}`;
-        position.set(square, { id: square, kind, square });
+        placed.push({ id: square, kind, square });
       }
       file += 1;
     }
   }
-  return position;
+  if (previous === undefined) return new Map(placed.map((piece) => [piece.square, piece]));
+  return reconcile(placed, previous);
+}
+
+/** Carries identities from the position being replaced onto the new one. */
+function reconcile(placed: readonly PlacedPiece[], previous: Position): Position {
+  const used = new Set<string>();
+  const result = new Map<Square, PlacedPiece>();
+  const moved: PlacedPiece[] = [];
+
+  for (const piece of placed) {
+    const before = previous.get(piece.square);
+    if (before !== undefined && before.kind === piece.kind && !used.has(before.id)) {
+      used.add(before.id);
+      result.set(piece.square, { id: before.id, kind: piece.kind, square: piece.square });
+    } else {
+      moved.push(piece);
+    }
+  }
+
+  const free = new Map<PieceKind, string[]>();
+  for (const piece of previous.values()) {
+    if (used.has(piece.id)) continue;
+    const list = free.get(piece.kind) ?? [];
+    list.push(piece.id);
+    free.set(piece.kind, list);
+  }
+
+  let spare = 0;
+  for (const piece of moved) {
+    const inherited = free.get(piece.kind)?.shift();
+    let id = inherited ?? piece.square;
+    // A promoted piece, or a diff with nothing left to inherit from, falls
+    // back to its square — which another piece may already hold as its id.
+    while (used.has(id)) {
+      spare += 1;
+      id = `${piece.square}#${spare}`;
+    }
+    used.add(id);
+    result.set(piece.square, { id, kind: piece.kind, square: piece.square });
+  }
+  return result;
 }
 
 export function startingPosition(): Position {

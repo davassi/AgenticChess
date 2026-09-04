@@ -71,3 +71,50 @@ describe("position model", () => {
     expect(squareOffsets("e4")).toEqual({ x: 4, y: 4 });
   });
 });
+
+describe("identity across a redraw from FEN", () => {
+  const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+
+  it("keeps every untouched piece's identity", () => {
+    const before = positionFromFen(START);
+    const after = positionFromFen(AFTER_E4, before);
+    expect(after.get("a1")?.id).toBe("a1");
+    expect(after.get("e8")?.id).toBe("e8");
+  });
+
+  it("hands a vacated square's identity to the piece that arrived", () => {
+    const before = positionFromFen(START);
+    const after = positionFromFen(AFTER_E4, before);
+    expect(after.get("e4")).toEqual({ id: "e2", kind: "w-pawn", square: "e4" });
+    expect(after.get("e2")).toBeUndefined();
+  });
+
+  it("keeps the mover's identity through a capture", () => {
+    const before = positionFromFen("8/8/8/3p4/4P3/8/8/8 w - - 0 1");
+    const after = positionFromFen("8/8/8/3P4/8/8/8/8 b - - 0 1", before);
+    expect(after.get("d5")).toEqual({ id: "e4", kind: "w-pawn", square: "d5" });
+    expect(after.size).toBe(1);
+  });
+
+  it("moves the rook with the king through a castle", () => {
+    const before = positionFromFen("8/8/8/8/8/8/8/R3K3 w Q - 0 1");
+    const after = positionFromFen("8/8/8/8/8/8/8/2KR4 b - - 0 1", before);
+    expect(after.get("c1")?.id).toBe("e1");
+    expect(after.get("d1")?.id).toBe("a1");
+  });
+
+  // Two pieces of one kind, one of them gone: nothing in a FEN says which.
+  // The result must still be all-distinct keys, or React renders duplicates.
+  it("never hands out the same identity twice, however ambiguous the diff", () => {
+    const before = positionFromFen("8/8/8/8/1N3N2/8/8/8 w - - 0 1");
+    const after = positionFromFen("8/8/8/8/8/2N5/8/8 b - - 0 1", before);
+    const ids = [...after.values()].map((piece) => piece.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("is unchanged when no previous position is given", () => {
+    const fresh = positionFromFen(AFTER_E4);
+    expect(fresh.get("e4")).toEqual({ id: "e4", kind: "w-pawn", square: "e4" });
+  });
+});
