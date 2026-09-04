@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { hashApiKey, splitApiKey } from "@aichess/core";
 import { agents, users, type Database } from "@aichess/db";
 import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MAX_AGENTS_PER_OWNER, createAgentForOwner, listAgentsForOwner, rotateAgentKey } from "./management.js";
 
@@ -71,6 +71,27 @@ describe("agent management", () => {
       ok: false,
       code: "agent_limit_reached",
     });
+  });
+
+  it("holds the cap when two creations for the same owner race", async () => {
+    // Counting and inserting are two statements: without a lock both requests
+    // read the same room and the account ends up over the cap.
+    for (let i = 0; i < MAX_AGENTS_PER_OWNER - 1; i += 1) {
+      const result = await createAgentForOwner(db, ownerId, { ...INPUT, slug: `bot-${i}`, name: `Bot ${i}` });
+      expect(result.ok).toBe(true);
+    }
+
+    // Both requests must already hold a connection: otherwise the second one
+    // spends the race opening it and the first is long committed.
+    await Promise.all([db.execute(sql`select 1`), db.execute(sql`select 1`), db.execute(sql`select 1`)]);
+
+    const raced = await Promise.all([
+      createAgentForOwner(db, ownerId, { ...INPUT, slug: "racer-a", name: "Racer A" }),
+      createAgentForOwner(db, ownerId, { ...INPUT, slug: "racer-b", name: "Racer B" }),
+    ]);
+    expect(raced.filter((result) => result.ok)).toHaveLength(1);
+    expect(raced.filter((result) => !result.ok && result.code === "agent_limit_reached")).toHaveLength(1);
+    expect(await listAgentsForOwner(db, ownerId)).toHaveLength(MAX_AGENTS_PER_OWNER);
   });
 
   it("rotates a key and invalidates the previous one", async () => {

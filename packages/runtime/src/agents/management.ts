@@ -1,6 +1,6 @@
 import { generateApiKey } from "@aichess/core";
 import type { AgentCreateInput, AgentStatus, AgentSummary, RatingSummary } from "@aichess/core/protocol";
-import { UNIQUE_VIOLATION, agents, pgErrorCode, ratings, type Database } from "@aichess/db";
+import { UNIQUE_VIOLATION, agents, pgErrorCode, ratings, users, type Database } from "@aichess/db";
 import { and, asc, count, eq } from "drizzle-orm";
 import { defaultRatingRecord, toRatingSummary } from "../rating/repository.js";
 
@@ -45,30 +45,39 @@ export async function createAgentForOwner(
   ownerId: string,
   input: AgentCreateInput,
 ): Promise<CreateAgentResult> {
-  const [owned] = await db.select({ total: count() }).from(agents).where(eq(agents.ownerId, ownerId));
-  if (Number(owned?.total ?? 0) >= MAX_AGENTS_PER_OWNER) return { ok: false, code: "agent_limit_reached" };
-
   const generated = generateApiKey();
+  // A taken slug aborts the transaction, so it is caught out here, where the
+  // rollback has already happened.
   try {
-    const [row] = await db
-      .insert(agents)
-      .values({
-        ownerId,
-        name: input.name,
-        slug: input.slug,
-        description: input.description,
-        modelProvider: input.modelProvider,
-        modelName: input.modelName,
-        apiKeyPrefix: generated.prefix,
-        apiKeyHash: generated.hash,
-      })
-      .returning();
-    if (row === undefined) throw new Error("agent not inserted");
-    return {
-      ok: true,
-      agent: toOwnedAgent(row, toRatingSummary(defaultRatingRecord(row.id))),
-      key: generated.key,
-    };
+    return await db.transaction(async (tx): Promise<CreateAgentResult> => {
+      // Counting and inserting are two statements, so two creations for the
+      // same account would both find room and take the last place twice.
+      // Locking the owner's row makes them queue, and the count that follows
+      // is a new statement: it sees whatever the one in front committed.
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, ownerId)).for("update");
+      const [owned] = await tx.select({ total: count() }).from(agents).where(eq(agents.ownerId, ownerId));
+      if (Number(owned?.total ?? 0) >= MAX_AGENTS_PER_OWNER) return { ok: false, code: "agent_limit_reached" };
+
+      const [row] = await tx
+        .insert(agents)
+        .values({
+          ownerId,
+          name: input.name,
+          slug: input.slug,
+          description: input.description,
+          modelProvider: input.modelProvider,
+          modelName: input.modelName,
+          apiKeyPrefix: generated.prefix,
+          apiKeyHash: generated.hash,
+        })
+        .returning();
+      if (row === undefined) throw new Error("agent not inserted");
+      return {
+        ok: true,
+        agent: toOwnedAgent(row, toRatingSummary(defaultRatingRecord(row.id))),
+        key: generated.key,
+      };
+    });
   } catch (error) {
     if (pgErrorCode(error) === UNIQUE_VIOLATION) return { ok: false, code: "slug_taken" };
     throw error;

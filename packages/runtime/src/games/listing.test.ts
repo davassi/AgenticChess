@@ -89,6 +89,22 @@ describe("game listing", () => {
     expect(draws.map((g) => g.result)).toEqual(["1/2-1/2"]);
   });
 
+  it("keeps a draw filter to the games the named agent actually played", async () => {
+    // Win and loss are read from the agent's side of the board; a draw has no
+    // side, so it needs the participation predicate spelled out.
+    const strangers = await seedTwoAgents(db, { owners: "distinct" });
+    const own = await insertGame({ result: "1/2-1/2", termination: "stalemate" });
+    await insertGame({
+      result: "1/2-1/2",
+      termination: "stalemate",
+      whiteAgentId: strangers.white.id,
+      blackAgentId: strangers.black.id,
+    });
+
+    const draws = await listGames(db, { limit: 10, agentId: agents.white.id, outcome: "draw" });
+    expect(draws.map((game) => game.id)).toEqual([own]);
+  });
+
   it("pages with a keyset cursor and never repeats a row", async () => {
     const ids = [
       await insertGame({ createdAt: new Date(T0 - 2_000) }),

@@ -34,9 +34,16 @@ function iso(value: Date | null): string | null {
   return value === null ? null : value.toISOString();
 }
 
+/** Either side of the board. */
+function playedBy(agentId: string): SQL | undefined {
+  return or(eq(games.whiteAgentId, agentId), eq(games.blackAgentId, agentId));
+}
+
 /** Win, loss and draw are read from the named agent's side of the board. */
 function outcomeCondition(agentId: string, outcome: GameOutcomeFilter): SQL | undefined {
-  if (outcome === "draw") return eq(games.result, "1/2-1/2");
+  // A win or a loss names a side and so carries the participation with it; a
+  // draw does not, and without this every drawn game in the arena would match.
+  if (outcome === "draw") return and(playedBy(agentId), eq(games.result, "1/2-1/2"));
   const asWhite = outcome === "win" ? "1-0" : "0-1";
   const asBlack = outcome === "win" ? "0-1" : "1-0";
   return or(
@@ -51,9 +58,7 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
   if (input.termination !== undefined) conditions.push(eq(games.termination, input.termination));
   if (input.agentId !== undefined) {
     conditions.push(
-      input.outcome === undefined
-        ? or(eq(games.whiteAgentId, input.agentId), eq(games.blackAgentId, input.agentId))
-        : outcomeCondition(input.agentId, input.outcome),
+      input.outcome === undefined ? playedBy(input.agentId) : outcomeCondition(input.agentId, input.outcome),
     );
   }
   const after = input.after;

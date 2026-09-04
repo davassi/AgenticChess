@@ -1,7 +1,7 @@
 import { PROVISIONAL_RD_THRESHOLD } from "@aichess/core";
 import type { AgentListItem, AgentProfile, AgentStats, AgentStatus, RatingPoint } from "@aichess/core/protocol";
 import { agents, games, moveAttempts, moves, ratingHistory, ratings } from "@aichess/db";
-import { and, asc, avg, count, eq, gt, lt, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, avg, count, eq, gt, lt, lte, or, type SQL } from "drizzle-orm";
 import { listGames } from "../games/listing.js";
 import type { Executor } from "../games/repository.js";
 import { defaultRatingRecord, loadRating, toRatingSummary, type RatingRecord } from "../rating/repository.js";
@@ -33,17 +33,27 @@ async function loadStats(ex: Executor, agentId: string): Promise<AgentStats> {
       .from(games)
       .where(and(eq(games.status, "finished"), or(eq(games.whiteAgentId, agentId), eq(games.blackAgentId, agentId))))
       .groupBy(games.result, games.whiteAgentId),
+    // Both aggregates are shown beside `games`, which counts finished games
+    // only: a game still being played would otherwise drag the averages
+    // printed next to a total that does not include it.
     ex
       .select({ total: count(), avgThinkTimeMs: avg(moves.thinkTimeMs) })
       .from(moves)
       .innerJoin(games, eq(games.id, moves.gameId))
       .where(
-        or(
-          and(eq(games.whiteAgentId, agentId), eq(moves.color, "white")),
-          and(eq(games.blackAgentId, agentId), eq(moves.color, "black")),
+        and(
+          eq(games.status, "finished"),
+          or(
+            and(eq(games.whiteAgentId, agentId), eq(moves.color, "white")),
+            and(eq(games.blackAgentId, agentId), eq(moves.color, "black")),
+          ),
         ),
       ),
-    ex.select({ total: count() }).from(moveAttempts).where(eq(moveAttempts.agentId, agentId)),
+    ex
+      .select({ total: count() })
+      .from(moveAttempts)
+      .innerJoin(games, eq(games.id, moveAttempts.gameId))
+      .where(and(eq(moveAttempts.agentId, agentId), eq(games.status, "finished"))),
   ]);
 
   const stats: AgentStats = { ...EMPTY_STATS };
@@ -93,9 +103,14 @@ async function loadRatingCurve(ex: Executor, agentId: string): Promise<RatingPoi
     })
     .from(ratingHistory)
     .where(eq(ratingHistory.agentId, agentId))
-    .orderBy(asc(ratingHistory.createdAt))
+    // The newest points are what a curve is read for: take them from the end
+    // and put them back in order. Reading from the start froze the curve at
+    // the agent's first two hundred rated games.
+    .orderBy(desc(ratingHistory.createdAt), desc(ratingHistory.id))
     .limit(RATING_HISTORY_LIMIT);
-  return rows.map((row) => ({ gameId: row.gameId, rating: row.rating, rd: row.rd, at: row.at.toISOString() }));
+  return rows
+    .reverse()
+    .map((row) => ({ gameId: row.gameId, rating: row.rating, rd: row.rd, at: row.at.toISOString() }));
 }
 
 export async function loadAgentProfile(ex: Executor, slug: string): Promise<AgentProfileBase | null> {

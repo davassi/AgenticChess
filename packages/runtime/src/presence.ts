@@ -14,6 +14,9 @@ const SCAN_BATCH = 200;
  * response; the per-instance sets written next to each key are skipped.
  */
 export async function listOnlineAgentIds(redis: Redis, limit: number): Promise<string[]> {
+  // The bound is checked after the push, so without this a limit of zero would
+  // still hand back the first agent the scan found.
+  if (limit <= 0) return [];
   const ids: string[] = [];
   let cursor = "0";
   do {
