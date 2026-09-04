@@ -21,3 +21,4 @@ export * from "./games/listing.js";
 export * from "./agents/repository.js";
 export * from "./agents/profile.js";
 export * from "./lobby.js";
+export * from "./agents/management.js";
