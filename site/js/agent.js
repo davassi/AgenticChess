@@ -36,7 +36,7 @@
     }
     const center = Iso.project(origin, 1, 1);
     Iso.fillDiamond(ctx, center.x, center.y, 16, "rgba(255, 194, 51, 0.4)");
-    const sprite = Pixel.toCanvas(Pixel.PIECES[agent.piece], Pixel.PALETTES[agent.palette]);
+    const sprite = Pixel.toCanvas(Pixel.avatar(agent.piece), Pixel.PALETTES[agent.palette]);
     const baseY = center.y + 8 + 4;
     ctx.drawImage(sprite, center.x - sprite.width, baseY - sprite.height * 2, sprite.width * 2, sprite.height * 2);
   }

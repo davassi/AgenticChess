@@ -46,7 +46,7 @@
       }
       const center = Iso.project(origin, 1, 1);
       Iso.fillDiamond(ctx, center.x, center.y - 8, 16, "rgba(255, 194, 51, 0.35)");
-      const sprite = Pixel.toCanvas(Pixel.PIECES[card.dataset.piece], Pixel.PALETTES[card.dataset.palette]);
+      const sprite = Pixel.toCanvas(Pixel.avatar(card.dataset.piece), Pixel.PALETTES[card.dataset.palette]);
       const baseY = center.y + 4;
       Iso.fillDiamond(ctx, center.x, baseY - 5, 6, "rgba(6, 3, 20, 0.35)");
       ctx.drawImage(sprite, center.x - Math.floor(sprite.width / 2), baseY - sprite.height);
