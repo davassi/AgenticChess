@@ -1,42 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { ArenaError } from "./errors.js";
 import { ArenaHttp, type FetchLike } from "./http.js";
+import { fakeFetch, jsonResponse } from "./testing.js";
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-}
-
-function build(responses: Array<Response | Error>): { http: ArenaHttp; calls: RequestInit[]; urls: string[] } {
-  const calls: RequestInit[] = [];
-  const urls: string[] = [];
-  const queue = [...responses];
-  const fetchLike = ((url: string, init?: RequestInit): Promise<Response> => {
-    urls.push(url);
-    calls.push(init ?? {});
-    const next = queue.shift();
-    if (next === undefined) throw new Error("fetch called more times than the test allows");
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
-  }) as unknown as FetchLike;
-
+function build(script: Array<Response | Error>): { http: ArenaHttp; calls: Array<{ url: string; init: RequestInit }> } {
+  const fake = fakeFetch(script);
   const http = new ArenaHttp({
     baseUrl: "https://api.example/",
     apiKey: "ac_test",
-    fetch: fetchLike,
+    fetch: fake.fetch,
     sleep: async () => {},
     random: () => 0.5,
   });
-  return { http, calls, urls };
+  return { http, calls: fake.calls };
 }
 
 describe("ArenaHttp", () => {
   it("sends the bearer key and returns the parsed body", async () => {
-    const { http, calls, urls } = build([jsonResponse(200, { queuedAt: "2026-09-04T10:00:00.000Z" })]);
+    const { http, calls } = build([jsonResponse(200, { queuedAt: "2026-09-04T10:00:00.000Z" })]);
 
     const body = await http.requestJson<{ queuedAt: string }>("POST", "/v1/agent/queue");
 
     expect(body.queuedAt).toBe("2026-09-04T10:00:00.000Z");
-    expect(urls[0]).toBe("https://api.example/v1/agent/queue");
-    const headers = calls[0]?.headers as Record<string, string>;
+    expect(calls[0]?.url).toBe("https://api.example/v1/agent/queue");
+    const headers = calls[0]?.init.headers as Record<string, string>;
     expect(headers["authorization"]).toBe("Bearer ac_test");
   });
 
@@ -65,7 +52,7 @@ describe("ArenaHttp", () => {
 
     expect(body.ok).toBe(true);
     expect(calls).toHaveLength(2);
-    expect(calls[0]?.body).toBe(calls[1]?.body);
+    expect(calls[0]?.init.body).toBe(calls[1]?.init.body);
   });
 
   it("retries a network failure", async () => {
@@ -142,7 +129,7 @@ describe("ArenaHttp", () => {
     await http.open("/v1/agent/events", new AbortController().signal);
 
     expect(calls).toHaveLength(1);
-    const headers = calls[0]?.headers as Record<string, string>;
+    const headers = calls[0]?.init.headers as Record<string, string>;
     expect(headers["accept"]).toBe("text/event-stream");
   });
 });
