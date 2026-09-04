@@ -90,6 +90,24 @@ describe("ArenaHttp", () => {
     expect(calls).toHaveLength(3);
   });
 
+  it("preserves the arena's own error body when repeated 503s exhaust every retry", async () => {
+    const { http, calls } = build([
+      jsonResponse(503, { error: "rate_limited", message: "arena is over capacity, slow down" }),
+      jsonResponse(503, { error: "rate_limited", message: "arena is over capacity, slow down" }),
+      jsonResponse(503, { error: "rate_limited", message: "arena is over capacity, slow down" }),
+    ]);
+
+    const error = await http.requestJson("GET", "/v1/agent/me").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ArenaError);
+    expect((error as ArenaError).status).toBe(503);
+    // "rate_limited" is deliberately not "service_unavailable" - the code the network-failure
+    // exhaustion path synthesises - so this assertion cannot pass if 503 exhaustion were ever
+    // routed through that synthetic branch instead of the arena's own response body.
+    expect((error as ArenaError).code).toBe("rate_limited");
+    expect(calls).toHaveLength(3);
+  });
+
   it("never retries a 4xx, because repeating an illegal move burns the turn", async () => {
     const { http, calls } = build([jsonResponse(409, { error: "not_your_turn", message: "wait" })]);
 
