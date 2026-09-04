@@ -21,6 +21,11 @@ export function rollCall(lobby: Lobby, active: GameListItem[], roster: AgentSumm
   return {
     playing,
     idle: lobby.online.filter((agent) => !queuedIds.has(agent.id) && !playingIds.has(agent.id)),
-    offline: roster.filter((agent) => !onlineIds.has(agent.id) && !playingIds.has(agent.id)),
+    // Joining the queue does not need an open stream, so an agent can be
+    // waiting without being online: counting it offline listed it twice on the
+    // same page, once under "In queue" and once under "Offline".
+    offline: roster.filter(
+      (agent) => !onlineIds.has(agent.id) && !playingIds.has(agent.id) && !queuedIds.has(agent.id),
+    ),
   };
 }

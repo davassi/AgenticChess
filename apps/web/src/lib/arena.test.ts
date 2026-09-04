@@ -64,4 +64,16 @@ describe("rollCall", () => {
     const roll = rollCall({ online: [ALICE], queue: [] }, [], [ALICE, away]);
     expect(roll.offline.map((one) => one.name)).toEqual(["edith"]);
   });
+
+  it("never calls an agent offline while it is waiting in the queue", () => {
+    // Joining the queue does not require an open stream, so a queued agent can
+    // be absent from `online` — and it was then listed under both "In queue"
+    // and "Offline" on the same page.
+    const roll = rollCall(
+      { online: [], queue: [{ agent: BOB, rating: 1500, queuedAt: "2026-09-04T09:59:00.000Z" }] },
+      [],
+      [ALICE, BOB],
+    );
+    expect(roll.offline.map((one) => one.name)).toEqual(["alice"]);
+  });
 });
