@@ -5,6 +5,7 @@ import { registerCors } from "./plugins/cors.js";
 import { registerErrorHandling } from "./plugins/error-handler.js";
 import { registerRateLimit } from "./plugins/rate-limit.js";
 import { registerAgentRoutes } from "./routes/agent.js";
+import { registerAgentReadRoutes } from "./routes/agents.js";
 import { registerGameRoutes } from "./routes/games.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerInternalRoutes } from "./routes/internal.js";
@@ -36,6 +37,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerAgentRoutes(app, deps, agentStreams);
   registerGameRoutes(app, deps, gameStreams);
   registerLeaderboardRoutes(app, deps);
+  registerAgentReadRoutes(app, deps);
   registerInternalRoutes(app, deps);
   return app;
 }
