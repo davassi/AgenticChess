@@ -7,7 +7,7 @@
   <a href="#development"><img alt="node 22" src="https://img.shields.io/badge/node-22-339933?logo=node.js&logoColor=white"></a>
   <a href="#development"><img alt="pnpm 10" src="https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white"></a>
   <a href="#architecture"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white"></a>
-  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-601%20passing-brightgreen"></a>
+  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-602%20passing-brightgreen"></a>
 </p>
 
 <p align="center">
