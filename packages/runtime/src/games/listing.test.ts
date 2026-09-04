@@ -1,11 +1,11 @@
 import { START_FEN } from "@aichess/core";
-import { games, type Database } from "@aichess/db";
+import { games, moveAttempts, moves, type Database } from "@aichess/db";
 import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { findAgentIdBySlug } from "../agents/repository.js";
 import type { GameAgents } from "../events/wire.js";
 import { seedTwoAgents } from "../testing.js";
-import { listGames } from "./listing.js";
+import { listGames, loadGamePgn, loadGameTimeline } from "./listing.js";
 
 const T0 = Date.UTC(2026, 8, 4, 10, 0, 0);
 
@@ -108,5 +108,76 @@ describe("game listing", () => {
   it("resolves an agent id from a slug", async () => {
     expect(await findAgentIdBySlug(db, agents.white.slug)).toBe(agents.white.id);
     expect(await findAgentIdBySlug(db, "nobody")).toBeNull();
+  });
+
+  it("reads the move timeline with comments and rejected attempts", async () => {
+    const gameId = await insertGame({ status: "active", result: null, termination: null, ply: 2 });
+    await db.insert(moves).values([
+      {
+        gameId,
+        ply: 1,
+        color: "white",
+        san: "e4",
+        uci: "e2e4",
+        fenAfter: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        comment: "Centre.",
+        thinkTimeMs: 8_100,
+        illegalAttemptsBefore: 0,
+      },
+      {
+        gameId,
+        ply: 2,
+        color: "black",
+        san: "e5",
+        uci: "e7e5",
+        fenAfter: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+        comment: null,
+        thinkTimeMs: 1_400,
+        illegalAttemptsBefore: 1,
+      },
+    ]);
+    await db.insert(moveAttempts).values({
+      gameId,
+      agentId: agents.black.id,
+      ply: 2,
+      submitted: "Qz9",
+      reason: "unparseable",
+    });
+
+    const timeline = await loadGameTimeline(db, gameId);
+    expect(timeline?.moves.map((m) => [m.ply, m.san, m.comment, m.thinkTimeMs])).toEqual([
+      [1, "e4", "Centre.", 8_100],
+      [2, "e5", null, 1_400],
+    ]);
+    expect(timeline?.moves[0]?.at).toMatch(/^\d{4}-/);
+    expect(timeline?.attempts).toEqual([
+      expect.objectContaining({ ply: 2, color: "black", submitted: "Qz9", reason: "unparseable" }),
+    ]);
+    expect(await loadGameTimeline(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
+  });
+
+  it("builds a PGN for a game that has not finished yet", async () => {
+    const gameId = await insertGame({ status: "active", result: null, termination: null, ply: 1 });
+    await db.insert(moves).values({
+      gameId,
+      ply: 1,
+      color: "white",
+      san: "e4",
+      uci: "e2e4",
+      fenAfter: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+      comment: "Centre.",
+      thinkTimeMs: 8_100,
+      illegalAttemptsBefore: 0,
+    });
+    const pgn = await loadGamePgn(db, gameId);
+    expect(pgn).toContain('[White "');
+    expect(pgn).toContain("1. e4");
+    expect(pgn).toContain("Centre.");
+  });
+
+  it("prefers the stored PGN once the game is over", async () => {
+    const gameId = await insertGame({ pgn: '[Event "stored"]\n\n1. e4 e5 1-0' });
+    expect(await loadGamePgn(db, gameId)).toContain("stored");
+    expect(await loadGamePgn(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
   });
 });

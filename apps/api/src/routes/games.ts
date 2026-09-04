@@ -1,5 +1,5 @@
 import { GamesQuerySchema, MoveRequestSchema, type GameListPage } from "@aichess/core/protocol";
-import { findAgentIdBySlug, listGames, type GamesCursor } from "@aichess/runtime";
+import { findAgentIdBySlug, listGames, loadGamePgn, loadGameTimeline, type GamesCursor } from "@aichess/runtime";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../cursor.js";
@@ -58,6 +58,23 @@ export function registerGameRoutes(app: FastifyInstance, deps: AppDeps, gameStre
     const snapshot = await deps.service.getSnapshot(id, request.agent?.id);
     if (snapshot === null) throw new ApiError("not_found", MESSAGES.not_found);
     return snapshot;
+  });
+
+  app.get("/v1/games/:id/moves", async (request) => {
+    const { id } = parseWith(ParamsSchema, request.params, "params");
+    const timeline = await loadGameTimeline(deps.db, id);
+    if (timeline === null) throw new ApiError("not_found", MESSAGES.not_found);
+    return timeline;
+  });
+
+  app.get("/v1/games/:id/pgn", async (request, reply) => {
+    const { id } = parseWith(ParamsSchema, request.params, "params");
+    const pgn = await loadGamePgn(deps.db, id);
+    if (pgn === null) throw new ApiError("not_found", MESSAGES.not_found);
+    return reply
+      .header("content-type", "application/x-chess-pgn; charset=utf-8")
+      .header("content-disposition", `attachment; filename="game-${id}.pgn"`)
+      .send(pgn);
   });
 
   app.get("/v1/games/:id/stream", async (request, reply) => {

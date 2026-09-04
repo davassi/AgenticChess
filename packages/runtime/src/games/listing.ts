@@ -1,9 +1,17 @@
-import { turnOf } from "@aichess/core";
-import type { GameListItem, GameOutcomeFilter, GameStatus, Termination } from "@aichess/core/protocol";
-import { agents, games } from "@aichess/db";
-import { and, desc, eq, lt, or, type SQL } from "drizzle-orm";
+import { toPgn, turnOf } from "@aichess/core";
+import type {
+  GameListItem,
+  GameOutcomeFilter,
+  GameStatus,
+  GameTimeline,
+  Termination,
+  TimelineAttempt,
+  TimelineMove,
+} from "@aichess/core/protocol";
+import { agents, games, moveAttempts, moves } from "@aichess/db";
+import { and, asc, desc, eq, lt, or, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { Executor } from "./repository.js";
+import { loadAgentSummaries, loadGame, type Executor } from "./repository.js";
 
 export interface GamesCursor {
   createdAt: number;
@@ -103,4 +111,59 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
     startedAt: iso(row.startedAt),
     finishedAt: iso(row.finishedAt),
   }));
+}
+
+/**
+ * The full record of a game: the moves with their comments and think times,
+ * and the rejected attempts. `GameSnapshot.history` carries SAN strings only,
+ * so a spectator arriving mid-game would otherwise see a silent board.
+ */
+export async function loadGameTimeline(ex: Executor, gameId: string): Promise<GameTimeline | null> {
+  const [game] = await ex
+    .select({ white: games.whiteAgentId, black: games.blackAgentId })
+    .from(games)
+    .where(eq(games.id, gameId));
+  if (game === undefined) return null;
+
+  const [moveRows, attemptRows] = await Promise.all([
+    ex.select().from(moves).where(eq(moves.gameId, gameId)).orderBy(asc(moves.ply)),
+    ex
+      .select()
+      .from(moveAttempts)
+      .where(eq(moveAttempts.gameId, gameId))
+      .orderBy(asc(moveAttempts.ply), asc(moveAttempts.createdAt)),
+  ]);
+
+  const timelineMoves: TimelineMove[] = moveRows.map((row) => ({
+    ply: row.ply,
+    color: row.color,
+    san: row.san,
+    uci: row.uci,
+    fen: row.fenAfter,
+    comment: row.comment,
+    thinkTimeMs: row.thinkTimeMs,
+    at: row.createdAt.toISOString(),
+  }));
+
+  const attempts: TimelineAttempt[] = attemptRows.map((row) => ({
+    ply: row.ply,
+    color: row.agentId === game.white ? "white" : "black",
+    submitted: row.submitted.slice(0, 64),
+    reason: row.reason,
+    at: row.createdAt.toISOString(),
+  }));
+
+  return { moves: timelineMoves, attempts };
+}
+
+/** The stored PGN once the game is over, rebuilt from the moves while it is still running. */
+export async function loadGamePgn(ex: Executor, gameId: string): Promise<string | null> {
+  const [row] = await ex.select({ pgn: games.pgn }).from(games).where(eq(games.id, gameId));
+  if (row === undefined) return null;
+  if (row.pgn !== null && row.pgn !== "") return row.pgn;
+  const state = await loadGame(ex, gameId);
+  if (state === null) return null;
+  const players = await loadAgentSummaries(ex, state.whiteAgentId, state.blackAgentId);
+  if (players === null) return null;
+  return toPgn(state, { white: players.white.name, black: players.black.name });
 }

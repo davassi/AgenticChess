@@ -1,5 +1,5 @@
 import { START_FEN } from "@aichess/core";
-import { GameListPageSchema } from "@aichess/core/protocol";
+import { GameListPageSchema, GameTimelineSchema } from "@aichess/core/protocol";
 import { games } from "@aichess/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { startHarness, type Harness } from "../test-utils/harness.js";
@@ -73,5 +73,31 @@ describe("GET /v1/games", () => {
     expect(noAgent.json()).toMatchObject({ error: "validation_error" });
     const badCursor = await h.app.inject({ method: "GET", url: "/v1/games?cursor=not-base64url" });
     expect(badCursor.statusCode).toBe(400);
+  });
+
+  it("serves the timeline and the PGN of a real game", async () => {
+    const gameId = await h.createGame();
+    const played = await h.app.inject({
+      method: "POST",
+      url: `/v1/games/${gameId}/move`,
+      headers: { authorization: `Bearer ${h.agents.white.key}` },
+      payload: { ply: 0, move: "e4", comment: "Centre." },
+    });
+    expect(played.statusCode).toBe(200);
+
+    const timeline = await h.app.inject({ method: "GET", url: `/v1/games/${gameId}/moves` });
+    expect(timeline.statusCode).toBe(200);
+    expect(GameTimelineSchema.parse(timeline.json()).moves).toMatchObject([
+      { ply: 1, color: "white", san: "e4", comment: "Centre." },
+    ]);
+
+    const pgn = await h.app.inject({ method: "GET", url: `/v1/games/${gameId}/pgn` });
+    expect(pgn.statusCode).toBe(200);
+    expect(pgn.headers["content-type"]).toContain("application/x-chess-pgn");
+    expect(pgn.headers["content-disposition"]).toContain(`game-${gameId}.pgn`);
+    expect(pgn.body).toContain("1. e4");
+
+    const missing = await h.app.inject({ method: "GET", url: "/v1/games/00000000-0000-4000-8000-000000000000/moves" });
+    expect(missing.statusCode).toBe(404);
   });
 });
