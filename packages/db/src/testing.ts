@@ -33,5 +33,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
 }
 
 export async function truncateAll(db: Database): Promise<void> {
-  await db.execute(sql`TRUNCATE TABLE move_attempts, moves, games, agents, users RESTART IDENTITY CASCADE`);
+  await db.execute(
+    sql`TRUNCATE TABLE rating_history, ratings, move_attempts, moves, games, agents, users RESTART IDENTITY CASCADE`,
+  );
 }

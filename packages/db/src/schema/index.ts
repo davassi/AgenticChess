@@ -3,3 +3,4 @@ export * from "./users.js";
 export * from "./agents.js";
 export * from "./games.js";
 export * from "./moves.js";
+export * from "./ratings.js";

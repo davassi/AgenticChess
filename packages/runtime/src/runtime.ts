@@ -5,6 +5,8 @@ import { EventBus, createRedis } from "./events/bus.js";
 import { GameService } from "./games/service.js";
 import { createDeadlineQueue, type DeadlineQueue } from "./jobs/deadlines.js";
 import type { RuntimeLogger } from "./logger.js";
+import { MatchmakingQueue } from "./matchmaking/queue.js";
+import { MatchmakingService } from "./matchmaking/service.js";
 
 export interface RuntimeConfig {
   databaseUrl: string;
@@ -19,6 +21,8 @@ export interface RuntimeHandle {
   bus: EventBus;
   deadlines: DeadlineQueue;
   service: GameService;
+  queue: MatchmakingQueue;
+  matchmaking: MatchmakingService;
   close: () => Promise<void>;
 }
 
@@ -50,6 +54,8 @@ export async function createRuntime(config: RuntimeConfig, logger: RuntimeLogger
   }
   const deadlines = createDeadlineQueue(queueConnection);
   const service = new GameService({ db: dbHandle.db, bus, deadlines, logger, config: config.game });
+  const queue = new MatchmakingQueue(redis);
+  const matchmaking = new MatchmakingService({ db: dbHandle.db, queue, bus, logger });
   const openBus = bus;
   let closed = false;
   return {
@@ -58,6 +64,8 @@ export async function createRuntime(config: RuntimeConfig, logger: RuntimeLogger
     bus: openBus,
     deadlines,
     service,
+    queue,
+    matchmaking,
     close: async () => {
       if (closed) return;
       closed = true;

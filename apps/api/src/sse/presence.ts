@@ -1,8 +1,5 @@
+import { presenceKeyFor } from "@aichess/runtime";
 import type { Redis } from "ioredis";
-
-export function presenceKeyFor(agentId: string): string {
-  return `presence:agent:${agentId}`;
-}
 
 export function presenceInstancesKeyFor(agentId: string): string {
   return `presence:agent:${agentId}:instances`;

@@ -35,6 +35,7 @@ export interface HarnessOptions {
   env?: Record<string, string>;
   listen?: boolean;
   register?: (app: FastifyInstance, deps: AppDeps) => void;
+  owners?: "shared" | "distinct";
 }
 
 async function assignKey(db: Database, summary: GameAgents["white"]): Promise<SeededAgent> {
@@ -46,8 +47,8 @@ async function assignKey(db: Database, summary: GameAgents["white"]): Promise<Se
   return { id: summary.id, name: summary.name, slug: summary.slug, key: generated.key };
 }
 
-async function seedWithKeys(db: Database): Promise<Harness["agents"]> {
-  const seeded: GameAgents = await seedTwoAgents(db);
+async function seedWithKeys(db: Database, owners: "shared" | "distinct"): Promise<Harness["agents"]> {
+  const seeded: GameAgents = await seedTwoAgents(db, { owners });
   return { white: await assignKey(db, seeded.white), black: await assignKey(db, seeded.black) };
 }
 
@@ -82,7 +83,7 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     deps: handle.deps,
     db: handle.deps.db,
     baseUrl,
-    agents: await seedWithKeys(handle.deps.db),
+    agents: await seedWithKeys(handle.deps.db, options.owners ?? "shared"),
     seedAgent: async () => {
       const extra = await seedTwoAgents(handle.deps.db);
       return assignKey(handle.deps.db, extra.white);
@@ -104,7 +105,8 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     reseed: async () => {
       await truncateAll(handle.deps.db);
       await handle.deps.deadlines.obliterate({ force: true });
-      harness.agents = await seedWithKeys(handle.deps.db);
+      await handle.deps.queue.clear();
+      harness.agents = await seedWithKeys(handle.deps.db, options.owners ?? "shared");
     },
     stop: async () => {
       await app.close();

@@ -3,7 +3,8 @@ import { createRedis } from "@aichess/runtime";
 import { startTestRedis, type TestRedis } from "@aichess/runtime/testing";
 import type { Redis } from "ioredis";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { clearPresent, isPresent, markPresent, presenceKeyFor } from "./presence.js";
+import { presenceKeyFor } from "@aichess/runtime";
+import { clearPresent, isPresent, markPresent } from "./presence.js";
 
 describe("presence", () => {
   let redis: TestRedis;

@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { toQueueStatus } from "@aichess/runtime";
 import type { FastifyReply } from "fastify";
 import type { AppDeps } from "../deps.js";
 import type { AuthenticatedAgent } from "../plugins/auth.js";
 import { clearPresent, isPresent, markPresent } from "./presence.js";
 import { openSse, type SseConnection } from "./stream.js";
 import { LiveBuffer, keepAfterHello } from "./subscribe.js";
-
-export { presenceKeyFor } from "./presence.js";
 
 interface ActiveStream {
   connection: SseConnection;
@@ -57,9 +56,17 @@ export class AgentStreamRegistry {
     if (connection.closed) return;
 
     try {
-      const activeGame = await this.deps.service.activeGameFor(agent.id);
+      const [activeGame, queue] = await Promise.all([
+        this.deps.service.activeGameFor(agent.id),
+        this.deps.matchmaking.status(agent.id),
+      ]);
       if (connection.closed) return;
-      connection.send({ type: "hello", agentId: agent.id, activeGame });
+      connection.send({
+        type: "hello",
+        agentId: agent.id,
+        activeGame,
+        queue: queue === null ? null : toQueueStatus(queue),
+      });
       const turn = await this.deps.service.yourTurnFor(agent.id);
       if (connection.closed) return;
       if (turn !== null) connection.send(turn);

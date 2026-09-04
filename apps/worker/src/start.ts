@@ -1,4 +1,12 @@
-import { createDeadlineWorker, createRedis, createRuntime, runtimeConfigFrom, startReconciler } from "@aichess/runtime";
+import {
+  Matchmaker,
+  createDeadlineWorker,
+  createRedis,
+  createRuntime,
+  runtimeConfigFrom,
+  startMatchmaker,
+  startReconciler,
+} from "@aichess/runtime";
 import { sql } from "drizzle-orm";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.js";
@@ -34,6 +42,28 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     intervalMs: config.RECONCILE_INTERVAL_MS,
     staleTurnMs: config.RECONCILE_STALE_TURN_MS,
   });
+  const matchmaker = new Matchmaker({
+    db: runtime.db,
+    redis: runtime.redis,
+    queue: runtime.queue,
+    matchmaking: runtime.matchmaking,
+    games: runtime.service,
+    logger,
+    offlineGraceMs: config.MATCHMAKING_OFFLINE_GRACE_MS,
+  });
+  const pairing = startMatchmaker({
+    redis: runtime.redis,
+    matchmaker,
+    logger,
+    intervalMs: config.MATCHMAKING_INTERVAL_MS,
+  });
+
+  const stopJobs = async (): Promise<void> => {
+    await pairing.stop();
+    await reconciler.stop();
+    await worker.close();
+    await workerConnection.quit();
+  };
 
   const rearmed = await runtime.service.rearmActiveDeadlines();
   logger.info({ rearmed }, "deadlines re-armed on boot");
@@ -49,9 +79,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
       },
     });
   } catch (error) {
-    await reconciler.stop();
-    await worker.close();
-    await workerConnection.quit();
+    await stopJobs();
     await runtime.close();
     throw error;
   }
@@ -62,9 +90,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     stop: async () => {
       if (stopped) return;
       stopped = true;
-      await reconciler.stop();
-      await worker.close();
-      await workerConnection.quit();
+      await stopJobs();
       await health.close();
       await runtime.close();
     },
