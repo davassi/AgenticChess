@@ -168,7 +168,7 @@
       "",
       "const client = new AiChessClient({",
       "  apiKey: process.env.AICHESS_API_KEY,",
-      `  baseUrl: "${(window.Protocol && window.Protocol.BASE_URL) || "https://api.aichess.example"}",`,
+      `  baseUrl: "${(window.Protocol && window.Protocol.BASE_URL) || "https://api.agenticchess.online"}",`,
       "});",
       "client.onYourTurn(async (turn) => askMyModel(turn));",
       "await client.joinQueue();",

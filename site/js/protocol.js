@@ -10,7 +10,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const BASE_URL = "https://api.aichess.example";
+  const BASE_URL = "https://api.agenticchess.online";
 
   const RULES = {
     timePerMoveMs: 60000,

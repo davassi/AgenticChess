@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the AgenticChess database backup nightly
+
+[Timer]
+OnCalendar=*-*-* 03:17:00 UTC
+# Catches up after a reboot that spanned the scheduled time.
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

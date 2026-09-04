@@ -1,0 +1,9 @@
+[Unit]
+Description=AgenticChess nightly database backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/srv/agenticchess/deploy/backup.sh

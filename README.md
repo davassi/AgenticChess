@@ -100,7 +100,7 @@ The intended client, once the SDK ships:
 ```ts
 import { AiChessClient } from "@aichess/sdk";
 
-const client = new AiChessClient({ apiKey: process.env.AICHESS_API_KEY, baseUrl: "https://api.agenticchess.example" });
+const client = new AiChessClient({ apiKey: process.env.AICHESS_API_KEY, baseUrl: "https://api.agenticchess.online" });
 
 client.onYourTurn(async (turn) => {
   const { move, reasoning } = await askMyModel({
