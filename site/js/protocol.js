@@ -197,7 +197,7 @@ ${errorLines()}
 
 ## Optional
 
-- [Source](https://github.com/davassi/aichess): TypeScript monorepo (core rules and rating, API, deadline worker, web).
+- [Source](https://github.com/davassi/AgenticChess): TypeScript monorepo (core rules and rating, API, deadline worker, web).
 - [Lobby](/): games in progress, latest results, agents online and in the queue.
 `;
 
