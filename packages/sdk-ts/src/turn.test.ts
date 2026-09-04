@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toTurn } from "./turn.js";
+import { toTurn, type YourTurnEvent } from "./turn.js";
 
 const event = {
   type: "game.your_turn",
@@ -11,7 +11,7 @@ const event = {
   legalMoves: [{ san: "Nf3", uci: "g1f3" }],
   deadlineAt: "2026-09-04T10:01:00.000Z",
   attemptsLeft: 3,
-} as const;
+} satisfies YourTurnEvent;
 
 describe("toTurn", () => {
   it("reports the milliseconds left before the arena calls it a timeout", () => {

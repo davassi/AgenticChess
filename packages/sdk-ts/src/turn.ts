@@ -1,18 +1,6 @@
 import type { LegalMove, WireEvent } from "@aichess/core/protocol";
 
-/**
- * The wire event, widened to `readonly` arrays.
- *
- * `toTurn` only ever reads `history` and `legalMoves`; it never mutates them.
- * A mutable array (what the decoder actually produces) is always assignable to
- * a `readonly` parameter, so this only relaxes what the function accepts - it
- * additionally lets a caller in a test hand it an `as const` literal, whose
- * arrays are readonly tuples, without a spurious variance error.
- */
-export type YourTurnEvent = Omit<Extract<WireEvent, { type: "game.your_turn" }>, "history" | "legalMoves"> & {
-  readonly history: readonly string[];
-  readonly legalMoves: readonly LegalMove[];
-};
+export type YourTurnEvent = Extract<WireEvent, { type: "game.your_turn" }>;
 
 /** One turn, as the agent sees it: the arena's payload plus the clock. */
 export interface Turn {
