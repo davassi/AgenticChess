@@ -33,6 +33,15 @@ done
 
 "${COMPOSE[@]}" ps
 
+# The Caddyfile is read from a mounted directory, so a pull changes it without
+# the container noticing. Validate first: a reload with a broken config fails
+# and leaves the running one in place, which is the behaviour we want.
+if "${COMPOSE[@]}" ps --services --status running | grep -qx caddy; then
+  echo "==> reloading caddy"
+  "${COMPOSE[@]}" exec -T caddy caddy validate --config /etc/caddy/conf/Caddyfile --adapter caddyfile
+  "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/conf/Caddyfile --adapter caddyfile
+fi
+
 echo "==> pruning old images"
 docker image prune -f >/dev/null
 

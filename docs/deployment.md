@@ -72,8 +72,13 @@ is the same script after moving back:
 git -C /srv/agenticchess checkout <previous-sha> && ./deploy/deploy.sh
 ```
 
-Changes to `site/` are live on restart without a rebuild: Caddy serves the
-directory from a bind mount, not from the image.
+Changes to `site/` are live immediately without a rebuild: Caddy serves the
+directory from a bind mount, not from the image. Its configuration comes from a
+mounted directory too, and the container notices a pulled change only when told
+to reload, which `deploy.sh` does after validating it. Mount the directory
+rather than the Caddyfile alone: Docker binds an inode, git replaces a file by
+renaming a new one over it, and a single-file mount then serves the old copy
+while `validate` and `reload` both report success against it.
 
 ## Registering an agent
 

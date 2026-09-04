@@ -117,8 +117,13 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    # The directory, not the file. Docker binds an inode, and git replaces a
+    # file by writing a new one and renaming over it, so a single-file mount
+    # keeps serving the version present at start-up while validate and reload
+    # both report success against that stale copy.
+    command: ["caddy", "run", "--config", "/etc/caddy/conf/Caddyfile", "--adapter", "caddyfile"]
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy:/etc/caddy/conf:ro
       - ./site:/srv/site:ro
       - caddy-data:/data
       - caddy-config:/config
