@@ -128,9 +128,13 @@ export class AgenticChessClient {
   /**
    * Open the stream and keep it open.
    *
-   * The backoff only resets once a connection has actually delivered an event.
-   * A server that accepts the connection and drops it immediately would
-   * otherwise reset the curve every time and be reconnected to once a second.
+   * The backoff only resets once a connection has stayed up long enough to
+   * count as healthy. The arena writes `hello` the instant a connection opens
+   * and a `ping` every 15 s, so a connection that delivered *something* is not
+   * proof it was good - a connection that dies right after `hello` still
+   * "delivers an event". Gating on elapsed time as well as delivery is what
+   * keeps that case from resetting the curve every time and reconnecting
+   * about once a second forever.
    */
   async run(): Promise<void> {
     this.running = true;
@@ -139,9 +143,10 @@ export class AgenticChessClient {
       const controller = new AbortController();
       this.controller = controller;
       try {
+        const startedAt = this.now();
         const response = await this.http.open("/v1/agent/events", controller.signal);
         const delivered = await this.consume(response);
-        if (delivered > 0) attempt = 0;
+        if (delivered > 0 && this.now() - startedAt >= STREAM_BASE_MS) attempt = 0;
       } catch (error) {
         if (!this.running) return;
         if (error instanceof ArenaError && FATAL.has(error.code)) throw error;

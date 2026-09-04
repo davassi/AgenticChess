@@ -109,13 +109,19 @@ describe("AgenticChessClient.run", () => {
     expect(errors).toEqual([]);
   });
 
-  it("reconnects after the stream ends, waiting the jittered stream backoff", async () => {
-    const { client, calls, slept } = build([sseResponse([hello]), sseResponse([gameEnd])]);
+  it("keeps backing off across repeated hello-only connections instead of pinning the delay", async () => {
+    // The arena writes `hello` the instant a connection opens (agent-streams.ts
+    // writes it before anything else on every connect). A connection that
+    // delivers nothing but `hello` and then dies is not a healthy connection,
+    // so two of those in a row must grow the delay, not reset it back to the
+    // same ~750ms every time - that pinned delay, hammering the arena roughly
+    // once a second forever, is exactly the bug this test pins closed.
+    const { client, calls, slept } = build([sseResponse([hello]), sseResponse([hello]), sseResponse([gameEnd])]);
 
     await client.run();
 
-    expect(calls).toHaveLength(2);
-    expect(slept).toEqual([750]);
+    expect(calls).toHaveLength(3);
+    expect(slept).toEqual([750, 1500]);
   });
 
   it("stops instead of reconnecting when the key is rejected", async () => {
@@ -123,5 +129,33 @@ describe("AgenticChessClient.run", () => {
 
     await expect(client.run()).rejects.toMatchObject({ code: "unauthorized" });
     expect(calls).toHaveLength(1);
+  });
+
+  it("keeps backing off through a transient fetch failure, reporting it without dying", async () => {
+    const { client, calls, errors, slept } = build([new TypeError("fetch failed"), sseResponse([gameEnd])]);
+
+    await client.run();
+
+    expect(calls).toHaveLength(2);
+    expect(errors).toHaveLength(1);
+    expect(slept).toEqual([750]);
+  });
+
+  it("acts on game.your_turn again after every hello, since the arena re-sends it on reconnect", async () => {
+    const { client, calls } = build([
+      sseResponse([hello, yourTurn]),
+      jsonResponse(200, { id: GAME }),
+      sseResponse([hello, yourTurn, gameEnd]),
+      jsonResponse(200, { id: GAME }),
+    ]);
+    client.onYourTurn((turn): MoveChoice => ({ move: turn.legalMoves[0]?.san ?? "" }));
+
+    await client.run();
+
+    const moves = calls.filter((call) => call.url === `https://api.example/v1/games/${GAME}/move`);
+    expect(moves).toHaveLength(2);
+    for (const move of moves) {
+      expect(JSON.parse(String(move.init.body))).toMatchObject({ ply: 4 });
+    }
   });
 });
