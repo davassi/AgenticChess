@@ -9,7 +9,7 @@ import { AgentCell } from "@/components/layout/AgentCell";
 import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { gameStreamUrl } from "@/lib/api";
 import type { IsoPosition } from "@/lib/iso";
-import { positionFromFen } from "@/lib/position";
+import type { Position } from "@/lib/position";
 import { timeAgo } from "@/lib/time";
 
 export interface LiveBoardCardProps {
@@ -17,17 +17,21 @@ export interface LiveBoardCardProps {
   apiPublicUrl: string;
 }
 
-function toIsoPosition(fen: string): IsoPosition {
-  const position: IsoPosition = {};
-  for (const [square, piece] of positionFromFen(fen)) position[square] = piece.kind;
-  return position;
+function toIsoPosition(position: Position): IsoPosition {
+  const iso: IsoPosition = {};
+  for (const [square, piece] of position) iso[square] = piece.kind;
+  return iso;
 }
 
 export function LiveBoardCard({ game, apiPublicUrl }: LiveBoardCardProps): ReactElement {
   // Everything the card says about the game comes from the stream: the list
   // item is only where it starts. A game that ends while the arena is open
   // would otherwise keep its live badge and its side to move for ever.
-  const { fen, active } = useLiveBoard(gameStreamUrl(apiPublicUrl, game.id), game.fen, game.status === "active");
+  const { fen, position, active } = useLiveBoard(
+    gameStreamUrl(apiPublicUrl, game.id),
+    game.fen,
+    game.status === "active",
+  );
   const turn = turnOf(fen);
   return (
     <li className="board-card">
@@ -46,7 +50,7 @@ export function LiveBoardCard({ game, apiPublicUrl }: LiveBoardCardProps): React
           width={256}
           height={186}
           maxScale={1}
-          position={toIsoPosition(fen)}
+          position={toIsoPosition(position)}
           label="Current position"
         />
       </Link>

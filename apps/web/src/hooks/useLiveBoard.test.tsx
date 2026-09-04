@@ -79,7 +79,7 @@ describe("useLiveBoard", () => {
         thinkTimeMs: 1_000,
       });
     });
-    expect(result.current).toEqual({ fen: AFTER_E4, active: true });
+    expect(result.current).toMatchObject({ fen: AFTER_E4, active: true });
   });
 
   it("stops calling the game live once it ends", () => {
@@ -108,12 +108,70 @@ describe("useLiveBoard", () => {
         game: { ...SNAPSHOT, status: "finished", result: "1-0", termination: "checkmate", fen: AFTER_E4 },
       });
     });
-    expect(result.current).toEqual({ fen: AFTER_E4, active: false });
+    expect(result.current).toMatchObject({ fen: AFTER_E4, active: false });
     expect(FakeEventSource.last?.closed).toBe(true);
   });
 
   it("never opens a stream for a game that was over before the page was drawn", () => {
     open(false);
     expect(FakeEventSource.last).toBeNull();
+  });
+
+  it("moves the piece rather than redrawing the board, so the card can animate", () => {
+    const { result } = open();
+    expect(result.current.position.get("e2")?.id).toBe("e2");
+
+    act(() => {
+      FakeEventSource.last?.emit("game.move", {
+        type: "game.move",
+        gameId: SNAPSHOT.id,
+        ply: 1,
+        color: "white",
+        san: "e4",
+        uci: "e2e4",
+        fen: AFTER_E4,
+        comment: null,
+        thinkTimeMs: 900,
+      });
+    });
+
+    expect(result.current.fen).toBe(AFTER_E4);
+    expect(result.current.position.get("e4")).toEqual({ id: "e2", kind: "w-pawn", square: "e4" });
+    expect(result.current.position.get("e2")).toBeUndefined();
+  });
+
+  it("keeps the identities it can when a snapshot replaces the position wholesale", () => {
+    const { result } = open();
+    act(() => {
+      FakeEventSource.last?.emit("game.snapshot", {
+        type: "game.snapshot",
+        gameId: SNAPSHOT.id,
+        game: { ...SNAPSHOT, fen: AFTER_E4, ply: 1, turn: "black" },
+      });
+    });
+    expect(result.current.position.get("e4")?.id).toBe("e2");
+  });
+
+  // A move the position cannot apply would leave the card drawing a board the
+  // FEN disagrees with, which is worse than losing the animation for one ply.
+  it("falls back to the FEN when the move does not fit the position it holds", () => {
+    const { result } = open();
+    act(() => {
+      FakeEventSource.last?.emit("game.move", {
+        type: "game.move",
+        gameId: SNAPSHOT.id,
+        ply: 1,
+        color: "white",
+        san: "e4",
+        uci: "a6a7",
+        fen: AFTER_E4,
+        comment: null,
+        thinkTimeMs: 900,
+      });
+    });
+    // The FEN won: the pawn is on e4 and e2 is empty, which is what the card
+    // must draw whatever the move event claimed.
+    expect(result.current.position.get("e4")?.kind).toBe("w-pawn");
+    expect(result.current.position.get("e2")).toBeUndefined();
   });
 });
