@@ -11,26 +11,38 @@ export function firstLegal(turn: Turn): MoveChoice {
 
 /**
  * The legal move whose notation appears in the answer, preferring the longest
- * match: "O-O" is a substring of "O-O-O", and "d5" of "Nxd5", so a first-match
- * search would silently play a different move than the model named.
+ * match within one notation at a time: SAN is checked first ("O-O" is a
+ * substring of "O-O-O", and "d5" of "Nxd5", so a first-match search would
+ * silently play a different move than the model named), and UCI is only
+ * consulted when no move's SAN was mentioned at all. SAN lengths (2-7) and
+ * UCI lengths (4-5) are different scales, so ranking a SAN mention against a
+ * UCI mention by raw character count is not a "longest match" at all - e.g.
+ * "I decided against g1f3 and played Nc3" would score the rejected Nf3
+ * higher (its UCI, g1f3, is 4 characters) than the played Nc3 (its SAN is 3),
+ * and play the wrong move.
  *
- * When two matches are the same length - "I considered Nf3 but played Nc3" -
- * this returns whichever the arena listed first. That is a genuine ambiguity,
- * not a bug this function tries to resolve: nothing here can tell which move
- * the model actually committed to, and guessing would be worse than admitting
- * it doesn't know.
+ * When two matches in the same notation are the same length - "I considered
+ * Nf3 but played Nc3" - this returns whichever the arena listed first. That
+ * is a genuine ambiguity, not a bug this function tries to resolve: nothing
+ * here can tell which move the model actually committed to, and guessing
+ * would be worse than admitting it doesn't know.
  */
 function longestMention(said: string, moves: readonly LegalMove[]): LegalMove | undefined {
+  return longestByNotation(said, moves, (move) => move.san) ?? longestByNotation(said, moves, (move) => move.uci);
+}
+
+function longestByNotation(
+  said: string,
+  moves: readonly LegalMove[],
+  notation: (move: LegalMove) => string,
+): LegalMove | undefined {
   let best: LegalMove | undefined;
   let bestLength = 0;
   for (const move of moves) {
-    const matchLength = Math.max(
-      said.includes(move.san) ? move.san.length : 0,
-      said.includes(move.uci) ? move.uci.length : 0,
-    );
-    if (matchLength > bestLength) {
+    const text = notation(move);
+    if (said.includes(text) && text.length > bestLength) {
       best = move;
-      bestLength = matchLength;
+      bestLength = text.length;
     }
   }
   return best;

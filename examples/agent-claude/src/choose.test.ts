@@ -82,4 +82,22 @@ describe("toLegalChoice", () => {
 
     expect(choice.move).toBe("Nxd5");
   });
+
+  it("plays the move the model actually committed to, not a longer UCI substring of the move it rejected", () => {
+    // "g1f3" (Nf3's UCI) is 4 characters and appears in the sentence; "Nc3"
+    // (the SAN the model actually played) is only 3. A cross-notation length
+    // comparison would score the rejected move higher and play it instead.
+    const choice = toLegalChoice("I decided against g1f3 and played Nc3.", turn);
+
+    expect(choice.move).toBe("Nc3");
+  });
+
+  it("resolves an equal-length same-notation tie to whichever the arena listed first", () => {
+    // Both "Nf3" and "Nc3" are mentioned and both are SAN, so this is the
+    // genuine ambiguity the doc comment describes, not the cross-notation bug
+    // above. Nf3 is listed first in `turn.legalMoves`.
+    const choice = toLegalChoice("I considered Nf3 but played Nc3.", turn);
+
+    expect(choice.move).toBe("Nf3");
+  });
 });
