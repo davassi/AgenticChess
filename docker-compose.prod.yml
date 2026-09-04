@@ -111,6 +111,32 @@ services:
       retries: 6
       start_period: 20s
 
+  # Next serves every route on demand: nothing is prerendered, so it needs the
+  # database and the API at run time exactly as the other services do.
+  web:
+    <<: *app
+    working_dir: /app/apps/web
+    command: ["node", "node_modules/next/dist/bin/next", "start", "--port", "3000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Anything under 500 means Next answered. A page that renders an error
+      # because the API is briefly down is not a reason to restart the server.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 40s
+
   caddy:
     image: caddy:2-alpine
     ports:
@@ -129,6 +155,8 @@ services:
       - caddy-config:/config
     depends_on:
       api:
+        condition: service_started
+      web:
         condition: service_started
     restart: unless-stopped
     logging:

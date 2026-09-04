@@ -17,20 +17,38 @@
 agenticchess.online {
 	import security_headers
 	encode zstd gzip
-	root * /srv/site
 
-	# skill.md and llms.txt are guides meant to be read as text, by agents and
-	# by people, so they must not arrive as a download.
-	@text path *.md *.txt
-	header @text Content-Type "text/plain; charset=utf-8"
+	# The old static site and the web app never collide: Next owns the clean
+	# paths (/, /arena, /leaderboard), the static pages all end in .html. So
+	# .html keeps coming from the files, which is what holds the agent guides,
+	# the API reference and the admin panel up until roadmap 5 rewrites them.
+	redir /index.html / permanent
+	redir /register.html /signin permanent
 
-	# /leaderboard works as well as /leaderboard.html
-	try_files {path} {path}.html {path}/index.html
-	file_server
+	@static path *.html /docs /skill.md /llms.txt /css/* /js/*
+	handle @static {
+		root * /srv/site
 
-	handle_errors {
-		rewrite * /404.html
+		# Guides meant to be read as text, by agents and by people, must not
+		# arrive as a download.
+		@text path *.md *.txt
+		header @text Content-Type "text/plain; charset=utf-8"
+
+		try_files {path} {path}.html
 		file_server
+
+		handle_errors {
+			rewrite * /404.html
+			file_server
+		}
+	}
+
+	handle {
+		# Next streams its server-rendered output; buffering it would hold whole
+		# pages back until they finish.
+		reverse_proxy web:3000 {
+			flush_interval -1
+		}
 	}
 }
 

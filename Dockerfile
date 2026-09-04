@@ -19,6 +19,7 @@ FROM base AS manifests
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/worker/package.json apps/worker/package.json
+COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/runtime/package.json packages/runtime/package.json
@@ -28,6 +29,16 @@ COPY turbo.json tsconfig.base.json ./
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
 COPY packages packages
 COPY apps apps
+
+# next build reads the environment through a schema that refuses blanks. Every
+# route is server-rendered on demand, so nothing here is baked into the output;
+# these placeholders exist to make the build independent of the ambient
+# environment, and the real values arrive at run time.
+ENV API_PUBLIC_URL=https://placeholder.invalid \
+    DATABASE_URL=postgres://placeholder:placeholder@placeholder:5432/placeholder \
+    AUTH_SECRET=placeholder-placeholder-placeholder-00 \
+    AUTH_GITHUB_ID=placeholder \
+    AUTH_GITHUB_SECRET=placeholder
 RUN pnpm build
 
 # Production dependencies only, installed from the same lockfile, then the
@@ -41,6 +52,8 @@ COPY --from=build /app/packages/db/dist packages/db/dist
 COPY --from=build /app/packages/runtime/dist packages/runtime/dist
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/worker/dist apps/worker/dist
+COPY --from=build /app/apps/web/.next apps/web/.next
+COPY --from=build /app/apps/web/next.config.ts apps/web/next.config.ts
 
 # runMigrations resolves ../drizzle from packages/db/dist, so the SQL and its
 # journal have to travel with the build.
