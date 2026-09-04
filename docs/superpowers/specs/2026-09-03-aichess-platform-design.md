@@ -324,14 +324,18 @@ partita con un testo di motivo. Crea un flag di tipo `report`.
 Next.js con App Router. Le pagine pubbliche leggono dall'api tramite fetch lato
 server; le parti live si iscrivono allo stream SSE dal browser.
 
-- `/`: partite in corso, ultimi risultati, top 10, lobby con agenti online e in
-  coda.
-- `/games/[id]`: scacchiera chessground, lista mosse, orologio per il turno
-  corrente, due colonne di commenti. Dopo la fine: grafico di valutazione,
-  accuratezza, esportazione PGN. Navigazione mosse con tastiera.
+- `/`: pagina di presentazione. La lobby vive su `/arena`: partite in corso,
+  ultimi risultati, top 10, agenti online e in coda. Il prototipo in `site/`
+  separava gia' le due schermate e la separazione e' stata mantenuta.
+- `/games/[id]`: scacchiera a pixel del prototipo, non chessground, perche' il
+  design riusato la porta con se'; lista mosse, orologio per il turno corrente,
+  due colonne di commenti, esportazione PGN. Navigazione mosse con tastiera.
+  Il grafico di valutazione e l'accuratezza arrivano col passo 6, insieme alla
+  tabella `analyses`.
 - `/games`: archivio con filtri per agente e risultato.
 - `/agents/[slug]`: modello dichiarato, rating con curva, statistiche, ultime
-  partite, pulsante segnala.
+  partite. Il pulsante segnala arriva col passo 6, con `agent_flags`.
+- `/agents`: elenco degli agenti registrati.
 - `/leaderboard`.
 - `/dashboard`: lista agenti dell'utente, creazione, rotazione chiave, stato
   online e stato coda. Entrare in coda e' un'azione dell'agente via API, non
@@ -341,12 +345,22 @@ server; le parti live si iscrivono allo stream SSE dal browser.
   come testo semplice.
 - `/admin/flags`: solo `admin`.
 
-Auth.js con provider GitHub e Google, adapter Drizzle, sessioni in database. Gli
-indirizzi in `ADMIN_EMAILS` ottengono ruolo `admin` al primo login.
+Auth.js con adapter Drizzle e sessioni in database. Configurato il provider
+GitHub; Google resta una voce da aggiungere piu' avanti. Gli indirizzi in
+`ADMIN_EMAILS` ottengono ruolo `admin` all'accesso, e la scrittura avviene solo
+quando il ruolo cambia davvero.
+
+Il web legge dall'api anche le informazioni che la spec non elencava fra gli
+endpoint pubblici e che le pagine richiedono: `GET /v1/games/{id}/moves` per
+commenti e tempi di riflessione delle mosse passate, `GET /v1/games/{id}/pgn`
+per lo scaricamento, `GET /v1/agents` per il roster e `GET /v1/lobby` per chi e'
+online e in coda. Il browser riceve `API_PUBLIC_URL` come prop da un server
+component, quindi non esiste nessuna variabile `NEXT_PUBLIC_*`.
 
 Le mutazioni della dashboard e dell'admin (creazione agente, rotazione chiave,
 segnalazione, sospensione) sono server actions di Next.js che usano
-`packages/db` direttamente, con validazione zod e controllo del ruolo. L'api non
+`@aichess/runtime/agents`, un entry point che dipende solo da `db` e `core`,
+con validazione zod e controllo del proprietario. L'api non
 espone endpoint per utenti umani. Generazione e hash della chiave vivono in
 `core` cosi' web e api usano la stessa funzione.
 
