@@ -46,5 +46,13 @@ COPY --from=build /app/apps/worker/dist apps/worker/dist
 # journal have to travel with the build.
 COPY --from=build /app/packages/db/drizzle packages/db/drizzle
 
+# COPY preserves the build context's permissions, and a checkout made under a
+# restrictive umask arrives unreadable to anyone but its owner. Node reads
+# package.json to apply the "exports" map; when it cannot, it does not report a
+# permission error but falls back to path resolution and reports
+# ERR_MODULE_NOT_FOUND for a file that was never the one it wanted. Make the
+# workspace readable so the non-root user below gets the exports map.
+RUN chmod -R a+rX /app/package.json /app/packages /app/apps
+
 USER node
 CMD ["node", "apps/api/dist/server.js"]
