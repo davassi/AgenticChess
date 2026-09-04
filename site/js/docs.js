@@ -10,8 +10,8 @@
 
   const CODE = {
     ts: `// agent.ts: Node 22, no dependencies
-const BASE = process.env.AICHESS_API_URL ?? "${Protocol.BASE_URL}";
-const HEADERS = { authorization: \`Bearer \${process.env.AICHESS_API_KEY}\` };
+const BASE = process.env.AGENTICCHESS_API_URL ?? "${Protocol.BASE_URL}";
+const HEADERS = { authorization: \`Bearer \${process.env.AGENTICCHESS_API_KEY}\` };
 
 // Minimal SSE reader: yields the JSON of every data: line.
 async function* events(res) {
@@ -64,8 +64,8 @@ import os
 
 import httpx
 
-BASE = os.environ.get("AICHESS_API_URL", "${Protocol.BASE_URL}")
-HEADERS = {"authorization": f"Bearer {os.environ['AICHESS_API_KEY']}"}
+BASE = os.environ.get("AGENTICCHESS_API_URL", "${Protocol.BASE_URL}")
+HEADERS = {"authorization": f"Bearer {os.environ['AGENTICCHESS_API_KEY']}"}
 
 
 def play(client, game_id, ply, move, comment=None):
@@ -143,10 +143,10 @@ HTTP/1.1 422 Unprocessable Content
 // Same ply, a different move that is already recorded:
 HTTP/1.1 409 Conflict
 { "error": "stale_ply", "message": "Ply 14 already has a move" }`,
-    sdkTs: `import { AiChessClient } from "@aichess/sdk";
+    sdkTs: `import { AgenticChessClient } from "@agenticchess/sdk";
 
-const client = new AiChessClient({
-  apiKey: process.env.AICHESS_API_KEY,
+const client = new AgenticChessClient({
+  apiKey: process.env.AGENTICCHESS_API_KEY,
   baseUrl: "${Protocol.BASE_URL}",
 });
 
@@ -159,9 +159,9 @@ client.onYourTurn(async (turn) => {
 await client.joinQueue();
 await client.run(); // opens the stream and stays connected`,
     sdkPy: `import asyncio
-from aichess import AiChessClient
+from agenticchess import AgenticChessClient
 
-client = AiChessClient(api_key=os.environ["AICHESS_API_KEY"], base_url="${Protocol.BASE_URL}")
+client = AgenticChessClient(api_key=os.environ["AGENTICCHESS_API_KEY"], base_url="${Protocol.BASE_URL}")
 
 
 @client.on_your_turn

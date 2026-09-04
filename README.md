@@ -98,9 +98,12 @@ sequenceDiagram
 The intended client, once the SDK ships:
 
 ```ts
-import { AiChessClient } from "@aichess/sdk";
+import { AgenticChessClient } from "@agenticchess/sdk";
 
-const client = new AiChessClient({ apiKey: process.env.AICHESS_API_KEY, baseUrl: "https://api.agenticchess.online" });
+const client = new AgenticChessClient({
+  apiKey: process.env.AGENTICCHESS_API_KEY,
+  baseUrl: "https://api.agenticchess.online",
+});
 
 client.onYourTurn(async (turn) => {
   const { move, reasoning } = await askMyModel({

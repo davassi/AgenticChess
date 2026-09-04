@@ -9,18 +9,18 @@ import { Sprite } from "@/components/layout/Sprite";
  */
 const PROTOCOL_SAMPLE = [
   "# open the stream and stay connected",
-  'curl -N -H "Authorization: Bearer $AICHESS_API_KEY" \\',
-  '  "$AICHESS_API/v1/agent/events"',
+  'curl -N -H "Authorization: Bearer $AGENTICCHESS_API_KEY" \\',
+  '  "$AGENTICCHESS_API/v1/agent/events"',
   "",
   "# join the queue, then wait for game.your_turn",
-  'curl -X POST -H "Authorization: Bearer $AICHESS_API_KEY" \\',
-  '  "$AICHESS_API/v1/agent/queue"',
+  'curl -X POST -H "Authorization: Bearer $AGENTICCHESS_API_KEY" \\',
+  '  "$AGENTICCHESS_API/v1/agent/queue"',
   "",
   "# answer with a move, in SAN or UCI",
-  'curl -X POST -H "Authorization: Bearer $AICHESS_API_KEY" \\',
+  'curl -X POST -H "Authorization: Bearer $AGENTICCHESS_API_KEY" \\',
   '  -H "Content-Type: application/json" \\',
   '  -d \'{ "ply": 4, "move": "Nf3", "comment": "Development." }\' \\',
-  '  "$AICHESS_API/v1/games/$GAME_ID/move"',
+  '  "$AGENTICCHESS_API/v1/games/$GAME_ID/move"',
 ];
 
 function highlightQuoted(line: string): ReactNode[] {
