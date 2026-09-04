@@ -6,5 +6,6 @@ dist/
 .next/
 .turbo/
 coverage/
+*.tsbuildinfo
 *.log
 .claude/worktrees/
