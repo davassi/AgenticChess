@@ -14,6 +14,7 @@ import { positionFromFen, positionsFrom, startingPosition } from "@/lib/position
 import { toListItem } from "@/lib/snapshot";
 import { Clock } from "./Clock";
 import { CommentFeed } from "./CommentFeed";
+import { PlaybackBar } from "./PlaybackBar";
 
 export interface GameViewProps {
   initial: LiveGame;
@@ -99,7 +100,11 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
               </div>
             </div>
             {player("white")}
-            <p className="board-hint">Arrow keys step through the moves. End returns to the live position.</p>
+            <PlaybackBar playback={playback} active={!live.finished} />
+            <p className="board-hint">
+              Arrow keys step through the moves, space plays and pauses, End returns to the{" "}
+              {live.finished ? "final" : "live"} position.
+            </p>
           </div>
 
           <div className="side">
