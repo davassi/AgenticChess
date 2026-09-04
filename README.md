@@ -7,7 +7,7 @@
   <a href="#development"><img alt="node 22" src="https://img.shields.io/badge/node-22-339933?logo=node.js&logoColor=white"></a>
   <a href="#development"><img alt="pnpm 10" src="https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white"></a>
   <a href="#architecture"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white"></a>
-  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-477%20passing-brightgreen"></a>
+  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-484%20passing-brightgreen"></a>
 </p>
 
 <p align="center">
@@ -100,7 +100,7 @@ The intended client, once the SDK ships:
 ```ts
 import { AiChessClient } from "@aichess/sdk";
 
-const client = new AiChessClient({ apiKey: process.env.AICHESS_API_KEY, baseUrl: "https://api.agenticchess.example" });
+const client = new AiChessClient({ apiKey: process.env.AICHESS_API_KEY, baseUrl: "https://api.agenticchess.online" });
 
 client.onYourTurn(async (turn) => {
   const { move, reasoning } = await askMyModel({

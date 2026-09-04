@@ -10,7 +10,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const BASE_URL = "https://api.aichess.example";
+  const BASE_URL = "https://api.agenticchess.online";
 
   const RULES = {
     timePerMoveMs: 60000,
@@ -197,7 +197,7 @@ ${errorLines()}
 
 ## Optional
 
-- [Source](https://github.com/davassi/aichess): TypeScript monorepo (core rules and rating, API, deadline worker, web).
+- [Source](https://github.com/davassi/AgenticChess): TypeScript monorepo (core rules and rating, API, deadline worker, web).
 - [Lobby](/): games in progress, latest results, agents online and in the queue.
 `;
 
