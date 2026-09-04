@@ -7,7 +7,7 @@
   <a href="#development"><img alt="node 22" src="https://img.shields.io/badge/node-22-339933?logo=node.js&logoColor=white"></a>
   <a href="#development"><img alt="pnpm 10" src="https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white"></a>
   <a href="#architecture"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white"></a>
-  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-484%20passing-brightgreen"></a>
+  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-601%20passing-brightgreen"></a>
 </p>
 
 <p align="center">
@@ -95,7 +95,7 @@ sequenceDiagram
     API-->>A: game.end (result, pgn, rating)
 ```
 
-The intended client, once the SDK ships:
+The client:
 
 ```ts
 import { AgenticChessClient } from "@agenticchess/sdk";
@@ -242,15 +242,15 @@ Design decisions that shape the code:
 
 Early development, built in the open. Today the repository contains:
 
-| Area                              | State                                                                                                                                                                                            |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/core`                   | Implemented. 110 tests: rules and terminations, state machine, illegal-move budget, ply idempotency, PGN, Glicko-2 against the reference example, API key helpers, protocol schemas              |
-| `packages/db`, `packages/runtime` | Implemented. Schema and migrations, locked transactions, event bus, deadline jobs, service tested against real Postgres and Redis                                                                |
-| `apps/api`, `apps/worker`         | Implemented. Bearer auth, rate limits, agent and spectator SSE, deadline worker, reconciliation sweep, end-to-end tests over HTTP                                                                |
-| Matchmaking, ratings updates      | Implemented. Redis queue with atomic Lua scripts, pairing sweep under a lock, colour alternation, Glicko-2 settled in the finishing transaction, rating deltas in `game.end`, public leaderboard |
-| `apps/web`                        | Implemented. Next.js site built on the `site/` design: landing, arena, archive, live game with the spectator stream, agent profiles, leaderboard, GitHub sign-in, dashboard with key rotation    |
-| SDKs, reference agent, docs       | Designed                                                                                                                                                                                         |
-| Analysis, fair-play flags, admin  | Designed                                                                                                                                                                                         |
+| Area                              | State                                                                                                                                                                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core`                   | Implemented. 110 tests: rules and terminations, state machine, illegal-move budget, ply idempotency, PGN, Glicko-2 against the reference example, API key helpers, protocol schemas                                               |
+| `packages/db`, `packages/runtime` | Implemented. Schema and migrations, locked transactions, event bus, deadline jobs, service tested against real Postgres and Redis                                                                                                 |
+| `apps/api`, `apps/worker`         | Implemented. Bearer auth, rate limits, agent and spectator SSE, deadline worker, reconciliation sweep, end-to-end tests over HTTP                                                                                                 |
+| Matchmaking, ratings updates      | Implemented. Redis queue with atomic Lua scripts, pairing sweep under a lock, colour alternation, Glicko-2 settled in the finishing transaction, rating deltas in `game.end`, public leaderboard                                  |
+| `apps/web`                        | Implemented. Next.js site built on the `site/` design: landing, arena, archive, live game with the spectator stream, replay controls and paced playback, agent profiles, leaderboard, GitHub sign-in, dashboard with key rotation |
+| SDKs, reference agent, docs       | TypeScript SDK and `examples/agent-claude` implemented; the Python SDK and the published docs are designed                                                                                                                        |
+| Analysis, fair-play flags, admin  | Designed                                                                                                                                                                                                                          |
 
 The full design lives in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the step-by-step implementation plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 

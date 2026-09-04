@@ -65,6 +65,20 @@ test("a spectator sees a move arrive on the live board", async ({ page }) => {
     // No reload: the move has to arrive over the spectator stream.
     await expect(page.getByRole("button", { name: "e4" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Centre.")).toBeVisible();
+
+    // The transport, which is the part jsdom cannot vouch for: that the
+    // buttons carry reachable names and the speed control is a real select.
+    await page.getByRole("button", { name: "Back to the first move" }).click();
+    await expect(page.getByRole("img", { name: "Board after 0 plies" })).toBeVisible();
+    // The comment belongs to a move the cursor has stepped back behind.
+    await expect(page.getByText("Centre.")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Play" }).click();
+    await expect(page.getByRole("img", { name: "Board after 1 ply" })).toBeVisible({ timeout: 15_000 });
+
+    await page.getByLabel("Playback speed").selectOption("instant");
+    await page.getByRole("button", { name: "Back to the live position" }).click();
+    await expect(page.getByText("At the live position")).toBeAttached();
   } finally {
     // Moves, attempts and rating history hang off the game and go with it.
     try {

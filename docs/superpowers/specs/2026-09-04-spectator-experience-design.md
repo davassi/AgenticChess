@@ -46,11 +46,11 @@ ply is the viewer looking at", which is a question a live game has too.
 
 ### 1.1 Two booleans, not three modes
 
-| `following` | `playing` | What the viewer sees | Reached by |
-|---|---|---|---|
-| true | — | Paced live, catching up on its own | initial state of an active game |
-| false | true | An instant replay running | the play button |
-| false | false | Parked on one move | clicking a move, arrow keys, pause |
+| `following` | `playing` | What the viewer sees               | Reached by                         |
+| ----------- | --------- | ---------------------------------- | ---------------------------------- |
+| true        | —         | Paced live, catching up on its own | initial state of an active game    |
+| false       | true      | An instant replay running          | the play button                    |
+| false       | false     | Parked on one move                 | clicking a move, arrow keys, pause |
 
 `following` implies the cursor advances by itself whenever the list is ahead
 of it, so `playing` is not consulted in that row; it is what the play button
@@ -105,8 +105,8 @@ The single threshold that does exist covers a pathological case: past
 `MAX_LAG` plies behind, the cursor jumps to the live edge instead of
 fast-forwarding. That is the backgrounded tab, where browsers throttle timers
 and the viewer returns to a minute of arrears they did not ask to watch. The
-jump belongs to `nextPly(ply, total, following, speed)`, which decides *where*
-the cursor goes next; `liveInterval` decides only *when*. Keeping the two
+jump belongs to `nextPly(ply, total, following, speed)`, which decides _where_
+the cursor goes next; `liveInterval` decides only _when_. Keeping the two
 apart is what lets both be tables of values in the tests. `nextPly` takes the
 speed because `instant` is the same kind of jump: the cursor goes straight to
 the live edge rather than walking there one zero-length timeout at a time.
@@ -178,7 +178,7 @@ cosmetic: it is the feature, broken. The deviation is withdrawn.
 
    The illegal attempt is nearly free: `live.attempts` is already in
    `GameView` and `Board2D` already accepts a `mark` prop that nothing passes.
-   Note the indexing — `attempt.ply` is the ply count *before* the rejected
+   Note the indexing — `attempt.ply` is the ply count _before_ the rejected
    move, so an attempt at the opening move carries `ply: 0`. The attempt that
    preceded the move now on screen is the one with `ply === cursor - 1`.
 
@@ -203,15 +203,15 @@ cosmetic: it is the feature, broken. The deviation is withdrawn.
 The rule: **everything the spectator sees is read from the cursor.** The truth
 is used only to know how far there is to catch up.
 
-| Element | Reads | Why |
-|---|---|---|
-| Board, last-move highlight, marks | cursor | it is the position being shown |
-| Ply counter in the header | cursor | otherwise it says 42 while you see 40 |
-| Move list | cursor **while the game is active** | see below |
-| Comment feeds | cursor, always | the worst spoiler of all: the reasoning says "mate in two" before the board shows it |
-| Live / Finished badge | cursor | "Finished" arrives when you do |
-| Result panel | cursor | the real spoiler: the outcome before the mate |
-| Player clocks | **truth, while following** | deliberate exception, see below |
+| Element                           | Reads                               | Why                                                                                  |
+| --------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Board, last-move highlight, marks | cursor                              | it is the position being shown                                                       |
+| Ply counter in the header         | cursor                              | otherwise it says 42 while you see 40                                                |
+| Move list                         | cursor **while the game is active** | see below                                                                            |
+| Comment feeds                     | cursor, always                      | the worst spoiler of all: the reasoning says "mate in two" before the board shows it |
+| Live / Finished badge             | cursor                              | "Finished" arrives when you do                                                       |
+| Result panel                      | cursor                              | the real spoiler: the outcome before the mate                                        |
+| Player clocks                     | **truth, while following**          | deliberate exception, see below                                                      |
 
 **The move list is trimmed to the cursor only while the game is active.** On a
 finished game the outcome is already known and the complete score sheet is the
@@ -227,7 +227,7 @@ on it, and so does the illegal-attempt list it shares.
 
 **The clock is the exception.** Freezing it whenever the cursor is not exactly
 at the live edge would freeze it permanently, because being slightly behind is
-the *normal* state of paced viewing. So it runs while `following && active`
+the _normal_ state of paced viewing. So it runs while `following && active`
 and stops only when the viewer has parked on a move. The cost is a small leak:
 the clock resetting reveals that a move was played about two seconds before
 you see it. That is accepted, and it is what makes the page feel alive.
@@ -272,14 +272,14 @@ becomes play/pause.
 With the tools plan 4 already established: `renderHook`/`act` from Testing
 Library, jsdom, and the `FakeEventSource` pattern in `useLiveBoard.test.tsx`.
 
-| What | How |
-|---|---|
-| `liveInterval`, `reviewInterval`, `nextPly` | a table of values, no timers — including the fixed point near lag 2 and the jump past `MAX_LAG` |
-| `positionFromFen` with a previous position | before/after positions asserting ids survive a capture, castling, en passant and promotion |
-| `usePlayback` | `vi.useFakeTimers()` and `act`: the three rows of the table in 1.1, and the automatic rejoin |
-| The hole | a `FakeEventSource` emitting a non-contiguous move, a stubbed `fetch`, asserting **exactly one** request |
-| The anti-spoiler rule | one case per row of the table in section 3, with cursor and truth deliberately divergent |
-| End to end (opt-in) | extend `apps/web/e2e/live-game.spec.ts`: press play, assert the board changes |
+| What                                        | How                                                                                                      |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `liveInterval`, `reviewInterval`, `nextPly` | a table of values, no timers — including the fixed point near lag 2 and the jump past `MAX_LAG`          |
+| `positionFromFen` with a previous position  | before/after positions asserting ids survive a capture, castling, en passant and promotion               |
+| `usePlayback`                               | `vi.useFakeTimers()` and `act`: the three rows of the table in 1.1, and the automatic rejoin             |
+| The hole                                    | a `FakeEventSource` emitting a non-contiguous move, a stubbed `fetch`, asserting **exactly one** request |
+| The anti-spoiler rule                       | one case per row of the table in section 3, with cursor and truth deliberately divergent                 |
+| End to end (opt-in)                         | extend `apps/web/e2e/live-game.spec.ts`: press play, assert the board changes                            |
 
 Game `8a686658-c24c-4267-aefd-08b08543eae0` in production is the only one of
 the four that contains a real illegal-move attempt, which makes it the fixture

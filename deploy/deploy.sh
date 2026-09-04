@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Deploy on the instance. Idempotent: safe to run again at any time.
 #
-#   ssh agenticchess 'sudo -u deploy /srv/agenticchess/deploy/deploy.sh'
+#   ssh agenticchess '/srv/agenticchess/deploy/deploy.sh'
+#
+# Runs as ubuntu, which owns /srv/agenticchess and is in the docker group.
+# There is no deploy user on the instance.
 #
 # Rollback is the same script after checking out the previous commit:
 #   git -C /srv/agenticchess checkout <sha> && deploy/deploy.sh

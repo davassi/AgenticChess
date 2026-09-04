@@ -4,7 +4,7 @@
 
 **Goal:** Make a game watchable by a human — a replay control with autoplay, live moves played out at a readable pace, and pieces that actually slide.
 
-**Architecture:** One cursor. `usePlayback` owns which ply the viewer is looking at, which is a different number from the ply the server has reached. `following` chases the live edge at a pace that shortens as the cursor falls behind; `playing` is a replay the viewer started. Every rule about *how fast* lives in a pure module with no React in it, so the only thing in the hook is a `setTimeout`. Nothing on the server changes.
+**Architecture:** One cursor. `usePlayback` owns which ply the viewer is looking at, which is a different number from the ply the server has reached. `following` chases the live edge at a pace that shortens as the cursor falls behind; `playing` is a replay the viewer started. Every rule about _how fast_ lives in a pure module with no React in it, so the only thing in the hook is a `setTimeout`. Nothing on the server changes.
 
 **Tech Stack:** Next 16.3.4, React 19.2.8, TypeScript 5.9 strict, vitest 3.2 with jsdom, Testing Library 16, Playwright (opt-in). No new dependencies.
 
@@ -18,7 +18,7 @@
 - No server change: no migration, no protocol change, no new endpoint, nothing in `apps/api`, `packages/*`.
 - Agent-authored text (`comment`, `submitted`) is rendered as text, never as markup — the existing `CommentFeed` rule.
 - Another Claude session works in this checkout. **Stage explicit paths, never `git add -A`.**
-- Commit messages: Conventional Commits, imperative subject, body explaining *why*. End every commit with:
+- Commit messages: Conventional Commits, imperative subject, body explaining _why_. End every commit with:
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
   Claude-Session: https://claude.ai/code/session_01BJDCoXisiBCezKknz3eKLy
@@ -31,10 +31,12 @@
 ### Task 1: The pace, as a pure module
 
 **Files:**
+
 - Create: `apps/web/src/lib/playback.ts`
 - Test: `apps/web/src/lib/playback.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `type Speed = 0.5 | 1 | 2 | "instant"`, `SPEEDS`, `LAG_VISIBLE`, `MAX_LAG`, `liveInterval(lag: number, speed: Speed): number`, `reviewInterval(speed: Speed): number`, `nextPly(ply: number, total: number, following: boolean, speed: Speed): number`, `parseSpeed(value: string): Speed`.
 
@@ -260,12 +262,14 @@ MSG
 ### Task 2: `usePlayback` replaces `useReplay`
 
 **Files:**
+
 - Create: `apps/web/src/hooks/usePlayback.ts`
 - Create: `apps/web/src/hooks/usePlayback.test.tsx`
 - Delete: `apps/web/src/hooks/useReplay.ts`
 - Modify: `apps/web/src/components/game/GameView.tsx` (the `useReplay` call and every `replay.` reference)
 
 **Interfaces:**
+
 - Consumes: `liveInterval`, `reviewInterval`, `nextPly`, `Speed` from Task 1.
 - Produces: `usePlayback(total: number, active: boolean): Playback`, where `Playback` is `{ ply, total, lag, following, playing, atLive, speed, setSpeed, setPly, step, goLive, restart, toggle, onKeyDown }`. Tasks 3, 7 and 8 all take a `Playback`.
 
@@ -620,34 +624,34 @@ import { usePlayback } from "@/hooks/usePlayback";
 Replace the hook call
 
 ```tsx
-  const replay = useReplay(live.moves.length);
+const replay = useReplay(live.moves.length);
 ```
 
 with
 
 ```tsx
-  const playback = usePlayback(live.moves.length, !live.finished);
+const playback = usePlayback(live.moves.length, !live.finished);
 ```
 
 Replace the board-source block
 
 ```tsx
-  const fromSnapshot = replay.isLive && live.moves.length !== snapshot.ply;
-  const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[replay.ply] ?? startingPosition());
-  const shownPly = fromSnapshot ? snapshot.ply : replay.ply;
-  const shown = fromSnapshot ? undefined : live.moves[replay.ply - 1];
+const fromSnapshot = replay.isLive && live.moves.length !== snapshot.ply;
+const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[replay.ply] ?? startingPosition());
+const shownPly = fromSnapshot ? snapshot.ply : replay.ply;
+const shown = fromSnapshot ? undefined : live.moves[replay.ply - 1];
 ```
 
 with
 
 ```tsx
-  // The snapshot is only worth falling back to once the cursor has caught up
-  // with a list that is provably short; while it is still walking, the
-  // replayed positions are the ones that give each piece its identity.
-  const fromSnapshot = playback.ply >= live.moves.length && live.moves.length !== snapshot.ply;
-  const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[playback.ply] ?? startingPosition());
-  const shownPly = fromSnapshot ? snapshot.ply : playback.ply;
-  const shown = fromSnapshot ? undefined : live.moves[playback.ply - 1];
+// The snapshot is only worth falling back to once the cursor has caught up
+// with a list that is provably short; while it is still walking, the
+// replayed positions are the ones that give each piece its identity.
+const fromSnapshot = playback.ply >= live.moves.length && live.moves.length !== snapshot.ply;
+const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[playback.ply] ?? startingPosition());
+const shownPly = fromSnapshot ? snapshot.ply : playback.ply;
+const shown = fromSnapshot ? undefined : live.moves[playback.ply - 1];
 ```
 
 Then replace the remaining four `replay.` references:
@@ -697,12 +701,14 @@ MSG
 ### Task 3: The playback bar
 
 **Files:**
+
 - Create: `apps/web/src/components/game/PlaybackBar.tsx`
 - Create: `apps/web/src/components/game/PlaybackBar.test.tsx`
 - Modify: `apps/web/src/components/game/GameView.tsx` (replace the `board-hint` paragraph)
 - Modify: `apps/web/src/styles/game.css` (append the `.playback` block)
 
 **Interfaces:**
+
 - Consumes: `Playback` from Task 2; `SPEEDS`, `LAG_VISIBLE`, `parseSpeed` from Task 1.
 - Produces: `PlaybackBar({ playback, active }: PlaybackBarProps): ReactElement`.
 
@@ -913,11 +919,7 @@ export function PlaybackBar({ playback, active }: PlaybackBarProps): ReactElemen
       {lag > LAG_VISIBLE ? <span className="playback-lag">{lag} moves behind</span> : null}
 
       <span className="visually-hidden" aria-live="polite">
-        {atLive
-          ? active
-            ? "At the live position"
-            : "At the final position"
-          : "Behind the live position"}
+        {atLive ? (active ? "At the live position" : "At the final position") : "Behind the live position"}
       </span>
     </div>
   );
@@ -943,7 +945,7 @@ import { PlaybackBar } from "./PlaybackBar";
 and replace
 
 ```tsx
-            <p className="board-hint">Arrow keys step through the moves. End returns to the live position.</p>
+<p className="board-hint">Arrow keys step through the moves. End returns to the live position.</p>
 ```
 
 with
@@ -970,7 +972,9 @@ Append to `apps/web/src/styles/game.css`:
   flex-wrap: wrap;
   margin-top: 10px;
 }
-.playback .btn { min-width: 44px; }
+.playback .btn {
+  min-width: 44px;
+}
 .playback-speed select {
   font-family: var(--font-display);
   font-size: 12px;
@@ -1015,6 +1019,7 @@ MSG
 ### Task 4: Close the hole in the move list
 
 **Files:**
+
 - Create: `apps/web/src/lib/http.ts`
 - Create: `apps/web/src/lib/timeline.ts`
 - Create: `apps/web/src/lib/timeline.test.ts`
@@ -1027,6 +1032,7 @@ MSG
 - Modify: `apps/web/src/components/game/GameView.tsx` (`fromSnapshot` reads `gap`)
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks.
 - Produces: `getJsonFrom<T>(url: string, schema: z.ZodType<T>, label: string): Promise<T>`, `fetchTimelineAt(apiPublicUrl: string, gameId: string): Promise<GameTimeline>`, `gameTimelineUrl(apiPublicUrl, gameId): string`, and `LiveGame.gap: boolean`.
 
@@ -1035,40 +1041,40 @@ MSG
 Add to `apps/web/src/lib/live.test.ts`, inside the existing top-level `describe`:
 
 ```ts
-  it("marks the state when a move cannot continue the list", () => {
-    const state = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false, gap: false };
-    const after = applyStreamEvent(state, {
-      type: "game.move",
-      gameId: SNAPSHOT.id,
-      ply: 4,
-      color: "black",
-      san: "Nf6",
-      uci: "g8f6",
-      fen: AFTER_E4,
-      comment: null,
-      thinkTimeMs: 900,
-    });
-    expect(after.moves).toHaveLength(0);
-    expect(after.gap).toBe(true);
-    expect(after.snapshot.ply).toBe(4);
+it("marks the state when a move cannot continue the list", () => {
+  const state = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false, gap: false };
+  const after = applyStreamEvent(state, {
+    type: "game.move",
+    gameId: SNAPSHOT.id,
+    ply: 4,
+    color: "black",
+    san: "Nf6",
+    uci: "g8f6",
+    fen: AFTER_E4,
+    comment: null,
+    thinkTimeMs: 900,
   });
+  expect(after.moves).toHaveLength(0);
+  expect(after.gap).toBe(true);
+  expect(after.snapshot.ply).toBe(4);
+});
 
-  it("leaves the state whole when the move continues the list", () => {
-    const state = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false, gap: false };
-    const after = applyStreamEvent(state, {
-      type: "game.move",
-      gameId: SNAPSHOT.id,
-      ply: 1,
-      color: "white",
-      san: "e4",
-      uci: "e2e4",
-      fen: AFTER_E4,
-      comment: null,
-      thinkTimeMs: 900,
-    });
-    expect(after.moves).toHaveLength(1);
-    expect(after.gap).toBe(false);
+it("leaves the state whole when the move continues the list", () => {
+  const state = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false, gap: false };
+  const after = applyStreamEvent(state, {
+    type: "game.move",
+    gameId: SNAPSHOT.id,
+    ply: 1,
+    color: "white",
+    san: "e4",
+    uci: "e2e4",
+    fen: AFTER_E4,
+    comment: null,
+    thinkTimeMs: 900,
   });
+  expect(after.moves).toHaveLength(1);
+  expect(after.gap).toBe(false);
+});
 ```
 
 (The existing fixtures in that file already provide `SNAPSHOT` and `AFTER_E4`; if the snapshot in the file starts at a ply other than 0, use `{ ...SNAPSHOT, ply: 0 }` in the first test so ply 4 is genuinely non-contiguous.)
@@ -1236,17 +1242,17 @@ export interface LiveGame {
 and in the `game.move` case, replace
 
 ```ts
-      if (event.ply !== state.moves.length + 1) return { ...state, snapshot };
+if (event.ply !== state.moves.length + 1) return { ...state, snapshot };
 ```
 
 with
 
 ```ts
-      // The stream carries only what happens next, so a move played between
-      // the server render and the subscription arrives inside the snapshot and
-      // never as an event of its own. The list keeps what it can prove and
-      // says so; useGameStream reads the whole timeline back once.
-      if (event.ply !== state.moves.length + 1) return { ...state, snapshot, gap: true };
+// The stream carries only what happens next, so a move played between
+// the server render and the subscription arrives inside the snapshot and
+// never as an event of its own. The list keeps what it can prove and
+// says so; useGameStream reads the whole timeline back once.
+if (event.ply !== state.moves.length + 1) return { ...state, snapshot, gap: true };
 ```
 
 In `apps/web/src/app/games/[id]/page.tsx`, add `gap: false` to the `LiveGame` literal handed to `GameView`.
@@ -1325,13 +1331,13 @@ export function useGameStream(url: string | null, apiPublicUrl: string, initial:
 In `apps/web/src/components/game/GameView.tsx`, update the call and the fallback:
 
 ```tsx
-  const live = useGameStream(gameStreamUrl(apiPublicUrl, initial.snapshot.id), apiPublicUrl, initial);
+const live = useGameStream(gameStreamUrl(apiPublicUrl, initial.snapshot.id), apiPublicUrl, initial);
 ```
 
 ```tsx
-  // Only a list that is provably short is worth abandoning for the snapshot,
-  // and only once the cursor has caught up with it.
-  const fromSnapshot = live.gap && playback.ply >= live.moves.length;
+// Only a list that is provably short is worth abandoning for the snapshot,
+// and only once the cursor has caught up with it.
+const fromSnapshot = live.gap && playback.ply >= live.moves.length;
 ```
 
 - [ ] **Step 6: Test the refetch**
@@ -1339,40 +1345,40 @@ In `apps/web/src/components/game/GameView.tsx`, update the call and the fallback
 Add to `apps/web/src/hooks/useGameStream.test.tsx`:
 
 ```tsx
-  it("reads the timeline back once when the stream leaves a hole, and only once", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
-      Promise.resolve(
-        new Response(JSON.stringify({ moves: [E4_TIMELINE_MOVE], attempts: [] }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      ),
-    );
+it("reads the timeline back once when the stream leaves a hole, and only once", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ moves: [E4_TIMELINE_MOVE], attempts: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    ),
+  );
 
-    const { result } = renderHook(() =>
-      useGameStream("https://api.test/stream", "https://api.test", { ...LIVE, gap: false }),
-    );
+  const { result } = renderHook(() =>
+    useGameStream("https://api.test/stream", "https://api.test", { ...LIVE, gap: false }),
+  );
 
-    act(() => {
-      FakeEventSource.last?.emit("game.move", {
-        type: "game.move",
-        gameId: SNAPSHOT.id,
-        ply: 5,
-        color: "white",
-        san: "Nf3",
-        uci: "g1f3",
-        fen: AFTER_E4,
-        comment: null,
-        thinkTimeMs: 900,
-      });
+  act(() => {
+    FakeEventSource.last?.emit("game.move", {
+      type: "game.move",
+      gameId: SNAPSHOT.id,
+      ply: 5,
+      color: "white",
+      san: "Nf3",
+      uci: "g1f3",
+      fen: AFTER_E4,
+      comment: null,
+      thinkTimeMs: 900,
     });
-
-    await waitFor(() => {
-      expect(result.current.gap).toBe(false);
-    });
-    expect(result.current.moves).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledOnce();
   });
+
+  await waitFor(() => {
+    expect(result.current.gap).toBe(false);
+  });
+  expect(result.current.moves).toHaveLength(1);
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
 ```
 
 The file already has `FakeEventSource`, `SNAPSHOT` and `LIVE` (its initial `LiveGame`, which now needs `gap: false` adding to its literal at line 32). Add this fixture beside them and import `waitFor` from `@testing-library/react`:
@@ -1430,10 +1436,12 @@ MSG
 ### Task 5: Piece identity across a FEN redraw
 
 **Files:**
+
 - Modify: `apps/web/src/lib/position.ts` (`positionFromFen` takes a previous position)
 - Modify: `apps/web/src/lib/position.test.ts` (reconciliation cases)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `positionFromFen(fen: string, previous?: Position): Position` — same function, one optional argument. Task 6 depends on it.
 
@@ -1625,11 +1633,13 @@ MSG
 ### Task 6: The arena's boards animate
 
 **Files:**
+
 - Modify: `apps/web/src/hooks/useLiveBoard.ts` (hold a `Position`, apply the move's UCI)
 - Modify: `apps/web/src/hooks/useLiveBoard.test.tsx` (identity assertions)
 - Modify: `apps/web/src/components/arena/LiveBoardCard.tsx` (consume the position)
 
 **Interfaces:**
+
 - Consumes: `positionFromFen(fen, previous)` from Task 5; `applyUci` from `lib/position`.
 - Produces: `LiveBoard` gains `position: Position`; `fen` and `active` are unchanged.
 
@@ -1638,62 +1648,62 @@ MSG
 Add to `apps/web/src/hooks/useLiveBoard.test.tsx`:
 
 ```tsx
-  it("moves the piece rather than redrawing the board, so the card can animate", () => {
-    const { result } = renderHook(() => useLiveBoard("https://api.test/stream", START, true));
-    const pawn = result.current.position.get("e2");
-    expect(pawn?.id).toBe("e2");
+it("moves the piece rather than redrawing the board, so the card can animate", () => {
+  const { result } = renderHook(() => useLiveBoard("https://api.test/stream", START, true));
+  const pawn = result.current.position.get("e2");
+  expect(pawn?.id).toBe("e2");
 
-    act(() => {
-      FakeEventSource.last?.emit("game.move", {
-        type: "game.move",
-        gameId: SNAPSHOT.id,
-        ply: 1,
-        color: "white",
-        san: "e4",
-        uci: "e2e4",
-        fen: AFTER_E4,
-        comment: null,
-        thinkTimeMs: 900,
-      });
+  act(() => {
+    FakeEventSource.last?.emit("game.move", {
+      type: "game.move",
+      gameId: SNAPSHOT.id,
+      ply: 1,
+      color: "white",
+      san: "e4",
+      uci: "e2e4",
+      fen: AFTER_E4,
+      comment: null,
+      thinkTimeMs: 900,
     });
-
-    expect(result.current.fen).toBe(AFTER_E4);
-    expect(result.current.position.get("e4")).toEqual({ id: "e2", kind: "w-pawn", square: "e4" });
-    expect(result.current.position.get("e2")).toBeUndefined();
   });
 
-  it("keeps the identities it can when a snapshot replaces the position wholesale", () => {
-    const { result } = renderHook(() => useLiveBoard("https://api.test/stream", START, true));
-    act(() => {
-      FakeEventSource.last?.emit("game.snapshot", {
-        type: "game.snapshot",
-        gameId: SNAPSHOT.id,
-        game: { ...SNAPSHOT, fen: AFTER_E4, ply: 1, turn: "black" },
-      });
-    });
-    expect(result.current.position.get("e4")?.id).toBe("e2");
-  });
+  expect(result.current.fen).toBe(AFTER_E4);
+  expect(result.current.position.get("e4")).toEqual({ id: "e2", kind: "w-pawn", square: "e4" });
+  expect(result.current.position.get("e2")).toBeUndefined();
+});
 
-  // A move the position cannot apply would leave the card drawing a board the
-  // FEN disagrees with, which is worse than losing the animation for one ply.
-  it("falls back to the FEN when the move does not fit the position it holds", () => {
-    const { result } = renderHook(() => useLiveBoard("https://api.test/stream", START, true));
-    act(() => {
-      FakeEventSource.last?.emit("game.move", {
-        type: "game.move",
-        gameId: SNAPSHOT.id,
-        ply: 1,
-        color: "white",
-        san: "e4",
-        uci: "a6a7",
-        fen: AFTER_E4,
-        comment: null,
-        thinkTimeMs: 900,
-      });
+it("keeps the identities it can when a snapshot replaces the position wholesale", () => {
+  const { result } = renderHook(() => useLiveBoard("https://api.test/stream", START, true));
+  act(() => {
+    FakeEventSource.last?.emit("game.snapshot", {
+      type: "game.snapshot",
+      gameId: SNAPSHOT.id,
+      game: { ...SNAPSHOT, fen: AFTER_E4, ply: 1, turn: "black" },
     });
-    expect(result.current.position.get("e4")?.kind).toBe("w-pawn");
-    expect(result.current.position.get("a7")).toBeUndefined();
   });
+  expect(result.current.position.get("e4")?.id).toBe("e2");
+});
+
+// A move the position cannot apply would leave the card drawing a board the
+// FEN disagrees with, which is worse than losing the animation for one ply.
+it("falls back to the FEN when the move does not fit the position it holds", () => {
+  const { result } = renderHook(() => useLiveBoard("https://api.test/stream", START, true));
+  act(() => {
+    FakeEventSource.last?.emit("game.move", {
+      type: "game.move",
+      gameId: SNAPSHOT.id,
+      ply: 1,
+      color: "white",
+      san: "e4",
+      uci: "a6a7",
+      fen: AFTER_E4,
+      comment: null,
+      thinkTimeMs: 900,
+    });
+  });
+  expect(result.current.position.get("e4")?.kind).toBe("w-pawn");
+  expect(result.current.position.get("a7")).toBeUndefined();
+});
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1785,7 +1795,11 @@ function toIsoPosition(position: Position): IsoPosition {
 ```
 
 ```tsx
-  const { fen, position, active } = useLiveBoard(gameStreamUrl(apiPublicUrl, game.id), game.fen, game.status === "active");
+const { fen, position, active } = useLiveBoard(
+  gameStreamUrl(apiPublicUrl, game.id),
+  game.fen,
+  game.status === "active",
+);
 ```
 
 ```tsx
@@ -1822,11 +1836,13 @@ MSG
 ### Task 7: The anti-spoiler rule
 
 **Files:**
+
 - Modify: `apps/web/src/components/game/GameView.tsx`
 - Modify: `apps/web/src/components/game/CommentFeed.tsx` (a `throughPly` prop)
 - Modify: `apps/web/src/components/game/GameView.test.tsx` (one case per row of the rule)
 
 **Interfaces:**
+
 - Consumes: `Playback` from Task 2, `LiveGame.gap` from Task 4.
 - Produces: `CommentFeedProps` gains `throughPly: number`.
 
@@ -1926,7 +1942,7 @@ export interface CommentFeedProps {
 }
 ```
 
-In `build`, take `throughPly` and skip what is ahead of it. `attempt.ply` is the ply count *before* the rejected move, so an attempt at the opening carries `ply: 0` and belongs to the viewer as soon as they have seen the move that followed it:
+In `build`, take `throughPly` and skip what is ahead of it. `attempt.ply` is the ply count _before_ the rejected move, so an attempt at the opening carries `ply: 0` and belongs to the viewer as soon as they have seen the move that followed it:
 
 ```tsx
 function build(
@@ -1957,23 +1973,23 @@ and pass it through in the component: `const entries = build(color, moves, attem
 In `apps/web/src/components/game/GameView.tsx`, after the `fromSnapshot` block, add:
 
 ```tsx
-  // Everything the spectator sees is read from the cursor; the truth is only
-  // how far there is to catch up. The clocks are the one exception, above:
-  // freezing them whenever the cursor is not exactly at the live edge would
-  // freeze them permanently, since being a ply or two behind is the normal
-  // state of paced viewing.
-  const arrived = playback.ply >= live.moves.length;
-  const revealed = live.finished && arrived;
-  // A live game's move list is trimmed to the cursor, because nobody knows
-  // the future; a finished game's is not, because everyone knows the outcome
-  // and the complete score sheet is the point.
-  const shownMoves = live.finished ? live.moves : live.moves.slice(0, playback.ply);
+// Everything the spectator sees is read from the cursor; the truth is only
+// how far there is to catch up. The clocks are the one exception, above:
+// freezing them whenever the cursor is not exactly at the live edge would
+// freeze them permanently, since being a ply or two behind is the normal
+// state of paced viewing.
+const arrived = playback.ply >= live.moves.length;
+const revealed = live.finished && arrived;
+// A live game's move list is trimmed to the cursor, because nobody knows
+// the future; a finished game's is not, because everyone knows the outcome
+// and the complete score sheet is the point.
+const shownMoves = live.finished ? live.moves : live.moves.slice(0, playback.ply);
 ```
 
 Replace `const active = snapshot.status === "active";` with:
 
 ```tsx
-  const active = !live.finished;
+const active = !live.finished;
 ```
 
 In the HUD, replace the two `active ?` reads with `revealed`:
@@ -2053,6 +2069,7 @@ MSG
 ### Task 8: The rejected move, on the board
 
 **Files:**
+
 - Modify: `apps/web/src/components/game/GameView.tsx` (derive the mark)
 - Modify: `apps/web/src/components/game/GameView.test.tsx` (the mark appears at its ply and nowhere else)
 - Create: `apps/web/src/lib/attempts.ts`
@@ -2061,6 +2078,7 @@ MSG
 `Board2D` already accepts a `mark` prop and `game.css` already styles `.mark--illegal`; neither needed a change, only a caller.
 
 **Interfaces:**
+
 - Consumes: `Playback` from Task 2.
 - Produces: `markForPly(attempts: readonly TimelineAttempt[], ply: number): { square: Square; kind: "illegal" } | null`.
 
@@ -2154,34 +2172,34 @@ import { markForPly } from "@/lib/attempts";
 ```
 
 ```tsx
-  const mark = fromSnapshot ? null : markForPly(live.attempts, playback.ply);
+const mark = fromSnapshot ? null : markForPly(live.attempts, playback.ply);
 ```
 
 and pass it:
 
 ```tsx
-                <Board2D
-                  position={position}
-                  lastMove={lastMove}
-                  mark={mark}
-                  label={`Board after ${shownPly} ${shownPly === 1 ? "ply" : "plies"}`}
-                />
+<Board2D
+  position={position}
+  lastMove={lastMove}
+  mark={mark}
+  label={`Board after ${shownPly} ${shownPly === 1 ? "ply" : "plies"}`}
+/>
 ```
 
 Add to `apps/web/src/components/game/GameView.test.tsx`:
 
 ```tsx
-  it("flashes the square of a rejected move at the ply it belongs to", () => {
-    const withAttempt: LiveGame = {
-      snapshot: { ...SNAPSHOT, fen: AFTER_E4, ply: 1 },
-      moves: [E4],
-      attempts: [{ ply: 0, color: "white", submitted: "e2e5", reason: "not_legal", at: "2026-09-04T10:00:05.000Z" }],
-      finished: false,
-      gap: false,
-    };
-    const { container } = render(<GameView initial={withAttempt} apiPublicUrl="https://api.test" />);
-    expect(container.querySelector(".mark--illegal")).not.toBeNull();
-  });
+it("flashes the square of a rejected move at the ply it belongs to", () => {
+  const withAttempt: LiveGame = {
+    snapshot: { ...SNAPSHOT, fen: AFTER_E4, ply: 1 },
+    moves: [E4],
+    attempts: [{ ply: 0, color: "white", submitted: "e2e5", reason: "not_legal", at: "2026-09-04T10:00:05.000Z" }],
+    finished: false,
+    gap: false,
+  };
+  const { container } = render(<GameView initial={withAttempt} apiPublicUrl="https://api.test" />);
+  expect(container.querySelector(".mark--illegal")).not.toBeNull();
+});
 ```
 
 - [ ] **Step 5: Run everything and commit**
@@ -2217,6 +2235,7 @@ MSG
 ### Task 9: The browser test, the READMEs, and a stale comment
 
 **Files:**
+
 - Modify: `apps/web/e2e/live-game.spec.ts`
 - Modify: `apps/web/README.md`
 - Modify: `README.md`
@@ -2229,15 +2248,15 @@ MSG
 In `apps/web/e2e/live-game.spec.ts`, after the existing assertions on the live board, add:
 
 ```ts
-  await page.getByRole("button", { name: "Back to the first move" }).click();
-  await expect(page.getByRole("img", { name: "Board after 0 plies" })).toBeVisible();
+await page.getByRole("button", { name: "Back to the first move" }).click();
+await expect(page.getByRole("img", { name: "Board after 0 plies" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Play" }).click();
-  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+await page.getByRole("button", { name: "Play" }).click();
+await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
 
-  await page.getByLabel("Playback speed").selectOption("instant");
-  await page.getByRole("button", { name: /Back to the (live|final) position/ }).click();
-  await expect(page.getByText("At the live position")).toBeAttached();
+await page.getByLabel("Playback speed").selectOption("instant");
+await page.getByRole("button", { name: /Back to the (live|final) position/ }).click();
+await expect(page.getByText("At the live position")).toBeAttached();
 ```
 
 - [ ] **Step 2: Run it against a live stack, or record why you did not**
