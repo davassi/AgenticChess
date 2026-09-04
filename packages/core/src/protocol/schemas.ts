@@ -1,9 +1,17 @@
 import { z } from "zod";
 import {
+  AGENT_DESCRIPTION_MAX,
+  AGENT_NAME_MAX,
+  AGENT_NAME_MIN,
   AGENT_STATUSES,
+  AGENTS_DEFAULT_LIMIT,
+  AGENTS_MAX_LIMIT,
   COLORS,
   ERROR_CODES,
+  GAME_OUTCOME_FILTERS,
   GAME_STATUSES,
+  GAMES_DEFAULT_LIMIT,
+  GAMES_MAX_LIMIT,
   ILLEGAL_REASONS,
   MAX_COMMENT_LENGTH,
   RESULTS,
@@ -208,6 +216,151 @@ export const PingEventSchema = z.object({
   type: z.literal("ping"),
   at: z.iso.datetime(),
 });
+
+export const GameListItemSchema = z.object({
+  id: z.uuid(),
+  status: GameStatusSchema,
+  white: AgentSummarySchema,
+  black: AgentSummarySchema,
+  fen: z.string(),
+  ply: z.int().min(0),
+  turn: ColorSchema,
+  result: GameResultSchema.nullable(),
+  termination: TerminationSchema.nullable(),
+  moveDeadlineAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  startedAt: z.iso.datetime().nullable(),
+  finishedAt: z.iso.datetime().nullable(),
+});
+export type GameListItem = z.infer<typeof GameListItemSchema>;
+
+export const GameListPageSchema = z.object({
+  items: z.array(GameListItemSchema),
+  nextCursor: z.string().nullable(),
+});
+export type GameListPage = z.infer<typeof GameListPageSchema>;
+
+export const AGENT_SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
+export const AgentSlugSchema = z.string().min(AGENT_NAME_MIN).max(AGENT_NAME_MAX).regex(AGENT_SLUG_REGEX);
+
+export const GamesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(GAMES_MAX_LIMIT).default(GAMES_DEFAULT_LIMIT),
+    cursor: z.string().min(1).max(512).optional(),
+    status: GameStatusSchema.optional(),
+    agent: AgentSlugSchema.optional(),
+    outcome: z.enum(GAME_OUTCOME_FILTERS).optional(),
+    termination: TerminationSchema.optional(),
+  })
+  .refine((query) => query.outcome === undefined || query.agent !== undefined, {
+    message: "outcome requires agent",
+    path: ["outcome"],
+  });
+export type GamesQuery = z.infer<typeof GamesQuerySchema>;
+
+export const TimelineMoveSchema = z.object({
+  ply: z.int().min(1),
+  color: ColorSchema,
+  san: z.string().min(1),
+  uci: z.string().regex(UCI_REGEX),
+  fen: z.string(),
+  comment: z.string().nullable(),
+  thinkTimeMs: z.int().min(0),
+  at: z.iso.datetime(),
+});
+export type TimelineMove = z.infer<typeof TimelineMoveSchema>;
+
+export const TimelineAttemptSchema = z.object({
+  ply: z.int().min(0),
+  color: ColorSchema,
+  submitted: z.string().max(64),
+  reason: IllegalReasonSchema,
+  at: z.iso.datetime(),
+});
+export type TimelineAttempt = z.infer<typeof TimelineAttemptSchema>;
+
+export const GameTimelineSchema = z.object({
+  moves: z.array(TimelineMoveSchema),
+  attempts: z.array(TimelineAttemptSchema),
+});
+export type GameTimeline = z.infer<typeof GameTimelineSchema>;
+
+export const AgentListItemSchema = z.object({
+  agent: AgentSummarySchema,
+  description: z.string(),
+  status: AgentStatusSchema,
+  rating: RatingSummarySchema,
+});
+export type AgentListItem = z.infer<typeof AgentListItemSchema>;
+
+export const AgentListPageSchema = z.object({
+  items: z.array(AgentListItemSchema),
+  nextCursor: z.string().nullable(),
+});
+export type AgentListPage = z.infer<typeof AgentListPageSchema>;
+
+export const AgentsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(AGENTS_MAX_LIMIT).default(AGENTS_DEFAULT_LIMIT),
+  cursor: z.string().min(1).max(512).optional(),
+});
+export type AgentsQuery = z.infer<typeof AgentsQuerySchema>;
+
+/** `illegalRate` is rejected attempts divided by own moves played, so 0.04 is one attempt in twenty-five. */
+export const AgentStatsSchema = z.object({
+  games: z.int().min(0),
+  wins: z.int().min(0),
+  draws: z.int().min(0),
+  losses: z.int().min(0),
+  illegalRate: z.number().min(0),
+  avgThinkTimeMs: z.number().min(0),
+});
+export type AgentStats = z.infer<typeof AgentStatsSchema>;
+
+export const RatingPointSchema = z.object({
+  gameId: z.uuid(),
+  rating: z.number(),
+  rd: z.number().min(0),
+  at: z.iso.datetime(),
+});
+export type RatingPoint = z.infer<typeof RatingPointSchema>;
+
+export const AgentProfileSchema = z.object({
+  agent: AgentSummarySchema,
+  description: z.string(),
+  status: AgentStatusSchema,
+  online: z.boolean(),
+  queue: QueueStatusSchema.nullable(),
+  activeGameId: z.uuid().nullable(),
+  rating: RatingSummarySchema,
+  rank: z.int().min(1).nullable(),
+  createdAt: z.iso.datetime(),
+  stats: AgentStatsSchema,
+  ratingHistory: z.array(RatingPointSchema),
+  recentGames: z.array(GameListItemSchema),
+});
+export type AgentProfile = z.infer<typeof AgentProfileSchema>;
+
+export const QueueEntryPublicSchema = z.object({
+  agent: AgentSummarySchema,
+  rating: z.number(),
+  queuedAt: z.iso.datetime(),
+});
+export type QueueEntryPublic = z.infer<typeof QueueEntryPublicSchema>;
+
+export const LobbySchema = z.object({
+  online: z.array(AgentSummarySchema),
+  queue: z.array(QueueEntryPublicSchema),
+});
+export type Lobby = z.infer<typeof LobbySchema>;
+
+export const AgentCreateSchema = z.object({
+  name: z.string().trim().min(AGENT_NAME_MIN).max(AGENT_NAME_MAX),
+  slug: AgentSlugSchema,
+  description: z.string().trim().max(AGENT_DESCRIPTION_MAX).default(""),
+  modelProvider: z.string().trim().min(1).max(40),
+  modelName: z.string().trim().min(1).max(60),
+});
+export type AgentCreateInput = z.infer<typeof AgentCreateSchema>;
 
 export const WireEventSchema = z.discriminatedUnion("type", [
   HelloEventSchema,

@@ -55,3 +55,15 @@ export const DEFAULT_GAME_CONFIG = {
   moveLimitPlies: 300,
   illegalAttemptsPerTurn: 3,
 } as const;
+
+export const GAME_OUTCOME_FILTERS = ["win", "loss", "draw"] as const;
+export type GameOutcomeFilter = (typeof GAME_OUTCOME_FILTERS)[number];
+
+export const GAMES_MAX_LIMIT = 100;
+export const GAMES_DEFAULT_LIMIT = 20;
+export const AGENTS_MAX_LIMIT = 100;
+export const AGENTS_DEFAULT_LIMIT = 50;
+export const AGENT_NAME_MIN = 3;
+export const AGENT_NAME_MAX = 32;
+export const AGENT_DESCRIPTION_MAX = 280;
+export const LOBBY_MAX_ONLINE = 200;

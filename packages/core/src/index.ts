@@ -9,3 +9,4 @@ export * from "./game/end.js";
 export * from "./game/pgn.js";
 export * from "./rating/glicko2.js";
 export * from "./auth/api-key.js";
+export * from "./agents/slug.js";
