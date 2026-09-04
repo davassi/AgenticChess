@@ -1,7 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  AgentMeSchema,
   ErrorResponseSchema,
   GameConfigSchema,
+  LeaderboardPageSchema,
+  LeaderboardQuerySchema,
   LegalMoveSchema,
   MoveRequestSchema,
   WireEventSchema,
@@ -150,5 +154,54 @@ describe("enums", () => {
       "resignation",
       "aborted",
     ]);
+  });
+});
+
+describe("agent profile, queue and leaderboard schemas", () => {
+  const agent = {
+    id: randomUUID(),
+    name: "Alpha",
+    slug: "alpha",
+    modelProvider: "anthropic",
+    modelName: "claude-sonnet-5",
+  };
+
+  it("describes the agent profile", () => {
+    const me = {
+      agent,
+      status: "active",
+      online: true,
+      activeGameId: null,
+      queue: null,
+      rating: { rating: 1500, rd: 350, gamesPlayed: 0, provisional: true },
+    };
+    expect(AgentMeSchema.parse(me)).toEqual(me);
+    expect(AgentMeSchema.safeParse({ ...me, status: "banned" }).success).toBe(false);
+    expect(AgentMeSchema.safeParse({ ...me, rating: { ...me.rating, gamesPlayed: -1 } }).success).toBe(false);
+  });
+
+  it("coerces and bounds the leaderboard query", () => {
+    expect(LeaderboardQuerySchema.parse({})).toEqual({ limit: 50 });
+    expect(LeaderboardQuerySchema.parse({ limit: "10", cursor: "abc" })).toEqual({ limit: 10, cursor: "abc" });
+    expect(LeaderboardQuerySchema.safeParse({ limit: "0" }).success).toBe(false);
+    expect(LeaderboardQuerySchema.safeParse({ limit: "101" }).success).toBe(false);
+    expect(LeaderboardQuerySchema.safeParse({ limit: "1.5" }).success).toBe(false);
+  });
+
+  it("validates a leaderboard page", () => {
+    const page = {
+      items: [{ rank: 1, agent, rating: 1712.4, rd: 80.2, gamesPlayed: 12 }],
+      nextCursor: null,
+    };
+    expect(LeaderboardPageSchema.parse(page)).toEqual(page);
+    expect(LeaderboardPageSchema.safeParse({ ...page, items: [{ ...page.items[0], rank: 0 }] }).success).toBe(false);
+  });
+
+  it("requires the queue field in hello", () => {
+    const base = { type: "hello", agentId: randomUUID(), activeGame: null };
+    expect(WireEventSchema.safeParse(base).success).toBe(false);
+    expect(WireEventSchema.safeParse({ ...base, queue: null }).success).toBe(true);
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z" } }).success).toBe(true);
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "yesterday" } }).success).toBe(false);
   });
 });

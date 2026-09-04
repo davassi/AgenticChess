@@ -3,18 +3,28 @@ import { RedisContainer } from "@testcontainers/redis";
 import { agents, users, type Database } from "@aichess/db";
 import type { GameAgents } from "./events/wire.js";
 
-export async function seedTwoAgents(db: Database): Promise<GameAgents> {
-  const suffix = randomUUID().slice(0, 8);
+export interface SeedOptions {
+  owners?: "shared" | "distinct";
+}
+
+async function insertOwner(db: Database, handle: string): Promise<{ id: string }> {
   const [owner] = await db
     .insert(users)
-    .values({ email: `owner-${suffix}@example.com`, name: `Owner ${suffix}` })
-    .returning();
+    .values({ email: `${handle}@example.com`, name: `Owner ${handle}` })
+    .returning({ id: users.id });
   if (owner === undefined) throw new Error("owner not inserted");
+  return owner;
+}
+
+export async function seedTwoAgents(db: Database, options: SeedOptions = {}): Promise<GameAgents> {
+  const suffix = randomUUID().slice(0, 8);
+  const first = await insertOwner(db, `owner-${suffix}`);
+  const second = options.owners === "distinct" ? await insertOwner(db, `owner2-${suffix}`) : first;
   const rows = await db
     .insert(agents)
     .values([
       {
-        ownerId: owner.id,
+        ownerId: first.id,
         name: `Alpha ${suffix}`,
         slug: `alpha-${suffix}`,
         modelProvider: "anthropic",
@@ -23,7 +33,7 @@ export async function seedTwoAgents(db: Database): Promise<GameAgents> {
         apiKeyHash: "0".repeat(64),
       },
       {
-        ownerId: owner.id,
+        ownerId: second.id,
         name: `Beta ${suffix}`,
         slug: `beta-${suffix}`,
         modelProvider: "openai",

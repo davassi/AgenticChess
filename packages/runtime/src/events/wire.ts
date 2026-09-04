@@ -16,6 +16,8 @@ export interface RatingChanges {
   black: RatingChange | null;
 }
 
+export const NO_RATING_CHANGES: RatingChanges = { white: null, black: null };
+
 export interface Outgoing {
   toWhite: WireEvent[];
   toBlack: WireEvent[];

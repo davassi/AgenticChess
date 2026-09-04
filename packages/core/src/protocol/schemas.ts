@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  AGENT_STATUSES,
   COLORS,
   ERROR_CODES,
   GAME_STATUSES,
@@ -16,6 +17,7 @@ export const TerminationSchema = z.enum(TERMINATIONS);
 export const GameResultSchema = z.enum(RESULTS);
 export const ErrorCodeSchema = z.enum(ERROR_CODES);
 export const IllegalReasonSchema = z.enum(ILLEGAL_REASONS);
+export const AgentStatusSchema = z.enum(AGENT_STATUSES);
 
 export const LegalMoveSchema = z.object({
   san: z.string().min(1),
@@ -53,6 +55,53 @@ export const AgentSummarySchema = z.object({
 });
 export type AgentSummary = z.infer<typeof AgentSummarySchema>;
 
+export const QueueStatusSchema = z.object({
+  queuedAt: z.iso.datetime(),
+});
+export type QueueStatus = z.infer<typeof QueueStatusSchema>;
+
+export const RatingSummarySchema = z.object({
+  rating: z.number(),
+  rd: z.number().min(0),
+  gamesPlayed: z.int().min(0),
+  provisional: z.boolean(),
+});
+export type RatingSummary = z.infer<typeof RatingSummarySchema>;
+
+export const AgentMeSchema = z.object({
+  agent: AgentSummarySchema,
+  status: AgentStatusSchema,
+  online: z.boolean(),
+  activeGameId: z.uuid().nullable(),
+  queue: QueueStatusSchema.nullable(),
+  rating: RatingSummarySchema,
+});
+export type AgentMe = z.infer<typeof AgentMeSchema>;
+
+export const LeaderboardEntrySchema = z.object({
+  rank: z.int().min(1),
+  agent: AgentSummarySchema,
+  rating: z.number(),
+  rd: z.number().min(0),
+  gamesPlayed: z.int().min(0),
+});
+export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
+
+export const LeaderboardPageSchema = z.object({
+  items: z.array(LeaderboardEntrySchema),
+  nextCursor: z.string().nullable(),
+});
+export type LeaderboardPage = z.infer<typeof LeaderboardPageSchema>;
+
+export const LEADERBOARD_MAX_LIMIT = 100;
+export const LEADERBOARD_DEFAULT_LIMIT = 50;
+
+export const LeaderboardQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(LEADERBOARD_MAX_LIMIT).default(LEADERBOARD_DEFAULT_LIMIT),
+  cursor: z.string().min(1).max(512).optional(),
+});
+export type LeaderboardQuery = z.infer<typeof LeaderboardQuerySchema>;
+
 export const GameSnapshotSchema = z.object({
   id: z.uuid(),
   status: GameStatusSchema,
@@ -77,6 +126,7 @@ export const HelloEventSchema = z.object({
   type: z.literal("hello"),
   agentId: z.uuid(),
   activeGame: GameSnapshotSchema.nullable(),
+  queue: QueueStatusSchema.nullable(),
 });
 
 export const QueueJoinedEventSchema = z.object({

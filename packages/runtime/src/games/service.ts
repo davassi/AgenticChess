@@ -11,11 +11,20 @@ import {
   type GameState,
 } from "@aichess/core";
 import type { GameConfig, GameSnapshot, IllegalReason, LegalMove, WireEvent } from "@aichess/core/protocol";
-import type { Database } from "@aichess/db";
+import type { Database, Transaction } from "@aichess/db";
 import type { EventBus, GameParties } from "../events/bus.js";
-import { toSnapshot, toWireEvents, toYourTurn, type GameAgents, type Outgoing } from "../events/wire.js";
+import {
+  NO_RATING_CHANGES,
+  toSnapshot,
+  toWireEvents,
+  toYourTurn,
+  type GameAgents,
+  type Outgoing,
+  type WireExtras,
+} from "../events/wire.js";
 import { deadlineFireAt, deadlineJobId, scheduleDeadline, type DeadlineQueue } from "../jobs/deadlines.js";
 import type { RuntimeLogger } from "../logger.js";
+import { settleRatings } from "../rating/settle.js";
 import {
   findActiveGameIdForAgent,
   insertGame,
@@ -131,11 +140,11 @@ export class GameService {
       now,
     });
     const started = startGame(created, now);
-    await this.deps.db.transaction(async (tx) => {
+    const extras = await this.deps.db.transaction(async (tx) => {
       await insertGame(tx, created);
-      await persistTransition(tx, created, started.state, started.events, {});
+      return this.commitTransition(tx, created, started.state, started.events, agents);
     });
-    await this.afterCommit(started.state, agents, started.events, null);
+    await this.afterCommit(started.state, agents, started.events, extras);
     return { ok: true, snapshot: toSnapshot(started.state, agents) };
   }
 
@@ -166,17 +175,15 @@ export class GameService {
             postCommit: null,
           };
         }
-        const pgn = this.pgnIfOver(r.state, agents);
-        await persistTransition(tx, state, r.state, r.events, pgn === null ? {} : { pgn });
+        const extras = await this.commitTransition(tx, state, r.state, r.events, agents);
         return {
           result: { ok: true, idempotent: false, snapshot: toSnapshot(r.state, agents, input.agentId) },
-          postCommit: () => this.afterCommit(r.state, agents, r.events, pgn),
+          postCommit: () => this.afterCommit(r.state, agents, r.events, extras),
         };
       }
 
       if (r.code === "illegal_move") {
-        const pgn = this.pgnIfOver(r.state, agents);
-        await persistTransition(tx, state, r.state, r.events, pgn === null ? {} : { pgn });
+        const extras = await this.commitTransition(tx, state, r.state, r.events, agents);
         return {
           result: {
             ok: false,
@@ -186,7 +193,7 @@ export class GameService {
             legalMoves: r.legalMoves,
             snapshot: toSnapshot(r.state, agents, input.agentId),
           },
-          postCommit: () => this.afterCommit(r.state, agents, r.events, pgn),
+          postCommit: () => this.afterCommit(r.state, agents, r.events, extras),
         };
       }
 
@@ -207,11 +214,10 @@ export class GameService {
         const code = r.code === "not_a_player" ? "not_found" : "game_not_active";
         return { result: { ok: false, code }, postCommit: null };
       }
-      const pgn = this.pgnIfOver(r.state, agents);
-      await persistTransition(tx, state, r.state, r.events, pgn === null ? {} : { pgn });
+      const extras = await this.commitTransition(tx, state, r.state, r.events, agents);
       return {
         result: { ok: true, snapshot: toSnapshot(r.state, agents) },
-        postCommit: () => this.afterCommit(r.state, agents, r.events, pgn),
+        postCommit: () => this.afterCommit(r.state, agents, r.events, extras),
       };
     });
     if (outcome.postCommit !== null) await outcome.postCommit();
@@ -239,11 +245,10 @@ export class GameService {
         return { result: { ok: true, applied: false, reason: "not_active" }, postCommit: null };
       }
       const agents = await this.agentsOf(tx, state);
-      const pgn = this.pgnIfOver(r.state, agents);
-      await persistTransition(tx, state, r.state, r.events, pgn === null ? {} : { pgn });
+      const extras = await this.commitTransition(tx, state, r.state, r.events, agents);
       return {
         result: { ok: true, applied: true, snapshot: toSnapshot(r.state, agents) },
-        postCommit: () => this.afterCommit(r.state, agents, r.events, pgn),
+        postCommit: () => this.afterCommit(r.state, agents, r.events, extras),
       };
     });
     if (outcome.postCommit !== null) await outcome.postCommit();
@@ -316,22 +321,34 @@ export class GameService {
     return agents;
   }
 
-  private pgnIfOver(state: GameState, agents: GameAgents): string | null {
-    if (!isOver(state)) return null;
-    return toPgn(state, {
+  private async commitTransition(
+    tx: Transaction,
+    before: GameState,
+    after: GameState,
+    events: DomainEvent[],
+    agents: GameAgents,
+  ): Promise<WireExtras> {
+    if (!isOver(after)) {
+      await persistTransition(tx, before, after, events, {});
+      return { pgn: null, ratings: NO_RATING_CHANGES };
+    }
+    const pgn = toPgn(after, {
       white: agents.white.name,
       black: agents.black.name,
-      date: new Date(state.startedAt ?? state.createdAt),
+      date: new Date(after.startedAt ?? after.createdAt),
     });
+    const settled = await settleRatings(tx, after, this.now());
+    await persistTransition(tx, before, after, events, settled === null ? { pgn } : { pgn, ratings: settled.columns });
+    return { pgn, ratings: settled === null ? NO_RATING_CHANGES : settled.changes };
   }
 
   private async afterCommit(
     state: GameState,
     agents: GameAgents,
     events: DomainEvent[],
-    pgn: string | null,
+    extras: WireExtras,
   ): Promise<void> {
-    const outgoing = toWireEvents(state, agents, events, { pgn, ratings: { white: null, black: null } });
+    const outgoing = toWireEvents(state, agents, events, extras);
     try {
       await this.deps.bus.publish(partiesOf(state), outgoing);
     } catch (error) {

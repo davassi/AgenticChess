@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { applyMove, createGame, startGame, toPgn, type GameState } from "@aichess/core";
+import { applyMove, applyResign, createGame, startGame, toPgn, type GameState } from "@aichess/core";
 import { DEFAULT_GAME_CONFIG } from "@aichess/core/protocol";
-import { moveAttempts, moves, type Database } from "@aichess/db";
+import { games, moveAttempts, moves, type Database } from "@aichess/db";
 import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -180,5 +180,43 @@ describe("game repository", () => {
     expect(await findActiveGameIdForAgent(db, agents.white.id)).toBe(created.id);
     expect(await findActiveGameIdForAgent(db, agents.black.id)).toBe(created.id);
     expect(await findActiveGameIdForAgent(db, randomUUID())).toBeNull();
+  });
+
+  it("writes the rating columns of a finished game when asked", async () => {
+    const created = fresh();
+    await insertGame(db, created);
+    const started = startGame(created, T0);
+    await db.transaction((tx) => persistTransition(tx, created, started.state, started.events, {}));
+    const r = applyResign(started.state, agents.black.id, T0 + 5);
+    if (!r.ok) throw new Error(r.code);
+    await db.transaction((tx) =>
+      persistTransition(tx, started.state, r.state, r.events, {
+        pgn: "1-0",
+        ratings: { whiteBefore: 1500, whiteAfter: 1610.5, blackBefore: 1500, blackAfter: 1389.5 },
+      }),
+    );
+    const [row] = await db.select().from(games).where(eq(games.id, created.id));
+    expect(row).toMatchObject({
+      status: "finished",
+      pgn: "1-0",
+      whiteRatingBefore: 1500,
+      whiteRatingAfter: 1610.5,
+      blackRatingBefore: 1500,
+      blackRatingAfter: 1389.5,
+    });
+  });
+
+  it("can seed two agents with distinct owners", async () => {
+    const shared = await seedTwoAgents(db);
+    const distinct = await seedTwoAgents(db, { owners: "distinct" });
+    const owners = await loadAgentSummaries(db, distinct.white.id, distinct.black.id);
+    expect(owners).not.toBeNull();
+    const rows = await db.query.agents.findMany({
+      where: (t, { inArray }) =>
+        inArray(t.id, [shared.white.id, shared.black.id, distinct.white.id, distinct.black.id]),
+    });
+    const ownerOf = (id: string): string | undefined => rows.find((r) => r.id === id)?.ownerId;
+    expect(ownerOf(shared.white.id)).toBe(ownerOf(shared.black.id));
+    expect(ownerOf(distinct.white.id)).not.toBe(ownerOf(distinct.black.id));
   });
 });

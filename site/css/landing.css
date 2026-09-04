@@ -590,6 +590,10 @@ h1 {
   color: #ff9a9a;
 }
 
+.watch-live {
+  margin: 0;
+  padding: 16px 16px 4px;
+}
 .replay-strip {
   list-style: none;
   margin: 0;
@@ -801,6 +805,12 @@ h1 {
   font-weight: 600;
   color: var(--muted);
   font-size: 15px;
+}
+.protocol-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 28px 0 0;
 }
 .errors {
   margin: 20px 0 0;

@@ -31,6 +31,8 @@ export async function createDeps(config: ApiConfig, logger: RuntimeLogger): Prom
       bus: runtime.bus,
       deadlines: runtime.deadlines,
       service: runtime.service,
+      queue: runtime.queue,
+      matchmaking: runtime.matchmaking,
       ...(shared === undefined ? {} : { logger: shared }),
     },
     close: runtime.close,

@@ -59,6 +59,10 @@ export class EventBus {
     }
   }
 
+  async publishToAgent(agentId: string, event: WireEvent): Promise<void> {
+    await this.publisher.publish(agentChannel(agentId), JSON.stringify(event));
+  }
+
   subscribeAgent(agentId: string, handler: EventHandler): Promise<() => Promise<void>> {
     return this.subscribe(agentChannel(agentId), handler);
   }

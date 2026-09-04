@@ -60,62 +60,6 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /*
-   * Pixel canvases are scaled by whole numbers so every source pixel becomes
-   * an even block on screen. Below 1x they fall back to fluid width.
-   */
-  function fitPixelCanvas(canvas, options) {
-    const opts = options || {};
-    const maxScale = opts.maxScale || 3;
-    const available = canvas.parentElement.clientWidth;
-    let scale = Math.floor(available / canvas.width);
-    if (opts.reserveHeight !== undefined) {
-      scale = Math.min(scale, Math.floor((window.innerHeight - opts.reserveHeight) / canvas.height));
-    }
-    scale = Math.min(maxScale, scale);
-    if (scale < 1) {
-      canvas.style.width = "100%";
-      canvas.style.height = "auto";
-      return;
-    }
-    canvas.style.width = `${canvas.width * scale}px`;
-    canvas.style.height = `${canvas.height * scale}px`;
-  }
-
-  function keepFitted(canvas, options) {
-    let pending = false;
-    const apply = () => {
-      pending = false;
-      fitPixelCanvas(canvas, options);
-    };
-    apply();
-    window.addEventListener("resize", () => {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(apply);
-    });
-  }
-
-  /* Starfield: one element, many box-shadows, all on a 2px grid. */
-  function buildStars() {
-    const host = document.getElementById("stars");
-    if (!host) return;
-    const shadows = [];
-    let seed = 7;
-    const rand = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    for (let i = 0; i < 160; i += 1) {
-      const x = Math.floor(rand() * 100);
-      const y = Math.floor(rand() * 100);
-      const bright = rand();
-      const color = bright > 0.85 ? "#ffe58a" : bright > 0.6 ? "#f6e7c1" : "#6f5fa3";
-      shadows.push(`${x}vw ${y}vh 0 ${bright > 0.9 ? 1 : 0}px ${color}`);
-    }
-    host.style.boxShadow = shadows.join(",");
-  }
-
   /* Agent HUD panel on the title screen. */
   class AgentPanel {
     constructor(root) {
@@ -222,7 +166,7 @@
   function setupBoard() {
     const canvas = document.getElementById("board");
     if (!canvas || !window.Iso) return;
-    keepFitted(canvas, { maxScale: 3, reserveHeight: 160 });
+    window.Iso.keepFitted(canvas, { maxScale: 3, reserveHeight: 160 });
     const scene = new window.Iso.BoardScene(canvas);
     const panels = {
       w: new AgentPanel(document.getElementById("agent-w")),
@@ -273,7 +217,7 @@
   function setupCity() {
     const canvas = document.getElementById("city");
     if (!canvas || !window.Iso) return;
-    keepFitted(canvas, { maxScale: 2 });
+    window.Iso.keepFitted(canvas, { maxScale: 2 });
     const palette = (top, left, right, roof) => ({ top, left, right, roof, window: "#ffe58a" });
     const buildings = [
       { name: "web", col: 0, row: 3, w: 2, d: 2, h: 22, colors: palette("#5ff2ff", "#2bb7c9", "#1a8a99", "#8cf7ff") },
@@ -338,7 +282,7 @@
 
   function init() {
     window.Pixel.mount(document);
-    buildStars();
+    window.Site.buildStars(7);
     setupBoard();
     setupCity();
     setupCountdown();

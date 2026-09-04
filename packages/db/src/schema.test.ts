@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { runMigrations } from "./migrate.js";
-import { agents, games, moves, users } from "./schema/index.js";
+import { agents, games, moves, ratingHistory, ratings, users } from "./schema/index.js";
 import { startTestDatabase, truncateAll, type TestDatabase } from "./testing.js";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -157,5 +157,56 @@ describe("database schema", () => {
     };
     await tdb.db.insert(moves).values(move);
     await expectUniqueViolation(tdb.db.insert(moves).values(move));
+  });
+
+  it("stores a rating row with defaults and refuses two history rows for one agent and game", async () => {
+    const [owner] = await tdb.db.insert(users).values({ email: "o@example.com", name: "Owner" }).returning();
+    if (owner === undefined) throw new Error("insert returned nothing");
+    const [a, b] = await tdb.db
+      .insert(agents)
+      .values([
+        {
+          ownerId: owner.id,
+          name: "A",
+          slug: "a",
+          modelProvider: "x",
+          modelName: "y",
+          apiKeyPrefix: "AAAAAAAA",
+          apiKeyHash: "0".repeat(64),
+        },
+        {
+          ownerId: owner.id,
+          name: "B",
+          slug: "b",
+          modelProvider: "x",
+          modelName: "y",
+          apiKeyPrefix: "BBBBBBBB",
+          apiKeyHash: "1".repeat(64),
+        },
+      ])
+      .returning();
+    if (a === undefined || b === undefined) throw new Error("agents not inserted");
+    const [game] = await tdb.db
+      .insert(games)
+      .values({
+        whiteAgentId: a.id,
+        blackAgentId: b.id,
+        timePerMoveMs: 60_000,
+        moveLimitPlies: 300,
+        illegalAttemptsPerTurn: 3,
+        currentFen: START_FEN,
+      })
+      .returning();
+    if (game === undefined) throw new Error("game not inserted");
+
+    await tdb.db.insert(ratings).values({ agentId: a.id, rating: 1500, rd: 350, volatility: 0.06 });
+    const [row] = await tdb.db.select().from(ratings).where(eq(ratings.agentId, a.id));
+    expect(row).toMatchObject({ rating: 1500, rd: 350, volatility: 0.06, gamesPlayed: 0, lastGameAt: null });
+
+    const history = { agentId: a.id, gameId: game.id, ratingBefore: 1500, ratingAfter: 1512.3, rdAfter: 290.1 };
+    await tdb.db.insert(ratingHistory).values(history);
+    await expectUniqueViolation(tdb.db.insert(ratingHistory).values(history));
+    await tdb.db.insert(ratingHistory).values({ ...history, agentId: b.id });
+    expect(await tdb.db.select().from(ratingHistory)).toHaveLength(2);
   });
 });

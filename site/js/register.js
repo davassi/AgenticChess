@@ -10,31 +10,10 @@
   const NAME_MIN = 3;
   const NAME_MAX = 32;
   const DESCRIPTION_MAX = 280;
-  const KEY_PREFIX = "ac_";
-  const LOOKUP_PREFIX_BYTES = 6;
-  const SECRET_BYTES = 32;
   const PROVIDER_LABELS = { github: "GitHub", google: "Google" };
   const DEMO_PROFILE = { handle: "player-one", email: "player-one@example.com" };
 
   const state = { profile: null, piece: "knight", palette: "gold", agent: null };
-
-  /* Starfield, same as the landing page. */
-  function buildStars() {
-    const host = document.getElementById("stars");
-    if (!host) return;
-    const shadows = [];
-    let seed = 11;
-    const rand = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    for (let i = 0; i < 160; i += 1) {
-      const bright = rand();
-      const color = bright > 0.85 ? "#ffe58a" : bright > 0.6 ? "#f6e7c1" : "#6f5fa3";
-      shadows.push(`${Math.floor(rand() * 100)}vw ${Math.floor(rand() * 100)}vh 0 ${bright > 0.9 ? 1 : 0}px ${color}`);
-    }
-    host.style.boxShadow = shadows.join(",");
-  }
 
   /* Helpers ---------------------------------------------------------- */
 
@@ -44,25 +23,6 @@
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, NAME_MAX);
-  }
-
-  function base64url(bytes) {
-    let binary = "";
-    bytes.forEach((b) => {
-      binary += String.fromCharCode(b);
-    });
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  }
-
-  function randomBytes(size) {
-    const bytes = new Uint8Array(size);
-    window.crypto.getRandomValues(bytes);
-    return bytes;
-  }
-
-  /** Same shape as the arena's keys: ac_ + 8-char lookup prefix + 43-char secret. */
-  function previewKey() {
-    return `${KEY_PREFIX}${base64url(randomBytes(LOOKUP_PREFIX_BYTES))}${base64url(randomBytes(SECRET_BYTES))}`;
   }
 
   function scrollToStage(section) {
@@ -233,24 +193,6 @@
 
   /* Stage 3 ---------------------------------------------------------- */
 
-  function connectSnippet(agent) {
-    return [
-      "# where the agent runs, never in the repository",
-      `export AICHESS_API_KEY="${agent.key}"`,
-      "",
-      `// ${agent.name} · ${agent.provider} · ${agent.model}`,
-      'import { AiChessClient } from "@aichess/sdk";',
-      "",
-      "const client = new AiChessClient({",
-      "  apiKey: process.env.AICHESS_API_KEY,",
-      '  baseUrl: "https://api.aichess.example",',
-      "});",
-      "client.onYourTurn(async (turn) => askMyModel(turn));",
-      "await client.joinQueue();",
-      "await client.run();",
-    ].join("\n");
-  }
-
   function setupKey() {
     const output = document.getElementById("api-key");
     const copy = document.getElementById("copy-key");
@@ -258,28 +200,16 @@
     const snippet = document.getElementById("connect-snippet");
     const rewardName = document.querySelector("[data-reward-name]");
 
-    copy.addEventListener("click", async () => {
-      const key = output.textContent;
-      try {
-        if (!navigator.clipboard) throw new Error("clipboard unavailable");
-        await navigator.clipboard.writeText(key);
-        status.textContent = "Copied.";
-      } catch (error) {
-        const range = document.createRange();
-        range.selectNodeContents(output);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        status.textContent = "Clipboard blocked here. The key is selected: copy it by hand.";
-      }
+    copy.addEventListener("click", () => {
+      window.Site.copyText(output.textContent, { status, what: "The key", select: () => window.Site.selectContents(output) });
     });
 
     return {
       show(agent) {
-        agent.key = previewKey();
+        agent.key = window.Site.previewKey();
         output.textContent = agent.key;
         rewardName.textContent = agent.name;
-        snippet.textContent = connectSnippet(agent);
+        snippet.textContent = window.Site.connectSnippet(agent);
         status.textContent = "";
       },
       clear() {
@@ -294,7 +224,7 @@
 
   function init() {
     window.Pixel.mount(document);
-    buildStars();
+    window.Site.buildStars(11);
     const sections = {
       agent: document.getElementById("agent"),
       key: document.getElementById("key"),
@@ -317,14 +247,6 @@
       }
     });
 
-    document.getElementById("reset-flow").addEventListener("click", () => {
-      state.agent = null;
-      keyStage.clear();
-      agentStage.reset();
-      setStage("key", "locked");
-      setStage("agent", "ready");
-      scrollToStage(sections.agent);
-    });
   }
 
   if (document.readyState === "loading") {
