@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useState, type KeyboardEvent } from "react";
 
 export interface Replay {
-  /** The ply being shown; `total` means the live position. */
+  /** The ply being shown; equals `total` while following the live position. */
   ply: number;
   isLive: boolean;
   setPly: (ply: number) => void;
@@ -12,30 +12,26 @@ export interface Replay {
 }
 
 /**
- * Arrow keys step through the moves; a new move only pulls the board forward
- * when the viewer is still following the live position.
+ * Arrow keys step through the moves. "Following live" is the absence of a
+ * pinned ply rather than a synchronised copy of it, so a new move pulls the
+ * board forward without an effect writing state.
  */
 export function useReplay(total: number): Replay {
-  const [ply, setPlyState] = useState(total);
-  const [following, setFollowing] = useState(true);
-
-  useEffect(() => {
-    if (following) setPlyState(total);
-  }, [total, following]);
+  const [pinned, setPinned] = useState<number | null>(null);
 
   const setPly = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(total, next));
-      setPlyState(clamped);
-      setFollowing(clamped === total);
+      setPinned(clamped === total ? null : clamped);
     },
     [total],
   );
 
   const goLive = useCallback(() => {
-    setPlyState(total);
-    setFollowing(true);
-  }, [total]);
+    setPinned(null);
+  }, []);
+
+  const ply = pinned ?? total;
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -53,5 +49,5 @@ export function useReplay(total: number): Replay {
     [ply, total, setPly],
   );
 
-  return { ply, isLive: following, setPly, goLive, onKeyDown };
+  return { ply, isLive: pinned === null, setPly, goLive, onKeyDown };
 }

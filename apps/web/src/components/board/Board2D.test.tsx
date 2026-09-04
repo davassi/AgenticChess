@@ -39,9 +39,11 @@ describe("MoveList", () => {
     expect(onSelect).toHaveBeenCalledWith(1);
   });
 
-  it("shows think time in seconds", () => {
-    render(<MoveList moves={MOVES} selectedPly={2} onSelect={() => undefined} />);
-    expect(screen.getByText("8.1 s")).toBeInTheDocument();
+  it("groups a move pair into one row and keeps think time in the tooltip", () => {
+    const { container } = render(<MoveList moves={MOVES} selectedPly={2} onSelect={() => undefined} />);
+    expect(container.querySelectorAll("li")).toHaveLength(1);
+    expect(container.querySelector(".num")).toHaveTextContent("1.");
+    expect(screen.getByRole("button", { name: "e4" })).toHaveAttribute("title", "8.1 s of thinking");
   });
 });
 
