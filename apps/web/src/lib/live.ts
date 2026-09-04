@@ -8,6 +8,17 @@ export interface LiveGame {
 }
 
 /**
+ * The events after which the API closes the connection: the end of the game,
+ * and the opening snapshot of a game that was already over when the browser
+ * connected. An EventSource the page does not close itself reconnects to a
+ * closed stream for ever.
+ */
+export function endsTheStream(event: WireEvent): boolean {
+  if (event.type === "game.end") return true;
+  return event.type === "game.snapshot" && (event.game.status === "finished" || event.game.status === "aborted");
+}
+
+/**
  * The whole live-update rule, as a pure function. An event that changes
  * nothing returns the same object, so React skips the re-render.
  */
@@ -76,7 +87,10 @@ export function applyStreamEvent(state: LiveGame, event: WireEvent): LiveGame {
         finished: true,
         snapshot: {
           ...state.snapshot,
-          status: "finished",
+          // A game nobody ever moved in is aborted, not finished, and the
+          // difference is what tells the page to say so instead of reading a
+          // null result as a win for black.
+          status: event.termination === "aborted" ? "aborted" : "finished",
           result: event.result,
           termination: event.termination,
           moveDeadlineAt: null,

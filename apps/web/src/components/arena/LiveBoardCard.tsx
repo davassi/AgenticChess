@@ -1,11 +1,12 @@
 "use client";
 
+import { turnOf } from "@aichess/core";
 import type { GameListItem } from "@aichess/core/protocol";
 import Link from "next/link";
 import type { ReactElement } from "react";
 import { IsoScene } from "@/components/board/IsoScene";
 import { AgentCell } from "@/components/layout/AgentCell";
-import { useLiveFen } from "@/hooks/useLiveFen";
+import { useLiveBoard } from "@/hooks/useLiveBoard";
 import { gameStreamUrl } from "@/lib/api";
 import type { IsoPosition } from "@/lib/iso";
 import { positionFromFen } from "@/lib/position";
@@ -23,13 +24,16 @@ function toIsoPosition(fen: string): IsoPosition {
 }
 
 export function LiveBoardCard({ game, apiPublicUrl }: LiveBoardCardProps): ReactElement {
-  const live = game.status === "active";
-  const fen = useLiveFen(gameStreamUrl(apiPublicUrl, game.id), game.fen, live);
+  // Everything the card says about the game comes from the stream: the list
+  // item is only where it starts. A game that ends while the arena is open
+  // would otherwise keep its live badge and its side to move for ever.
+  const { fen, active } = useLiveBoard(gameStreamUrl(apiPublicUrl, game.id), game.fen, game.status === "active");
+  const turn = turnOf(fen);
   return (
     <li className="board-card">
       <span className="board-id">
         <span>Game #{game.id.slice(0, 8)}</span>
-        {live ? <span className="chip chip--live">live</span> : null}
+        {active ? <span className="chip chip--live">live</span> : null}
       </span>
       <Link
         className="board-link"
@@ -54,7 +58,8 @@ export function LiveBoardCard({ game, apiPublicUrl }: LiveBoardCardProps): React
       </div>
       <p className="board-foot">
         <span>
-          {game.turn === "white" ? "White" : "Black"} to move · started {timeAgo(game.startedAt ?? game.createdAt)}
+          {active ? `${turn === "white" ? "White" : "Black"} to move` : "Game over"} · started{" "}
+          {timeAgo(game.startedAt ?? game.createdAt)}
         </span>
       </p>
       <Link className="btn btn--start" href={`/games/${game.id}`}>

@@ -1,6 +1,6 @@
 import type { GameSnapshot, WireEvent } from "@aichess/core/protocol";
 import { describe, expect, it } from "vitest";
-import { applyStreamEvent, type LiveGame } from "./live";
+import { applyStreamEvent, endsTheStream, type LiveGame } from "./live";
 
 const AGENT = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -130,7 +130,48 @@ describe("applyStreamEvent", () => {
     expect(next.snapshot.moveDeadlineAt).toBeNull();
   });
 
+  it("keeps an aborted game aborted", () => {
+    // An abort carries the result "*", and a page told the game is finished
+    // reads that as a win for black.
+    const next = applyStreamEvent(EMPTY, {
+      type: "game.end",
+      gameId: SNAPSHOT.id,
+      result: "*",
+      termination: "aborted",
+      pgn: "",
+      rating: null,
+    });
+    expect(next.snapshot.status).toBe("aborted");
+    expect(next.finished).toBe(true);
+  });
+
   it("ignores a ping", () => {
     expect(applyStreamEvent(EMPTY, { type: "ping", at: "2026-09-04T10:00:30.000Z" })).toBe(EMPTY);
+  });
+});
+
+describe("endsTheStream", () => {
+  it("is the end event, and the snapshot of a game that is already over", () => {
+    // The API sends a snapshot and closes when the game ended before the
+    // browser connected: no game.end follows, and an EventSource that is not
+    // closed by hand reconnects for ever.
+    expect(endsTheStream({ type: "game.snapshot", game: { ...SNAPSHOT, status: "finished" } })).toBe(true);
+    expect(endsTheStream({ type: "game.snapshot", game: { ...SNAPSHOT, status: "aborted" } })).toBe(true);
+    expect(
+      endsTheStream({
+        type: "game.end",
+        gameId: SNAPSHOT.id,
+        result: "1-0",
+        termination: "checkmate",
+        pgn: "",
+        rating: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("is not a game still being played", () => {
+    expect(endsTheStream({ type: "game.snapshot", game: SNAPSHOT })).toBe(false);
+    expect(endsTheStream(MOVE)).toBe(false);
+    expect(endsTheStream({ type: "ping", at: "2026-09-04T10:00:30.000Z" })).toBe(false);
   });
 });

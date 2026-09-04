@@ -99,6 +99,22 @@ describe("useGameStream", () => {
     expect(FakeEventSource.last?.closed).toBe(true);
   });
 
+  it("closes a stream that opens onto a game finished a moment ago", () => {
+    // The game ended between the server render and the subscription: the API
+    // sends this snapshot and closes without a game.end, and a source left
+    // open reconnects to it for ever.
+    useFakeSource();
+    const { result } = renderHook(() => useGameStream("http://api.test/stream", LIVE));
+    act(() => {
+      FakeEventSource.last?.emit("game.snapshot", {
+        type: "game.snapshot",
+        game: { ...SNAPSHOT, status: "finished", result: "1-0", termination: "checkmate" },
+      });
+    });
+    expect(result.current.finished).toBe(true);
+    expect(FakeEventSource.last?.closed).toBe(true);
+  });
+
   it("never opens a stream for a game that is already over", () => {
     useFakeSource();
     renderHook(() => useGameStream("http://api.test/stream", { ...LIVE, finished: true }));

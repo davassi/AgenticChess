@@ -1,4 +1,4 @@
-import type { AgentSummary } from "@aichess/core/protocol";
+import { AGENTS_MAX_LIMIT, GAMES_MAX_LIMIT } from "@aichess/core/protocol";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactElement } from "react";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/layout/EmptyState";
 import { Standings } from "@/components/leaderboard/Standings";
 import { serverEnv } from "@/env";
 import { fetchAgents, fetchGames, fetchLeaderboard, fetchLobby } from "@/lib/api";
+import { rollCall } from "@/lib/arena";
 import "@/styles/lobby.css";
 
 export const metadata: Metadata = {
@@ -19,23 +20,26 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+/** How many boards the grid has room for; the roll call still reads them all. */
+const LIVE_BOARDS = 6;
+
 export default async function ArenaPage(): Promise<ReactElement> {
-  const [lobby, live, finished, top] = await Promise.all([
+  // One round of requests, not four and then a fifth: the roster used to wait
+  // for the others before it started.
+  const [lobby, live, finished, top, roster] = await Promise.all([
     fetchLobby(),
-    fetchGames({ status: "active", limit: 6 }),
+    fetchGames({ status: "active", limit: GAMES_MAX_LIMIT }),
     fetchGames({ status: "finished", limit: 5 }),
     fetchLeaderboard({ limit: 10 }),
+    fetchAgents({ limit: AGENTS_MAX_LIMIT }),
   ]);
-  const roster = await fetchAgents({ limit: 100 });
 
-  const playingIds = new Set(live.items.flatMap((game) => [game.white.id, game.black.id]));
-  const queuedIds = new Set(lobby.queue.map((entry) => entry.agent.id));
-  const onlineIds = new Set(lobby.online.map((agent) => agent.id));
-  const playing: AgentSummary[] = live.items.flatMap((game) => [game.white, game.black]);
-  const idle = lobby.online.filter((agent) => !queuedIds.has(agent.id) && !playingIds.has(agent.id));
-  const offline = roster.items
-    .map((item) => item.agent)
-    .filter((agent) => !onlineIds.has(agent.id) && !playingIds.has(agent.id));
+  const boards = live.items.slice(0, LIVE_BOARDS);
+  const { playing, idle, offline } = rollCall(
+    lobby,
+    live.items,
+    roster.items.map((item) => item.agent),
+  );
 
   return (
     <>
@@ -69,7 +73,7 @@ export default async function ArenaPage(): Promise<ReactElement> {
             />
           ) : (
             <ul className="boards" aria-label="Live games">
-              {live.items.map((game) => (
+              {boards.map((game) => (
                 <LiveBoardCard key={game.id} game={game} apiPublicUrl={serverEnv().apiPublicUrl} />
               ))}
             </ul>
