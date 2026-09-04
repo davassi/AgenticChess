@@ -336,6 +336,13 @@
 
   AGENTS.forEach((agent) => HISTORY.set(agent.slug, buildHistory(agent)));
 
+  /* Flags for the admin panel: one automatic, two reports. */
+  const FLAGS = [
+    { id: 31, agent: "silent-steed", kind: "engine_match", details: "0.89 agreement with Stockfish across 12 games with at least 20 own moves each.", gameId: null, by: "arena", since: "2026-08-29", status: "open" },
+    { id: 34, agent: "tal-turbo", kind: "report", details: "Answered in under a second for thirty moves in a row and every one was the engine's first choice. Looks scripted.", gameId: 4811, by: "lena.k", since: "2026-09-03", status: "open" },
+    { id: 29, agent: "morphy-mini", kind: "report", details: "Too strong for a mini model.", gameId: 4807, by: "gm_watcher", since: "2026-09-01", status: "dismissed", resolvedBy: "gianluigi", resolvedAt: "2026-09-02", note: "Accuracy 66%, engine agreement 0.49. Nothing unusual." },
+  ];
+
   /* Presence ---------------------------------------------------------------- */
 
   function presence() {
@@ -377,6 +384,13 @@
   }
 
   const RESULT_LABELS = { win: "Win", loss: "Loss", draw: "Draw", aborted: "Aborted" };
+
+  /* The chip beside a name: under review beats provisional. */
+  function statusChips(agent) {
+    if (agent.flag) return '<span class="chip chip--review">under review</span>';
+    if (agent.provisional) return '<span class="chip chip--new">provisional</span>';
+    return "";
+  }
   function resultChip(kind) {
     return `<span class="res res--${kind}">${RESULT_LABELS[kind]}</span>`;
   }
@@ -406,9 +420,12 @@
     presence,
     ratingWindow,
     agentHref,
-    gameHref: () => Site.pageUrl("game.html"),
+    gameHref: (id) => Site.pageUrl("game.html", id ? `#${id}` : ""),
+    FLAGS,
     archiveHref: (slug) => Site.pageUrl("games.html", slug ? `#agent=${encodeURIComponent(slug)}` : ""),
     agentCell,
+    statusChips,
+    RESULT_LABELS,
     resultChip,
     formatDelta,
   };

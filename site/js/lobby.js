@@ -17,6 +17,10 @@
   const FILES = "abcdefgh";
   const PIECE_LETTERS = { p: "pawn", r: "rook", n: "knight", b: "bishop", q: "queen", k: "king" };
 
+  /* lobby.html#quiet previews the arena with nobody around. */
+  const QUIET = Site.readHash().value === "quiet";
+  const LIVE = QUIET ? [] : Arena.LIVE_GAMES;
+
   function agentOf(slug) {
     return Arena.bySlug(slug);
   }
@@ -194,21 +198,38 @@
   function renderBoards() {
     const host = document.getElementById("boards");
     const boards = [];
-    host.innerHTML = Arena.LIVE_GAMES.map(
+    if (!LIVE.length) {
+      host.innerHTML = `<li class="boards-empty">${Site.emptyState({
+        sprite: "hourglass",
+        palette: "gold",
+        kicker: "Intermission",
+        title: "No board is live",
+        text: "Every agent is idle or offline. A game starts within seconds of two agents joining the queue, and the first move shows up here.",
+        actions: [
+          { label: "Register an agent", href: Site.pageUrl("register.html"), primary: true },
+          { label: "Connect one", href: Site.pageUrl("docs.html", "#quickstart") },
+          { label: "Latest results", href: "#results" },
+        ],
+      })}</li>`;
+      window.Pixel.mount(host);
+      document.getElementById("live-count").textContent = "0";
+      return;
+    }
+    host.innerHTML = LIVE.map(
       (game) =>
         `<li class="board-card" data-id="${game.id}">` +
         `<span class="board-id"><span>Game #${game.id}</span><span class="chip chip--live">live</span></span>` +
-        `<a class="board-link" href="${Arena.gameHref()}" aria-label="Watch game ${game.id}, ${game.white} against ${game.black}"><canvas class="mini" width="128" height="134" role="img" aria-label="Current position"></canvas></a>` +
+        `<a class="board-link" href="${Arena.gameHref(game.id)}" aria-label="Watch game ${game.id}, ${game.white} against ${game.black}"><canvas class="mini" width="128" height="134" role="img" aria-label="Current position"></canvas></a>` +
         sideMarkup(game, "b") +
         sideMarkup(game, "w") +
         `<p class="board-result" hidden></p>` +
         `<p class="board-foot"><span data-sprite="eye" data-palette="cyan" data-scale="1"></span><span><span class="board-watching"></span> · <span class="board-ply"></span> · started ${Site.timeAgo(Arena.NOW - game.startedAgo, Arena.NOW)}</span></p>` +
-        `<a class="btn btn--start" href="${Arena.gameHref()}">Watch</a>` +
+        `<a class="btn btn--start" href="${Arena.gameHref(game.id)}">Watch</a>` +
         "</li>",
     ).join("");
     window.Pixel.mount(host);
     host.querySelectorAll(".board-card").forEach((card) => {
-      const game = Arena.LIVE_GAMES.find((g) => g.id === Number(card.dataset.id));
+      const game = LIVE.find((g) => g.id === Number(card.dataset.id));
       boards.push(new LiveBoard(game, card));
     });
     document.getElementById("live-count").textContent = String(boards.length);
@@ -239,7 +260,7 @@
           `<time class="result-when" datetime="${new Date(game.finishedAt).toISOString()}" title="${Site.isoDate(game.finishedAt)}">${Site.timeAgo(game.finishedAt, Arena.NOW)}</time>` +
           `<span class="result-pair">${cell(white, "w")}<span class="vs">–</span>${cell(black, "b")}</span>` +
           `<span class="result-score">${game.result === "*" ? "aborted" : game.result}</span>` +
-          `<span class="result-how">#${game.id} · ${how} · <a href="${Arena.gameHref()}">Replay</a></span>` +
+          `<span class="result-how">#${game.id} · ${how} · <a href="${Arena.gameHref(game.id)}">Replay</a></span>` +
           "</li>"
         );
       })
@@ -256,7 +277,7 @@
       .map(
         (agent) =>
           `<tr${agent.flag ? ' class="is-flagged"' : ""}>` +
-          `<td>${ordinal(agent.rank)}</td>` +
+          `<td>${Site.ordinal(agent.rank)}</td>` +
           `<td>${Arena.agentCell(agent, { scale: 1 })}${agent.flag ? '<span class="chip chip--review">under review</span>' : ""}</td>` +
           `<td>${agent.rating}</td>` +
           `<td>${agent.wins}-${agent.draws}-${agent.losses}</td>` +
@@ -266,15 +287,10 @@
     window.Pixel.mount(body);
   }
 
-  function ordinal(n) {
-    const suffix = n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
-    return `${n}${suffix}`;
-  }
-
   /* Waiting room --------------------------------------------------------- */
 
   function renderRooms() {
-    const presence = Arena.presence();
+    const presence = QUIET ? Arena.presence().map((e) => ({ agent: e.agent, state: "offline" })) : Arena.presence();
     const lists = {
       queued: document.getElementById("queue"),
       playing: document.getElementById("playing"),
@@ -282,7 +298,7 @@
       offline: document.getElementById("offline"),
     };
     const detail = (entry) => {
-      if (entry.state === "playing") return `<small>game <a href="${Arena.gameHref()}">#${entry.gameId}</a></small>`;
+      if (entry.state === "playing") return `<small>game <a href="${Arena.gameHref(entry.gameId)}">#${entry.gameId}</a></small>`;
       if (entry.state === "queued") {
         const note = entry.queue.note ? ` · ${Site.escapeHtml(entry.queue.note)}` : "";
         return `<small><span class="queue-wait" data-queued="${entry.queue.queuedAgo}"></span> · window <span class="queue-window"></span>${note}</small>`;
@@ -290,20 +306,28 @@
       if (entry.state === "online") return "<small>stream open, not in queue</small>";
       return "";
     };
+    const empty = {
+      queued: { sprite: "hourglass", palette: "slate", title: "Nobody in the queue", text: "Agents join with POST /v1/agent/queue while their stream is open." },
+      playing: { sprite: "moon", palette: "slate", title: "Nobody playing", text: "The next match starts as soon as two agents wait in the queue." },
+      online: { sprite: "plug", palette: "slate", title: "No stream open", text: "An agent is online while its event stream is connected." },
+      offline: { sprite: "moon", palette: "slate", title: "Everyone is online", text: "Every registered agent has its stream open." },
+    };
     Object.keys(lists).forEach((state) => {
-      lists[state].innerHTML = presence
-        .filter((entry) => entry.state === state)
-        .map((entry) => `<li>${Arena.agentCell(entry.agent, { scale: 1, extra: `${entry.agent.rating}${entry.agent.provisional ? " provisional" : ""}` })}${detail(entry)}</li>`)
-        .join("");
+      const entries = presence.filter((entry) => entry.state === state);
+      lists[state].innerHTML = entries.length
+        ? entries
+            .map((entry) => `<li>${Arena.agentCell(entry.agent, { scale: 1, extra: `${entry.agent.rating}${entry.agent.provisional ? " provisional" : ""}` })}${detail(entry)}</li>`)
+            .join("")
+        : `<li class="roster-empty">${Site.emptyState(Object.assign({ compact: true }, empty[state]))}</li>`;
       window.Pixel.mount(lists[state]);
     });
     const queued = presence.filter((e) => e.state === "queued").length;
     document.getElementById("queue-count").textContent = String(queued);
-    document.getElementById("pulse-live").textContent = String(Arena.LIVE_GAMES.length);
+    document.getElementById("pulse-live").textContent = String(LIVE.length);
     document.getElementById("pulse-online").textContent = String(presence.filter((e) => e.state !== "offline").length);
     document.getElementById("pulse-queue").textContent = String(queued);
     const dayAgo = Arena.NOW - 24 * 60 * 60000;
-    document.getElementById("pulse-day").textContent = String(Arena.GAMES.filter((g) => g.finishedAt >= dayAgo).length + Arena.LIVE_GAMES.length);
+    document.getElementById("pulse-day").textContent = String(Arena.GAMES.filter((g) => g.finishedAt >= dayAgo).length + LIVE.length);
 
     const start = performance.now();
     const tickQueue = () => {
@@ -325,6 +349,13 @@
     renderResults();
     renderTop();
     renderRooms();
+    const toggle = document.getElementById("quiet-toggle");
+    if (QUIET) {
+      toggle.textContent = "Back to the busy arena";
+      toggle.setAttribute("href", "#");
+      document.querySelector(".intro-lede").textContent = "Quiet hour: no board is live and nobody is around. This is what the arena looks like before the first agent connects.";
+    }
+    window.addEventListener("hashchange", () => window.location.reload());
   }
 
   if (document.readyState === "loading") {

@@ -17,8 +17,11 @@
   const STATE_ORDER = { playing: 0, queued: 1, online: 2, offline: 3 };
   const PRESENCE_LABEL = { playing: "Playing", queued: "In queue", online: "Online", offline: "Offline" };
 
+  /* dashboard.html#empty previews a player who has not registered an agent yet. */
+  const EMPTY = Site.readHash().value === "empty";
+
   /* Agents owned by the demo user, plus the ones created on this page. */
-  const party = Arena.presence()
+  const party = (EMPTY ? [] : Arena.presence())
     .filter((entry) => entry.agent.owner === USER.handle)
     .map((entry) => Object.assign({ entry, rotatedAt: null, freshKey: null }, entry.agent, { createdAt: entry.agent.registered }));
   party.sort((a, b) => STATE_ORDER[a.entry.state] - STATE_ORDER[b.entry.state]);
@@ -44,7 +47,7 @@
     if (entry.state === "playing") {
       const game = Arena.LIVE_GAMES.find((g) => g.id === entry.gameId);
       const opponent = game ? (game.white === agent.slug ? game.black : game.white) : "";
-      return `In game <a href="${Arena.gameHref()}">#${entry.gameId}</a> against ${Site.escapeHtml(opponent)}, ${game && game.white === agent.slug ? "white" : "black"}. Rating on the line.`;
+      return `In game <a href="${Arena.gameHref(entry.gameId)}">#${entry.gameId}</a> against ${Site.escapeHtml(opponent)}, ${game && game.white === agent.slug ? "white" : "black"}. Rating on the line.`;
     }
     if (entry.state === "queued") {
       const note = entry.queue.note ? ` · ${Site.escapeHtml(entry.queue.note)}` : "";
@@ -53,12 +56,6 @@
     if (entry.state === "online") return "Stream open, not in queue. The agent joins with <code>POST /v1/agent/queue</code> when it wants a game.";
     const last = lastGameAt(agent.slug);
     return `Offline: no open stream.${last ? ` Last game ${Site.timeAgo(last, Arena.NOW)}.` : " No games yet."}`;
-  }
-
-  function chips(agent) {
-    if (agent.flag) return '<span class="chip chip--review">under review</span>';
-    if (agent.provisional) return '<span class="chip chip--new">provisional</span>';
-    return "";
   }
 
   function statsMarkup(agent) {
@@ -80,7 +77,7 @@
       `<li class="agent-card${agent.isNew ? " is-new" : ""}" data-slug="${Site.escapeHtml(agent.slug)}" data-state="${state}">` +
       '<div class="agent-head">' +
       `<span data-sprite="${agent.piece}" data-palette="${agent.palette}" data-scale="2"></span>` +
-      `<div class="agent-title"><b><a href="${Arena.agentHref(agent.slug)}">${Site.escapeHtml(agent.name)}</a>${chips(agent)}</b><span class="agent-model">${Site.escapeHtml(agent.provider)} · ${Site.escapeHtml(agent.model)}</span></div>` +
+      `<div class="agent-title"><b><a href="${Arena.agentHref(agent.slug)}">${Site.escapeHtml(agent.name)}</a>${Arena.statusChips(agent)}</b><span class="agent-model">${Site.escapeHtml(agent.provider)} · ${Site.escapeHtml(agent.model)}</span></div>` +
       `<span class="presence presence--${state}">${PRESENCE_LABEL[state]}</span>` +
       "</div>" +
       `<p class="agent-state">${stateLine(agent)}</p>` +
@@ -116,7 +113,19 @@
 
   function renderParty() {
     const list = document.getElementById("agents");
-    list.innerHTML = party.map(cardMarkup).join("");
+    list.innerHTML = party.length
+      ? party.map(cardMarkup).join("")
+      : `<li class="agents-empty">${Site.emptyState({
+          sprite: "key",
+          palette: "gold",
+          kicker: "New game",
+          title: "No agents yet",
+          text: "Your first agent takes a name, the model it runs on and the fair-play pledge. The key comes right after, once.",
+          actions: [
+            { label: "Create your first agent", href: "#new", primary: true },
+            { label: "How to connect one", href: Site.pageUrl("docs.html", "#quickstart") },
+          ],
+        })}</li>`;
     window.Pixel.mount(list);
     document.getElementById("agent-count").textContent = String(party.length);
     party.forEach((agent) => {
@@ -270,7 +279,14 @@
     const mine = new Set(party.map((a) => a.slug));
     const games = Arena.GAMES.filter((g) => mine.has(g.white) || mine.has(g.black)).slice(0, 8);
     if (!games.length) {
-      body.innerHTML = '<tr class="empty-row"><td colspan="7">No games yet. They appear here the moment one ends.</td></tr>';
+      body.innerHTML = `<tr class="empty-row"><td colspan="7">${Site.emptyState({
+        compact: true,
+        sprite: "hourglass",
+        palette: "slate",
+        title: "No games yet",
+        text: "They appear here the moment one ends, with the rating change.",
+      })}</td></tr>`;
+      window.Pixel.mount(body);
       return;
     }
     body.innerHTML = games
@@ -289,7 +305,7 @@
           `<td>${Arena.resultChip(Arena.resultFor(game, ownSlug))}</td>` +
           `<td>${Arena.TERMINATIONS[game.termination]}</td>` +
           `<td>${ratingCell}</td>` +
-          `<td><a href="${Arena.gameHref()}">Replay</a></td>` +
+          `<td><a href="${Arena.gameHref(game.id)}">Replay</a></td>` +
           "</tr>"
         );
       })
@@ -312,6 +328,14 @@
     renderRecent();
     setupRotate();
     setupNewAgent();
+    const toggle = document.getElementById("empty-toggle");
+    if (EMPTY) {
+      toggle.textContent = "Back to the demo agents";
+      toggle.setAttribute("href", "#");
+    }
+    window.addEventListener("hashchange", () => {
+      if (window.location.hash !== "#new") window.location.reload();
+    });
     tickQueue();
     if (!REDUCED_MOTION) setInterval(tickQueue, 1000);
   }

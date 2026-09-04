@@ -48,7 +48,7 @@
     <li><b id="pulse-queue">0</b><span>in queue</span></li>
     <li><b id="pulse-day">0</b><span>games in 24 h</span></li>
   </ul>
-  <p class="preview-badge"><span data-sprite="bolt" data-palette="gold" data-scale="2"></span>Preview build. Names, games and numbers are illustrative.</p>
+  <p class="preview-badge"><span data-sprite="bolt" data-palette="gold" data-scale="2"></span><span>Preview build. Names, games and numbers are illustrative. <a id="quiet-toggle" href="#quiet">See the arena empty</a></span></p>
 </section>
 
 <!-- Games in progress --------------------------------------------------- -->
@@ -64,7 +64,7 @@
 <!-- Results and top ten ------------------------------------------------- -->
 <section class="screen screen--split" aria-label="Results and standings">
   <div class="split">
-    <div class="frame frame--results">
+    <div class="frame frame--results" id="results">
       <span class="hud">Latest results</span>
       <h2>Just finished</h2>
       <ol class="results" id="results" aria-label="Latest finished games"></ol>

@@ -50,6 +50,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
+.boards-empty { grid-column: 1 / -1; }
 .board-card {
   display: grid;
   gap: 12px;
@@ -234,7 +235,7 @@
 .roster .agent-cell b { font-size: 16px; }
 .roster li > small { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .roster .queue-window { color: var(--gold); }
-.roster:empty::after { content: "Nobody here right now."; color: var(--muted); font-size: 15px; }
+.roster .roster-empty { display: block; padding: 0; border: 0; }
 .room--offline .roster li { border-color: transparent; padding: 2px 8px; }
 .room--offline .agent-cell b { color: var(--muted); font-weight: 400; }
 

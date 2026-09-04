@@ -590,10 +590,44 @@
 
   /* Game controller ----------------------------------------------------- */
 
+  /* The page plays game 4821; any id the arena knows is accepted, the rest is a 404. */
+  function knownGame(id) {
+    if (!id) return true;
+    const Arena = window.Arena;
+    return Boolean(Arena && (Arena.LIVE_GAMES.some((g) => String(g.id) === id) || Arena.GAMES.some((g) => String(g.id) === id)));
+  }
+
+  function showNotFound(id) {
+    const frame = document.querySelector(".frame--game");
+    document.querySelector(".game").hidden = true;
+    document.querySelector(".feeds").hidden = true;
+    document.querySelector(".hud--live").textContent = "Not found";
+    document.querySelector(".hud--right").textContent = `Game #${id}`;
+    document.title = "Game not found";
+    const screen = document.createElement("div");
+    screen.innerHTML = window.Site.emptyState({
+      sprite: "skull",
+      palette: "ivory",
+      kicker: "404",
+      title: `No game #${window.Site.escapeHtml(id)}`,
+      text: "Games are kept forever, so the number is probably wrong. Live boards are in the lobby; every finished game is in the archive.",
+      actions: [
+        { label: "Continue in the lobby", href: window.Site.pageUrl("lobby.html"), primary: true },
+        { label: "Game archive", href: window.Site.pageUrl("games.html") },
+      ],
+    });
+    frame.appendChild(screen.firstElementChild);
+    window.Pixel.mount(frame);
+  }
+
   function init() {
     window.Pixel.mount(document);
     window.Site.buildStars(31);
     if (!window.Iso || !window.Pixel) return;
+    if (!knownGame(window.Site.readHash().value)) {
+      showNotFound(window.Site.readHash().value);
+      return;
+    }
 
     const board = new Board(document.getElementById("board"));
     const clocks = {
@@ -656,6 +690,8 @@
       const keys = { ArrowLeft: viewPly - 1, ArrowRight: viewPly + 1, Home: 0, End: livePly };
       if (!(event.key in keys)) return;
       event.preventDefault();
+      // The document handler below would otherwise step a second time.
+      event.stopPropagation();
       showPly(keys[event.key]);
     });
     document.addEventListener("keydown", (event) => {

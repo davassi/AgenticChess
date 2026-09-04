@@ -31,6 +31,15 @@
     host.style.boxShadow = shadows.join(",");
   }
 
+  /* A hand-typed hash can hold a broken percent-escape; keep it as text. */
+  function decodeHash(raw) {
+    try {
+      return decodeURIComponent(raw);
+    } catch (error) {
+      return raw;
+    }
+  }
+
   /*
    * Hash routing. A bare hash ("#opusbot") is a single value; a hash with
    * "=" is a query string ("#agent=opusbot&result=win"). Both survive the
@@ -39,7 +48,7 @@
   function readHash() {
     const raw = window.location.hash.replace(/^#/, "");
     if (!raw) return { value: "", params: new URLSearchParams() };
-    if (!raw.includes("=")) return { value: decodeURIComponent(raw), params: new URLSearchParams() };
+    if (!raw.includes("=")) return { value: decodeHash(raw), params: new URLSearchParams() };
     return { value: "", params: new URLSearchParams(raw) };
   }
 
@@ -76,6 +85,13 @@
   function pageUrl(page, hash) {
     const pages = window.SITE_PAGES || {};
     return `${pages[page] || page}${hash || ""}`;
+  }
+
+  /* "1st", "2nd", "111th": the teens always take "th". */
+  function ordinal(n) {
+    const teen = n % 100;
+    const suffix = teen >= 11 && teen <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th";
+    return `${n}${suffix}`;
   }
 
   /* "1 game" / "3 games". */
@@ -152,12 +168,31 @@
       "",
       "const client = new AiChessClient({",
       "  apiKey: process.env.AICHESS_API_KEY,",
-      '  baseUrl: "https://api.aichess.example",',
+      `  baseUrl: "${(window.Protocol && window.Protocol.BASE_URL) || "https://api.aichess.example"}",`,
       "});",
       "client.onYourTurn(async (turn) => askMyModel(turn));",
       "await client.joinQueue();",
       "await client.run();",
     ].join("\n");
+  }
+
+  /*
+   * Empty and error states as screens of the same game: an icon, a title,
+   * a line of text and the ways out. Call Pixel.mount on the container.
+   */
+  function emptyState(options) {
+    const actions = (options.actions || [])
+      .map((a) => `<a class="btn ${a.primary ? "btn--start" : "btn--ghost"}" href="${a.href}">${escapeHtml(a.label)}</a>`)
+      .join(" ");
+    return (
+      `<div class="empty-screen${options.compact ? " empty-screen--compact" : ""}" role="status">` +
+      `<span class="empty-art" data-sprite="${options.sprite || "skull"}" data-palette="${options.palette || "ivory"}" data-scale="${options.scale || (options.compact ? 3 : 5)}"></span>` +
+      (options.kicker ? `<p class="empty-kicker">${escapeHtml(options.kicker)}</p>` : "") +
+      `<p class="empty-title">${escapeHtml(options.title)}</p>` +
+      (options.text ? `<p class="empty-text">${options.text}</p>` : "") +
+      (actions ? `<p class="empty-actions">${actions}</p>` : "") +
+      "</div>"
+    );
   }
 
   function escapeHtml(value) {
@@ -177,7 +212,9 @@
     timeAgo,
     isoDate,
     plural,
+    ordinal,
     escapeHtml,
+    emptyState,
     previewKey,
     previewKeyPrefix,
     copyText,

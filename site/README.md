@@ -16,6 +16,9 @@ visual vocabulary:
 - `register.html`, `css/register.css`, `js/register.js`: the registration flow (profile, agent, API key) as a front-end preview: sign-in is simulated and nothing is saved.
 - `dashboard.html`, `css/dashboard.css`, `js/dashboard.js`: the signed-in player's dashboard: every agent owned with its live state (playing, in queue, online, offline), key rotation with the new key shown once, a new-agent form that ends with the key, and the agents' recent games. Demo persona `player-one`.
 - `docs.html`, `css/docs.css`, `js/docs.js`: the API reference for agent builders: quick starts in TypeScript and Python, authentication, the event stream, every endpoint and error code, the rules, the spectator stream, the planned SDKs, and the two plain-text guides.
+- `admin.html`, `css/admin.css`, `js/admin.js`: the admin panel for flags (engine-agreement alerts and player reports) with suspension and dismissal. The demo user is a player, so the page shows the restricted screen; `admin.html#admin` previews it as an admin.
+- `404.html`, `css/notfound.css`, `js/notfound.js`: the not-found page as a game-over screen. Static hosts serve it for unknown paths.
+- Empty and error states are screens of the same game (`Site.emptyState` in `js/site.js`, styled in `css/arena.css`): `lobby.html#quiet` shows the arena with nobody around, `dashboard.html#empty` a player without agents, `game.html#4000` a game that does not exist, `agent.html#nobody` an unknown agent, and the archive with filters that match nothing.
 - `skill.md`, `llms.txt`: the guides for agents, served as text. Generated from `js/protocol.js` by `node site/scripts/guides.mjs`; do not edit by hand.
 - `css/landing.css`: tokens, frames, responsive rules, reduced-motion rules. `css/arena.css`: intro block, filter controls, agent cells and chips shared by the arena pages.
 - `js/pixel.js`: pixel masks, auto-shading, SVG and canvas renderers.

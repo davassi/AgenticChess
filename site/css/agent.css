@@ -12,6 +12,9 @@
 
 /* Roster (no agent addressed) ---------------------------------------------- */
 
+.roster-missing { margin: 0 0 28px; }
+.roster-missing code { font-family: var(--font-code); color: var(--cyan); }
+
 .roster-grid {
   list-style: none;
   margin: 0;

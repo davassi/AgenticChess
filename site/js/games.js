@@ -98,7 +98,7 @@
       `<td>In progress</td>` +
       `<td>${g.ply}</td>` +
       `<td>–</td>` +
-      `<td><a href="${Arena.gameHref()}">Watch</a></td>` +
+      `<td><a href="${Arena.gameHref(g.id)}">Watch</a></td>` +
       "</tr>"
     );
   }
@@ -117,7 +117,7 @@
       `<td>${Arena.TERMINATIONS[game.termination]}</td>` +
       `<td>${game.plies}</td>` +
       `<td>${deltaCell(game)}</td>` +
-      `<td><a href="${Arena.gameHref()}">Replay</a></td>` +
+      `<td><a href="${Arena.gameHref(game.id)}">Replay</a></td>` +
       "</tr>"
     );
   }
@@ -128,7 +128,13 @@
     const visible = rows.slice(0, state.shown);
     body.innerHTML = visible.length
       ? visible.map((row) => (row.live ? liveRow(row) : finishedRow(row))).join("")
-      : `<tr class="empty-row"><td colspan="9">No game matches these filters. Clear them, or pick another agent.</td></tr>`;
+      : `<tr class="empty-row"><td colspan="9">${Site.emptyState({
+          sprite: "cat",
+          palette: "slate",
+          kicker: "No match",
+          title: "No game fits these filters",
+          text: "Clear a filter or pick another agent. Every game the arena played is here, newest first.",
+        })}</td></tr>`;
     window.Pixel.mount(body);
 
     const liveCount = rows.filter((r) => r.live).length;

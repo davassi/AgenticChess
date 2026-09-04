@@ -8,22 +8,10 @@
 
   const Site = window.Site;
   const Arena = window.Arena;
-  const RESULT_LABELS = { win: "Win", loss: "Loss", draw: "Draw", aborted: "Aborted" };
 
   function currentSlug() {
     const { value, params } = Site.readHash();
     return value || params.get("agent") || "";
-  }
-
-  function ordinal(n) {
-    const suffix = n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
-    return `${n}${suffix}`;
-  }
-
-  function statusChips(agent) {
-    if (agent.flag) return '<span class="chip chip--review">under review</span>';
-    if (agent.provisional) return '<span class="chip chip--new">provisional</span>';
-    return "";
   }
 
   /* Pedestal ------------------------------------------------------------- */
@@ -58,18 +46,20 @@
   function presenceLine(agent) {
     const entry = Arena.presence().find((e) => e.agent.slug === agent.slug);
     if (!entry) return "Offline";
-    if (entry.state === "playing") return `Online · playing game <a href="${Arena.gameHref()}">#${entry.gameId}</a>`;
+    if (entry.state === "playing") return `Online · playing game <a href="${Arena.gameHref(entry.gameId)}">#${Site.escapeHtml(String(entry.gameId))}</a>`;
     if (entry.state === "queued") return "Online · in the queue";
     if (entry.state === "online") return "Online · stream open";
     return "Offline";
   }
 
   function renderSheet(agent) {
-    document.getElementById("sheet-heading").innerHTML = `${Site.escapeHtml(agent.name)}${statusChips(agent)}`;
+    document.getElementById("sheet-heading").innerHTML = `${Site.escapeHtml(agent.name)}${Arena.statusChips(agent)}`;
+    const esc = Site.escapeHtml;
     const facts = [
-      ["Declared model", `${agent.provider} · ${agent.model}`],
-      ["Owner", agent.owner],
-      ["In the arena since", agent.registered],
+      ["Declared model", `${esc(agent.provider)} · ${esc(agent.model)}`],
+      ["Owner", esc(agent.owner)],
+      ["In the arena since", esc(agent.registered)],
+      // presenceLine builds its own markup and escapes what it interpolates.
       ["Right now", presenceLine(agent)],
     ];
     document.getElementById("facts").innerHTML = facts
@@ -78,7 +68,7 @@
     document.getElementById("description").textContent = agent.description;
     const rankLine = agent.provisional
       ? `${Site.plural(agent.games, "game")} played`
-      : `${ordinal(agent.rank)} of ${Arena.RATED_COUNT} rated`;
+      : `${Site.ordinal(agent.rank)} of ${Arena.RATED_COUNT} rated`;
     const note = agent.provisional
       ? `Provisional until the deviation drops under ±${Arena.RATED_RD}`
       : `Rated · deviation under ±${Arena.RATED_RD}`;
@@ -90,8 +80,8 @@
     const notice = document.getElementById("flag-notice");
     if (agent.flag) {
       notice.innerHTML =
-        `<b>Under review since ${agent.flag.since}</b>` +
-        `${Site.escapeHtml(agent.flag.details)} An admin opens the games and decides. Rating and matchmaking continue in the meantime.`;
+        `<b>Under review since ${Site.escapeHtml(agent.flag.since)}</b>` +
+        `${Site.escapeHtml(agent.flag.details)} An admin opens the games and decides. Rating and matchmaking continue in the meantime. <a href="${Site.pageUrl("admin.html")}">Admin panel</a>`;
       notice.hidden = false;
     } else {
       notice.hidden = true;
@@ -179,7 +169,7 @@
       const p = s.point;
       const when = p.at ? ` · ${Site.timeAgo(p.at, Arena.NOW)}` : "";
       const opponent = p.opponent ? ` · vs ${p.opponent}` : "";
-      return `Game ${p.n}${opponent} · ${RESULT_LABELS[p.result]} · ${p.before} → ${p.after} (${Arena.formatDelta({ before: p.before, after: p.after })}) · ±${p.rd}${when}`;
+      return `Game ${p.n}${opponent} · ${Arena.RESULT_LABELS[p.result]} · ${p.before} → ${p.after} (${Arena.formatDelta({ before: p.before, after: p.after })}) · ±${p.rd}${when}`;
     };
     plot.querySelectorAll(".curve-hit").forEach((hit) => {
       const show = () => {
@@ -273,7 +263,7 @@
           `<td>${Arena.TERMINATIONS[game.termination]}</td>` +
           `<td>${game.plies}</td>` +
           `<td>${ratingCell}</td>` +
-          `<td><a href="${Arena.gameHref()}">Replay</a></td>` +
+          `<td><a href="${Arena.gameHref(game.id)}">Replay</a></td>` +
           "</tr>"
         );
       })
@@ -302,8 +292,8 @@
       const games = Arena.gamesFor(agent.slug).slice(0, 6);
       const live = Arena.LIVE_GAMES.filter((g) => g.white === agent.slug || g.black === agent.slug);
       gameSelect.innerHTML = [
-        ...live.map((g) => `<option value="${g.id}">#${g.id} · live · ${g.white} vs ${g.black}</option>`),
-        ...games.map((g) => `<option value="${g.id}">#${g.id} · ${g.white} ${g.result} ${g.black}</option>`),
+        ...live.map((g) => `<option value="${g.id}">#${g.id} · live · ${Site.escapeHtml(g.white)} vs ${Site.escapeHtml(g.black)}</option>`),
+        ...games.map((g) => `<option value="${g.id}">#${g.id} · ${Site.escapeHtml(g.white)} ${g.result} ${Site.escapeHtml(g.black)}</option>`),
         `<option value="">No specific game</option>`,
       ].join("");
       reason.value = "";
@@ -330,7 +320,21 @@
   function renderRoster(slug) {
     const heading = document.getElementById("intro-heading");
     const lede = document.getElementById("intro-lede");
+    const missing = document.getElementById("roster-missing");
+    missing.hidden = !slug;
     if (slug) {
+      missing.innerHTML = Site.emptyState({
+        sprite: "skull",
+        palette: "ivory",
+        kicker: "404",
+        title: `No agent called ${slug}`,
+        text: `Nothing is registered at <code>/agents/${Site.escapeHtml(slug)}</code>. Slugs are lowercase letters, digits and dashes, and every rated agent is on the leaderboard.`,
+        actions: [
+          { label: "Leaderboard", href: Site.pageUrl("leaderboard.html"), primary: true },
+          { label: "Continue in the lobby", href: Site.pageUrl("lobby.html") },
+        ],
+      });
+      window.Pixel.mount(missing);
       heading.textContent = "No such agent";
       lede.innerHTML = `Nothing is registered at <code>/agents/${Site.escapeHtml(slug)}</code>. Pick one below, or check the <a href="${Site.pageUrl("leaderboard.html")}">leaderboard</a>.`;
     } else {
@@ -366,7 +370,7 @@
     profile.hidden = false;
     document.title = `${agent.name} · Agent Profile`;
     document.getElementById("intro-heading").textContent = agent.name;
-    document.getElementById("intro-lede").innerHTML = `<code>/agents/${Site.escapeHtml(agent.slug)}</code> · ${agent.provider} · ${agent.model}`;
+    document.getElementById("intro-lede").innerHTML = `<code>/agents/${Site.escapeHtml(agent.slug)}</code> · ${Site.escapeHtml(agent.provider)} · ${Site.escapeHtml(agent.model)}`;
     renderSheet(agent);
     buildCurve(agent);
     renderStats(agent);
