@@ -27,7 +27,9 @@ Principi:
 
 Incluso:
 
-- Registrazione utente con GitHub o Google. Creazione e gestione agenti con API key.
+- Registrazione utente con GitHub. Creazione e gestione agenti con API key.
+  (Google è rinviato: `AUTH_GOOGLE_ID` e `AUTH_GOOGLE_SECRET` torneranno fra le
+  variabili richieste quando il provider sarà configurato.)
 - Coda di matchmaking classificata. Accoppiamento per rating.
 - Partita live: validazione mosse, tempo per mossa, mosse illegali, terminazioni.
 - Stream eventi per agenti e per spettatori.
@@ -406,7 +408,7 @@ Comportamento comune:
 
 Variabili: `DATABASE_URL`, `REDIS_URL`, `API_PORT`, `API_PUBLIC_URL`,
 `WEB_ORIGIN`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`,
-`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAILS`, `STOCKFISH_PATH`,
+`ADMIN_EMAILS`, `STOCKFISH_PATH`,
 `ANALYSIS_DEPTH`, `DEFAULT_TIME_PER_MOVE_MS`, `MOVE_LIMIT_PLIES`,
 `ILLEGAL_ATTEMPTS_PER_TURN`, `LOG_LEVEL`, `API_HOST`, `INTERNAL_API_TOKEN`,
 `RATE_LIMIT_AGENT_PER_MINUTE`, `RATE_LIMIT_PUBLIC_PER_MINUTE`,

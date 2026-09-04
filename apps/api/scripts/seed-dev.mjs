@@ -3,9 +3,9 @@
  * finished games with moves and ratings, and one live game to watch. Run it
  * against a throwaway database only.
  *
- *   DATABASE_URL=... node apps/web/seed-dev.mjs
+ *   DATABASE_URL=... node apps/api/scripts/seed-dev.mjs
  */
-import { generateApiKey } from "@aichess/core";
+import { START_FEN, generateApiKey, tryMove } from "@aichess/core";
 import { agents, createDb, games, moves, ratingHistory, ratings, users } from "@aichess/db";
 
 const url = process.env.DATABASE_URL;
@@ -13,7 +13,41 @@ if (url === undefined) throw new Error("DATABASE_URL is required");
 const handle = createDb(url);
 const db = handle.db;
 
-const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const OPENING = [
+  { uci: "e2e4", comment: "Centre.", thinkTimeMs: 8_100 },
+  { uci: "e7e5", comment: "Symmetry for now.", thinkTimeMs: 4_200 },
+  { uci: "g1f3", comment: "Pressure on e5.", thinkTimeMs: 6_400 },
+  { uci: "b8c6", comment: "Defending.", thinkTimeMs: 3_900 },
+];
+
+/*
+ * The opening is played out by the rules rather than written down, so every
+ * stored position is the real one. Storing the starting FEN against four plies
+ * made the API report the wrong board and White to move on games that had
+ * moved on.
+ */
+function playOpening() {
+  let fen = START_FEN;
+  const played = [];
+  for (const [index, entry] of OPENING.entries()) {
+    const result = tryMove(fen, entry.uci);
+    if (!result.ok) throw new Error(`seed move ${entry.uci} is not legal: ${result.reason}`);
+    fen = result.move.fenAfter;
+    played.push({
+      ply: index + 1,
+      color: index % 2 === 0 ? "white" : "black",
+      san: result.move.san,
+      uci: result.move.uci,
+      fenAfter: fen,
+      comment: entry.comment,
+      thinkTimeMs: entry.thinkTimeMs,
+      illegalAttemptsBefore: 0,
+    });
+  }
+  return { moves: played, fen };
+}
+
+const PLAYED = playOpening();
 
 const ROSTER = [
   { slug: "opusbot", name: "opusbot", provider: "Anthropic", model: "claude-opus-5", rating: 1688, rd: 62, games: 41 },
@@ -87,70 +121,47 @@ async function main() {
         timePerMoveMs: 60_000,
         moveLimitPlies: 300,
         illegalAttemptsPerTurn: 3,
-        currentFen: START_FEN,
-        ply: 4,
+        currentFen: PLAYED.fen,
+        ply: PLAYED.moves.length,
         createdAt,
         startedAt: createdAt,
         finishedAt: new Date(createdAt.getTime() + 8 * 60_000),
         pgn: `[Event "AgenticChess rated game"]\n\n1. e4 e5 2. Nf3 Nc6 ${game.result}`,
       })
       .returning({ id: games.id });
-    await db.insert(moves).values([
-      {
-        gameId: row.id,
-        ply: 1,
-        color: "white",
-        san: "e4",
-        uci: "e2e4",
-        fenAfter: START_FEN,
-        comment: "Centre.",
-        thinkTimeMs: 8_100,
-        illegalAttemptsBefore: 0,
-      },
-      {
-        gameId: row.id,
-        ply: 2,
-        color: "black",
-        san: "e5",
-        uci: "e7e5",
-        fenAfter: START_FEN,
-        comment: "Symmetry for now.",
-        thinkTimeMs: 4_200,
-        illegalAttemptsBefore: 0,
-      },
-      {
-        gameId: row.id,
-        ply: 3,
-        color: "white",
-        san: "Nf3",
-        uci: "g1f3",
-        fenAfter: START_FEN,
-        comment: "Pressure on e5.",
-        thinkTimeMs: 6_400,
-        illegalAttemptsBefore: 0,
-      },
-      {
-        gameId: row.id,
-        ply: 4,
-        color: "black",
-        san: "Nc6",
-        uci: "b8c6",
-        fenAfter: START_FEN,
-        comment: "Defending.",
-        thinkTimeMs: 3_900,
-        illegalAttemptsBefore: 0,
-      },
-    ]);
+    await db.insert(moves).values(PLAYED.moves.map((move) => ({ ...move, gameId: row.id })));
     await db.insert(ratingHistory).values([
       { agentId: bySlug.get(game.white), gameId: row.id, ratingBefore: 1600, ratingAfter: 1620, rdAfter: 80 },
       { agentId: bySlug.get(game.black), gameId: row.id, ratingBefore: 1600, ratingAfter: 1580, rdAfter: 82 },
     ]);
   }
 
+  // The header promises a game to watch, and an empty arena is the one thing
+  // this seed exists to avoid.
+  const liveStarted = new Date(now - 90_000);
+  const [live] = await db
+    .insert(games)
+    .values({
+      whiteAgentId: bySlug.get("opusbot"),
+      blackAgentId: bySlug.get("gambit-flash"),
+      status: "active",
+      timePerMoveMs: 60_000,
+      moveLimitPlies: 300,
+      illegalAttemptsPerTurn: 3,
+      currentFen: PLAYED.fen,
+      ply: PLAYED.moves.length,
+      createdAt: liveStarted,
+      startedAt: liveStarted,
+      turnStartedAt: new Date(now - 15_000),
+      moveDeadlineAt: new Date(now + 45_000),
+    })
+    .returning({ id: games.id });
+  await db.insert(moves).values(PLAYED.moves.map((move) => ({ ...move, gameId: live.id })));
+
   console.log("seeded agents:");
   for (const [slug, key] of keys) console.log(`  ${slug}: ${key}`);
-  console.log("\nstart a live game with:");
-  console.log(`  whiteAgentId=${bySlug.get("opusbot")} blackAgentId=${bySlug.get("gambit-flash")}`);
+  console.log(`\nlive game to watch: /games/${live.id}`);
+  console.log(`  white=${bySlug.get("opusbot")} black=${bySlug.get("gambit-flash")}`);
 }
 
 try {
