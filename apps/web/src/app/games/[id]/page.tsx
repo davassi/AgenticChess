@@ -10,9 +10,16 @@ import "@/styles/game.css";
 export const metadata: Metadata = { title: "Game" };
 export const dynamic = "force-dynamic";
 
+/**
+ * The two reads are two requests, and a move can land between them. Asking for
+ * the timeline only once the snapshot is in hand means it can only be newer,
+ * never older: a list shorter than the snapshot's ply would draw a board a
+ * move behind the header it sits under.
+ */
 async function loadGame(id: string): Promise<{ snapshot: GameSnapshot; timeline: GameTimeline }> {
   try {
-    const [snapshot, timeline] = await Promise.all([fetchGame(id), fetchGameTimeline(id)]);
+    const snapshot = await fetchGame(id);
+    const timeline = await fetchGameTimeline(id);
     return { snapshot, timeline };
   } catch (error) {
     if (isNotFound(error)) notFound();
@@ -26,7 +33,11 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   // happens next.
   const { snapshot, timeline } = await loadGame(id);
   return (
+    // Keyed by the game: React reuses this subtree across /games/[id]
+    // navigations, and the pinned ply of the game just left would otherwise
+    // rewind the new one.
     <GameView
+      key={id}
       initial={{
         snapshot,
         moves: timeline.moves,

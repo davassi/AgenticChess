@@ -57,6 +57,33 @@ describe("applyStreamEvent", () => {
     expect(twice).toBe(once);
   });
 
+  it("keeps a move out of the list when it would leave a gap, but still follows the game", () => {
+    // The stream only carries what happens next: a move that landed between
+    // the server render and the subscription reaches the page as part of the
+    // snapshot, never as a game.move. Appending the move after it would put a
+    // hole in the list, and every position replayed past the hole is wrong.
+    const missedOne: LiveGame = { ...EMPTY, snapshot: { ...SNAPSHOT, ply: 1, history: ["e4"] } };
+    const next = applyStreamEvent(missedOne, {
+      ...MOVE,
+      ply: 2,
+      color: "black",
+      san: "e5",
+      uci: "e7e5",
+      fen: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+    });
+    expect(next.moves).toEqual([]);
+    expect(next.snapshot.ply).toBe(2);
+    expect(next.snapshot.fen).toBe("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+    expect(next.snapshot.turn).toBe("white");
+  });
+
+  it("appends the move that continues the list", () => {
+    const afterFirst = applyStreamEvent(EMPTY, MOVE);
+    const afterSecond = applyStreamEvent(afterFirst, { ...MOVE, ply: 2, color: "black", san: "e5", uci: "e7e5" });
+    expect(afterSecond.moves.map((move) => move.san)).toEqual(["e4", "e5"]);
+    expect(afterSecond.snapshot.ply).toBe(2);
+  });
+
   it("takes a whole snapshot when the server sends one", () => {
     const resumed = applyStreamEvent(EMPTY, { type: "game.snapshot", game: { ...SNAPSHOT, ply: 7 } });
     expect(resumed.snapshot.ply).toBe(7);

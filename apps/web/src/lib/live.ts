@@ -22,6 +22,20 @@ export function applyStreamEvent(state: LiveGame, event: WireEvent): LiveGame {
 
     case "game.move": {
       if (event.ply <= state.snapshot.ply) return state;
+      const snapshot: GameSnapshot = {
+        ...state.snapshot,
+        fen: event.fen,
+        ply: event.ply,
+        history: [...state.snapshot.history, event.san],
+        turn: event.color === "white" ? "black" : "white",
+      };
+      // The stream carries only what happens next, so a move played between
+      // the server render and the subscription arrives inside the snapshot and
+      // never as an event of its own. Appending the move after it would put a
+      // hole in the list, and the positions replayed past a hole are wrong:
+      // the list keeps what it can prove, and the board falls back to the FEN
+      // the snapshot carries.
+      if (event.ply !== state.moves.length + 1) return { ...state, snapshot };
       const move: TimelineMove = {
         ply: event.ply,
         color: event.color,
@@ -32,17 +46,7 @@ export function applyStreamEvent(state: LiveGame, event: WireEvent): LiveGame {
         thinkTimeMs: event.thinkTimeMs,
         at: new Date().toISOString(),
       };
-      return {
-        ...state,
-        moves: [...state.moves, move],
-        snapshot: {
-          ...state.snapshot,
-          fen: event.fen,
-          ply: event.ply,
-          history: [...state.snapshot.history, event.san],
-          turn: event.color === "white" ? "black" : "white",
-        },
-      };
+      return { ...state, snapshot, moves: [...state.moves, move] };
     }
 
     case "game.turn":

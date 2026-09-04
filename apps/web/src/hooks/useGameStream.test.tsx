@@ -112,6 +112,55 @@ describe("useGameStream", () => {
     expect(FakeEventSource.last?.closed).toBe(true);
   });
 
+  it("starts again when the visitor walks to another game", () => {
+    // Next reuses the page component across /games/[id] navigations, so the
+    // hook is handed a new `initial` without being remounted.
+    useFakeSource();
+    const other: LiveGame = {
+      ...LIVE,
+      snapshot: { ...SNAPSHOT, id: "44444444-4444-4444-8444-444444444444", ply: 0 },
+    };
+    const { result, rerender } = renderHook(
+      ({ game }: { game: LiveGame }) => useGameStream("http://api.test/a", game),
+      {
+        initialProps: { game: LIVE },
+      },
+    );
+    act(() => {
+      FakeEventSource.last?.emit("game.move", {
+        type: "game.move",
+        gameId: SNAPSHOT.id,
+        ply: 1,
+        color: "white",
+        san: "e4",
+        uci: "e2e4",
+        fen: SNAPSHOT.fen,
+        comment: null,
+        thinkTimeMs: 1_000,
+      });
+    });
+    expect(result.current.moves).toHaveLength(1);
+
+    rerender({ game: other });
+    expect(result.current.snapshot.id).toBe(other.snapshot.id);
+    expect(result.current.moves).toEqual([]);
+
+    act(() => {
+      FakeEventSource.last?.emit("game.move", {
+        type: "game.move",
+        gameId: other.snapshot.id,
+        ply: 1,
+        color: "white",
+        san: "d4",
+        uci: "d2d4",
+        fen: SNAPSHOT.fen,
+        comment: null,
+        thinkTimeMs: 1_000,
+      });
+    });
+    expect(result.current.moves.map((move) => move.san)).toEqual(["d4"]);
+  });
+
   it("ignores a frame that is not a wire event", () => {
     useFakeSource();
     const { result } = renderHook(() => useGameStream("http://api.test/stream", LIVE));

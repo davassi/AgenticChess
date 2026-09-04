@@ -10,7 +10,7 @@ import { useGameStream } from "@/hooks/useGameStream";
 import { useReplay } from "@/hooks/useReplay";
 import { gameStreamUrl, pgnUrl } from "@/lib/api";
 import type { LiveGame } from "@/lib/live";
-import { positionsFrom, startingPosition } from "@/lib/position";
+import { positionFromFen, positionsFrom, startingPosition } from "@/lib/position";
 import { toListItem } from "@/lib/snapshot";
 import { Clock } from "./Clock";
 import { CommentFeed } from "./CommentFeed";
@@ -30,8 +30,16 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
 
   const snapshot = live.snapshot;
   const active = snapshot.status === "active";
-  const position = positions[replay.ply] ?? startingPosition();
-  const shown = live.moves[replay.ply - 1];
+  // Replaying the moves is what gives each piece the identity that makes it
+  // slide, but it only draws the live position when the list accounts for
+  // every ply the snapshot counts. A move missing from the list — one played
+  // between the server render and the subscription — leaves the replay behind
+  // the header, the clock and the result, so the board takes the position the
+  // server vouches for instead.
+  const fromSnapshot = replay.isLive && live.moves.length !== snapshot.ply;
+  const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[replay.ply] ?? startingPosition());
+  const shownPly = fromSnapshot ? snapshot.ply : replay.ply;
+  const shown = fromSnapshot ? undefined : live.moves[replay.ply - 1];
   const lastMove = shown === undefined ? null : { from: shown.uci.slice(0, 2), to: shown.uci.slice(2, 4) };
 
   function player(color: "white" | "black"): ReactElement {
@@ -78,7 +86,7 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
                 <Board2D
                   position={position}
                   lastMove={lastMove}
-                  label={`Board after ${replay.ply} ${replay.ply === 1 ? "ply" : "plies"}`}
+                  label={`Board after ${shownPly} ${shownPly === 1 ? "ply" : "plies"}`}
                 />
               </div>
               <div className="files" aria-hidden="true">
