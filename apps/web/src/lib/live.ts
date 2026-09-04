@@ -5,6 +5,8 @@ export interface LiveGame {
   moves: TimelineMove[];
   attempts: TimelineAttempt[];
   finished: boolean;
+  /** A move arrived that could not continue the list: the list is short. */
+  gap: boolean;
 }
 
 /**
@@ -43,10 +45,10 @@ export function applyStreamEvent(state: LiveGame, event: WireEvent): LiveGame {
       // The stream carries only what happens next, so a move played between
       // the server render and the subscription arrives inside the snapshot and
       // never as an event of its own. Appending the move after it would put a
-      // hole in the list, and the positions replayed past a hole are wrong:
-      // the list keeps what it can prove, and the board falls back to the FEN
-      // the snapshot carries.
-      if (event.ply !== state.moves.length + 1) return { ...state, snapshot };
+      // hole in the list, and the positions replayed past a hole are wrong.
+      // The list keeps what it can prove and says that it is short;
+      // useGameStream reads the whole timeline back once to repair it.
+      if (event.ply !== state.moves.length + 1) return { ...state, snapshot, gap: true };
       const move: TimelineMove = {
         ply: event.ply,
         color: event.color,

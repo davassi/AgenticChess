@@ -43,6 +43,8 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
         moves: timeline.moves,
         attempts: timeline.attempts,
         finished: snapshot.status === "finished" || snapshot.status === "aborted",
+        // The server read the whole timeline, so the list starts complete.
+        gap: false,
       }}
       apiPublicUrl={serverEnv().apiPublicUrl}
     />

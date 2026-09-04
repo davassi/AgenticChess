@@ -1,5 +1,5 @@
-import type { GameSnapshot } from "@aichess/core/protocol";
-import { act, renderHook } from "@testing-library/react";
+import type { GameSnapshot, TimelineMove } from "@aichess/core/protocol";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveGame } from "@/lib/live";
 import { useGameStream } from "./useGameStream";
@@ -29,7 +29,20 @@ const SNAPSHOT: GameSnapshot = {
   finishedAt: null,
 };
 
-const LIVE: LiveGame = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false };
+const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+
+const LIVE: LiveGame = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false, gap: false };
+
+const E4_TIMELINE_MOVE: TimelineMove = {
+  ply: 1,
+  color: "white",
+  san: "e4",
+  uci: "e2e4",
+  fen: AFTER_E4,
+  comment: null,
+  thinkTimeMs: 900,
+  at: "2026-09-04T10:00:10.000Z",
+};
 
 class FakeEventSource {
   static last: FakeEventSource | null = null;
@@ -65,7 +78,7 @@ describe("useGameStream", () => {
 
   it("applies the moves that arrive on the stream", () => {
     useFakeSource();
-    const { result } = renderHook(() => useGameStream("http://api.test/stream", LIVE));
+    const { result } = renderHook(() => useGameStream("http://api.test/stream", "https://api.test", LIVE));
     act(() => {
       FakeEventSource.last?.emit("game.move", {
         type: "game.move",
@@ -85,7 +98,7 @@ describe("useGameStream", () => {
 
   it("closes the stream on game.end so the browser does not reconnect for ever", () => {
     useFakeSource();
-    renderHook(() => useGameStream("http://api.test/stream", LIVE));
+    renderHook(() => useGameStream("http://api.test/stream", "https://api.test", LIVE));
     act(() => {
       FakeEventSource.last?.emit("game.end", {
         type: "game.end",
@@ -104,7 +117,7 @@ describe("useGameStream", () => {
     // sends this snapshot and closes without a game.end, and a source left
     // open reconnects to it for ever.
     useFakeSource();
-    const { result } = renderHook(() => useGameStream("http://api.test/stream", LIVE));
+    const { result } = renderHook(() => useGameStream("http://api.test/stream", "https://api.test", LIVE));
     act(() => {
       FakeEventSource.last?.emit("game.snapshot", {
         type: "game.snapshot",
@@ -117,13 +130,13 @@ describe("useGameStream", () => {
 
   it("never opens a stream for a game that is already over", () => {
     useFakeSource();
-    renderHook(() => useGameStream("http://api.test/stream", { ...LIVE, finished: true }));
+    renderHook(() => useGameStream("http://api.test/stream", "https://api.test", { ...LIVE, finished: true }));
     expect(FakeEventSource.last).toBeNull();
   });
 
   it("closes the stream when the page goes away", () => {
     useFakeSource();
-    const { unmount } = renderHook(() => useGameStream("http://api.test/stream", LIVE));
+    const { unmount } = renderHook(() => useGameStream("http://api.test/stream", "https://api.test", LIVE));
     unmount();
     expect(FakeEventSource.last?.closed).toBe(true);
   });
@@ -137,7 +150,7 @@ describe("useGameStream", () => {
       snapshot: { ...SNAPSHOT, id: "44444444-4444-4444-8444-444444444444", ply: 0 },
     };
     const { result, rerender } = renderHook(
-      ({ game }: { game: LiveGame }) => useGameStream("http://api.test/a", game),
+      ({ game }: { game: LiveGame }) => useGameStream("http://api.test/a", "https://api.test", game),
       {
         initialProps: { game: LIVE },
       },
@@ -179,11 +192,47 @@ describe("useGameStream", () => {
 
   it("ignores a frame that is not a wire event", () => {
     useFakeSource();
-    const { result } = renderHook(() => useGameStream("http://api.test/stream", LIVE));
+    const { result } = renderHook(() => useGameStream("http://api.test/stream", "https://api.test", LIVE));
     act(() => {
       FakeEventSource.last?.emit("game.move", { type: "game.move", nonsense: true });
       FakeEventSource.last?.listeners.get("ping")?.(new MessageEvent("ping", { data: "not json" }));
     });
     expect(result.current).toEqual(LIVE);
+  });
+
+  it("reads the timeline back once when the stream leaves a hole, and only once", async () => {
+    useFakeSource();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ moves: [E4_TIMELINE_MOVE], attempts: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    const { result } = renderHook(() => useGameStream("https://api.test/stream", "https://api.test", LIVE));
+
+    act(() => {
+      FakeEventSource.last?.emit("game.move", {
+        type: "game.move",
+        gameId: SNAPSHOT.id,
+        ply: 5,
+        color: "white",
+        san: "Nf3",
+        uci: "g1f3",
+        fen: AFTER_E4,
+        comment: null,
+        thinkTimeMs: 900,
+      });
+    });
+    expect(result.current.gap).toBe(true);
+
+    await waitFor(() => {
+      expect(result.current.gap).toBe(false);
+    });
+    expect(result.current.moves).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    fetchMock.mockRestore();
   });
 });

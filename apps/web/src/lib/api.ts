@@ -2,7 +2,6 @@ import {
   AGENTS_MAX_LIMIT,
   AgentListPageSchema,
   AgentProfileSchema,
-  ErrorResponseSchema,
   GameListPageSchema,
   GameSnapshotSchema,
   GameTimelineSchema,
@@ -11,7 +10,6 @@ import {
   type AgentListItem,
   type AgentListPage,
   type AgentProfile,
-  type ErrorCode,
   type GameListPage,
   type GameSnapshot,
   type GameTimeline,
@@ -20,20 +18,12 @@ import {
 } from "@aichess/core/protocol";
 import type { z } from "zod";
 import { serverEnv } from "@/env";
+import { ApiRequestError as ApiRequestErrorClass, getJsonFrom } from "./http";
 
-export class ApiRequestError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: ErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = "ApiRequestError";
-  }
-}
+export { ApiRequestError } from "./http";
 
 export function isNotFound(error: unknown): boolean {
-  return error instanceof ApiRequestError && error.code === "not_found";
+  return error instanceof ApiRequestErrorClass && error.code === "not_found";
 }
 
 /**
@@ -42,7 +32,7 @@ export function isNotFound(error: unknown): boolean {
  * on the 404 rather than on the error page.
  */
 export function isMissingOrMalformed(error: unknown): boolean {
-  return error instanceof ApiRequestError && (error.code === "not_found" || error.code === "validation_error");
+  return error instanceof ApiRequestErrorClass && (error.code === "not_found" || error.code === "validation_error");
 }
 
 export type QueryValue = string | number | undefined;
@@ -58,27 +48,7 @@ function queryString(params: Record<string, QueryValue>): string {
 
 /** Every page reads live state, so nothing here is cached. */
 async function getJson<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-  const url = `${serverEnv().apiInternalUrl}${path}`;
-  let response: Response;
-  try {
-    response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" });
-  } catch {
-    throw new ApiRequestError(503, "service_unavailable", `The arena API did not answer (${path})`);
-  }
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const body = ErrorResponseSchema.safeParse(payload);
-    throw new ApiRequestError(
-      response.status,
-      body.success ? body.data.error : "internal_error",
-      body.success ? body.data.message : `The arena API answered ${response.status} (${path})`,
-    );
-  }
-  const parsed = schema.safeParse(payload);
-  if (!parsed.success) {
-    throw new ApiRequestError(502, "internal_error", `The arena API answered with an unexpected shape (${path})`);
-  }
-  return parsed.data;
+  return getJsonFrom(`${serverEnv().apiInternalUrl}${path}`, schema, path);
 }
 
 export interface LeaderboardParams {
@@ -151,6 +121,11 @@ export function fetchLobby(): Promise<Lobby> {
 /** The PGN is served by the API, so the browser downloads it directly. */
 export function pgnUrl(apiPublicUrl: string, gameId: string): string {
   return `${apiPublicUrl}/v1/games/${encodeURIComponent(gameId)}/pgn`;
+}
+
+/** The timeline, read by the browser when the stream leaves a hole in the list. */
+export function gameTimelineUrl(apiPublicUrl: string, gameId: string): string {
+  return `${apiPublicUrl}/v1/games/${encodeURIComponent(gameId)}/moves`;
 }
 
 /** The spectator stream, opened by the browser with an EventSource. */

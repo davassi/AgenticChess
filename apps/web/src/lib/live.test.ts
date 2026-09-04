@@ -27,7 +27,7 @@ const SNAPSHOT: GameSnapshot = {
   finishedAt: null,
 };
 
-const EMPTY: LiveGame = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false };
+const EMPTY: LiveGame = { snapshot: SNAPSHOT, moves: [], attempts: [], finished: false, gap: false };
 
 const MOVE: WireEvent = {
   type: "game.move",
@@ -173,5 +173,30 @@ describe("endsTheStream", () => {
     expect(endsTheStream({ type: "game.snapshot", game: SNAPSHOT })).toBe(false);
     expect(endsTheStream(MOVE)).toBe(false);
     expect(endsTheStream({ type: "ping", at: "2026-09-04T10:00:30.000Z" })).toBe(false);
+  });
+
+  it("marks the state when a move cannot continue the list", () => {
+    const after = applyStreamEvent(EMPTY, {
+      type: "game.move",
+      gameId: SNAPSHOT.id,
+      ply: 4,
+      color: "black",
+      san: "Nf6",
+      uci: "g8f6",
+      fen: "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 3",
+      comment: null,
+      thinkTimeMs: 900,
+    });
+    // The move is refused because the list cannot account for plies 1 to 3,
+    // but the snapshot it carries is still the truth about the position.
+    expect(after.moves).toHaveLength(0);
+    expect(after.gap).toBe(true);
+    expect(after.snapshot.ply).toBe(4);
+  });
+
+  it("leaves the state whole when the move continues the list", () => {
+    const after = applyStreamEvent(EMPTY, MOVE);
+    expect(after.moves).toHaveLength(1);
+    expect(after.gap).toBe(false);
   });
 });

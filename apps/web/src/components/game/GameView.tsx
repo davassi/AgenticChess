@@ -25,19 +25,17 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = [8, 7, 6, 5, 4, 3, 2, 1];
 
 export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement {
-  const live = useGameStream(gameStreamUrl(apiPublicUrl, initial.snapshot.id), initial);
+  const live = useGameStream(gameStreamUrl(apiPublicUrl, initial.snapshot.id), apiPublicUrl, initial);
   const playback = usePlayback(live.moves.length, !live.finished);
   const positions = useMemo(() => positionsFrom(live.moves.map((move) => move.uci)), [live.moves]);
 
   const snapshot = live.snapshot;
   const active = snapshot.status === "active";
   // Replaying the moves is what gives each piece the identity that makes it
-  // slide, but it only draws the live position when the list accounts for
-  // every ply the snapshot counts. A move missing from the list — one played
-  // between the server render and the subscription — leaves the replay behind
-  // the header, the clock and the result, so the board takes the position the
-  // server vouches for instead.
-  const fromSnapshot = playback.ply >= live.moves.length && live.moves.length !== snapshot.ply;
+  // slide, so the snapshot's FEN is only worth falling back to while the list
+  // is provably short — and only once the cursor has caught up with it, since
+  // every earlier ply of a short list is still sound.
+  const fromSnapshot = live.gap && playback.ply >= live.moves.length;
   const position = fromSnapshot ? positionFromFen(snapshot.fen) : (positions[playback.ply] ?? startingPosition());
   const shownPly = fromSnapshot ? snapshot.ply : playback.ply;
   const shown = fromSnapshot ? undefined : live.moves[playback.ply - 1];

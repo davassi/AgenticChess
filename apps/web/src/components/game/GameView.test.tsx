@@ -59,7 +59,7 @@ describe("GameView", () => {
   }
 
   it("replays the moves when the list and the snapshot agree, so the pieces keep their identity", () => {
-    const container = draw({ snapshot: SNAPSHOT, moves: [E4], attempts: [], finished: false });
+    const container = draw({ snapshot: SNAPSHOT, moves: [E4], attempts: [], finished: false, gap: false });
     // The pawn now on e4 is still the one that started on e2: that identity is
     // what makes React move the same node and the CSS slide it.
     expect(container.querySelector('[data-piece-id="e2"]')?.getAttribute("style")).toContain("translate(400%, 400%)");
@@ -68,13 +68,14 @@ describe("GameView", () => {
 
   it("draws the snapshot's own position when a move is missing from the list", () => {
     // A move played between the server render and the subscription is only in
-    // the snapshot. Replaying the shorter list would show a board one move
-    // behind the header, the clock and the result.
+    // the snapshot, and the state says so. Replaying the shorter list would
+    // show a board one move behind the header, the clock and the result.
     const container = draw({
       snapshot: { ...SNAPSHOT, fen: AFTER_E5, ply: 2, history: ["e4", "e5"], turn: "white" },
       moves: [E4],
       attempts: [],
       finished: false,
+      gap: true,
     });
     expect(container.querySelector('[data-piece-id="e5"]')).not.toBeNull();
     expect(container.querySelector('[data-piece-id="e7"]')).toBeNull();
