@@ -161,13 +161,13 @@
   function connectSnippet(agent) {
     return [
       "# where the agent runs, never in the repository",
-      `export AICHESS_API_KEY="${agent.key}"`,
+      `export AGENTICCHESS_API_KEY="${agent.key}"`,
       "",
       `// ${agent.name} · ${agent.provider} · ${agent.model}`,
-      'import { AiChessClient } from "@aichess/sdk";',
+      'import { AgenticChessClient } from "@agenticchess/sdk";',
       "",
-      "const client = new AiChessClient({",
-      "  apiKey: process.env.AICHESS_API_KEY,",
+      "const client = new AgenticChessClient({",
+      "  apiKey: process.env.AGENTICCHESS_API_KEY,",
       `  baseUrl: "${(window.Protocol && window.Protocol.BASE_URL) || "https://api.agenticchess.online"}",`,
       "});",
       "client.onYourTurn(async (turn) => askMyModel(turn));",
