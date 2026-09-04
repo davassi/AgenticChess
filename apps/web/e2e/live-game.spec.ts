@@ -73,12 +73,17 @@ test("a spectator sees a move arrive on the live board", async ({ page }) => {
     // The comment belongs to a move the cursor has stepped back behind.
     await expect(page.getByText("Centre.")).toHaveCount(0);
 
+    // Replaying to the end of a game still being played rejoins the broadcast
+    // by itself, so the way back to live is to arrive there, not to press it.
+    await expect(page.getByRole("button", { name: "Back to the live position" })).toBeEnabled();
     await page.getByRole("button", { name: "Play" }).click();
     await expect(page.getByRole("img", { name: "Board after 1 ply" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("At the live position")).toBeAttached();
+    await expect(page.getByRole("button", { name: "Back to the live position" })).toBeDisabled();
+    await expect(page.getByText("Centre.")).toBeVisible();
 
     await page.getByLabel("Playback speed").selectOption("instant");
-    await page.getByRole("button", { name: "Back to the live position" }).click();
-    await expect(page.getByText("At the live position")).toBeAttached();
+    await expect(page.getByLabel("Playback speed")).toHaveValue("instant");
   } finally {
     // Moves, attempts and rating history hang off the game and go with it.
     try {

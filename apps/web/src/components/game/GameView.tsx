@@ -135,18 +135,14 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
                 selectedPly={playback.ply}
                 onSelect={playback.setPly}
               />
+              {/* The transport under the board owns the way back; this line
+                  only says where the cursor is. */}
               <p className="panel-foot">
-                {playback.atLive ? (
-                  active ? (
-                    "Following live"
-                  ) : (
-                    "Final position"
-                  )
-                ) : (
-                  <button type="button" className="btn btn--ghost btn--small" onClick={playback.goLive}>
-                    Back to the {active ? "live" : "final"} position
-                  </button>
-                )}
+                {playback.atLive
+                  ? active
+                    ? "Following live"
+                    : "Final position"
+                  : `Showing ply ${playback.ply} of ${playback.total}`}
               </p>
             </aside>
           </div>

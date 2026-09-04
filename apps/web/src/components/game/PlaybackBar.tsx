@@ -36,9 +36,11 @@ export function PlaybackBar({ playback, active }: PlaybackBarProps): ReactElemen
         className="btn btn--ghost btn--small"
         aria-label="Back to the first move"
         disabled={total === 0 || ply === 0}
-        onClick={playback.restart}
+        onClick={() => {
+          playback.setPly(0);
+        }}
       >
-        ⏮
+        |&lt;
       </button>
       <button
         type="button"
@@ -49,7 +51,7 @@ export function PlaybackBar({ playback, active }: PlaybackBarProps): ReactElemen
           playback.step(-1);
         }}
       >
-        ◀
+        &lt;&lt;
       </button>
       <button
         type="button"
@@ -58,7 +60,7 @@ export function PlaybackBar({ playback, active }: PlaybackBarProps): ReactElemen
         disabled={total === 0}
         onClick={playback.toggle}
       >
-        {playing ? "⏸" : "▶"}
+        {playing ? "||" : ">"}
       </button>
       <button
         type="button"
@@ -69,7 +71,7 @@ export function PlaybackBar({ playback, active }: PlaybackBarProps): ReactElemen
           playback.step(1);
         }}
       >
-        ▶|
+        &gt;&gt;
       </button>
       <button
         type="button"
@@ -78,7 +80,7 @@ export function PlaybackBar({ playback, active }: PlaybackBarProps): ReactElemen
         disabled={atLive || total === 0}
         onClick={playback.goLive}
       >
-        ⏭
+        &gt;|
       </button>
 
       <label className="playback-speed">

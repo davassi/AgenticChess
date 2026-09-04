@@ -81,4 +81,13 @@ describe("PlaybackBar", () => {
     await userEvent.selectOptions(screen.getByLabelText("Playback speed"), "instant");
     expect(setSpeed).toHaveBeenCalledWith("instant");
   });
+
+  it("goes to the first move without starting a replay", async () => {
+    const setPly = vi.fn();
+    const toggle = vi.fn();
+    render(<PlaybackBar playback={playback({ setPly, toggle })} active />);
+    await userEvent.click(screen.getByRole("button", { name: "Back to the first move" }));
+    expect(setPly).toHaveBeenCalledWith(0);
+    expect(toggle).not.toHaveBeenCalled();
+  });
 });

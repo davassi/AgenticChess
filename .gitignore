@@ -9,3 +9,7 @@ coverage/
 *.tsbuildinfo
 *.log
 .claude/worktrees/
+
+# Playwright writes these on a failing run
+apps/web/test-results/
+apps/web/playwright-report/
