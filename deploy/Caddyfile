@@ -38,6 +38,15 @@ www.agenticchess.online {
 	redir https://agenticchess.online{uri} permanent
 }
 
+# The zone carries an admin record. Caddy asks for a certificate only for the
+# names it serves, so without this block the host would resolve and then fail
+# TLS outright. The fragment admin.html reads for its preview survives a 301,
+# browsers carry it across.
+admin.agenticchess.online {
+	import security_headers
+	redir https://agenticchess.online/admin.html permanent
+}
+
 # The address the site already expects: site/js/protocol.js pins
 # BASE_URL = "https://api.agenticchess.online".
 api.agenticchess.online {
