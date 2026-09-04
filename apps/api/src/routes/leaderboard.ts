@@ -2,8 +2,8 @@ import { LeaderboardQuerySchema, type LeaderboardEntry, type LeaderboardPage } f
 import { listLeaderboard, type LeaderboardCursor } from "@aichess/runtime";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { decodeCursor, encodeCursor } from "../cursor.js";
 import type { AppDeps } from "../deps.js";
-import { ApiError } from "../errors.js";
 import { parseWith } from "../validation.js";
 
 const CursorSchema = z.object({
@@ -12,29 +12,11 @@ const CursorSchema = z.object({
   agentId: z.uuid(),
   rank: z.int().min(0),
 });
-type Cursor = z.infer<typeof CursorSchema>;
-
-function decodeCursor(raw: string): Cursor {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
-  } catch {
-    throw new ApiError("validation_error", "Invalid query", {
-      where: "query",
-      issues: [{ path: "cursor", message: "Malformed cursor" }],
-    });
-  }
-  return parseWith(CursorSchema, parsed, "query");
-}
-
-function encodeCursor(cursor: Cursor): string {
-  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
-}
 
 export function registerLeaderboardRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.get("/v1/leaderboard", async (request) => {
     const query = parseWith(LeaderboardQuerySchema, request.query, "query");
-    const cursor = query.cursor === undefined ? null : decodeCursor(query.cursor);
+    const cursor = query.cursor === undefined ? null : decodeCursor(query.cursor, CursorSchema);
     const after: LeaderboardCursor | undefined =
       cursor === null ? undefined : { rating: cursor.rating, rd: cursor.rd, agentId: cursor.agentId };
     const rows = await listLeaderboard(deps.db, { limit: query.limit + 1, ...(after === undefined ? {} : { after }) });

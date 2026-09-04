@@ -1,6 +1,8 @@
-import { MoveRequestSchema } from "@aichess/core/protocol";
+import { GamesQuerySchema, MoveRequestSchema, type GameListPage } from "@aichess/core/protocol";
+import { findAgentIdBySlug, listGames, type GamesCursor } from "@aichess/runtime";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { decodeCursor, encodeCursor } from "../cursor.js";
 import type { AppDeps } from "../deps.js";
 import { ApiError } from "../errors.js";
 import { assertAgent, optionalAgent, requireAgent } from "../plugins/auth.js";
@@ -9,6 +11,7 @@ import type { GameStreamRegistry } from "../sse/game-streams.js";
 import { parseWith } from "../validation.js";
 
 const ParamsSchema = z.object({ id: z.uuid() });
+const GamesCursorSchema = z.object({ createdAt: z.int(), id: z.uuid() });
 
 const MESSAGES = {
   not_found: "Game not found",
@@ -19,6 +22,36 @@ const MESSAGES = {
 
 export function registerGameRoutes(app: FastifyInstance, deps: AppDeps, gameStreams: GameStreamRegistry): void {
   const limit = agentRateLimit(deps);
+
+  app.get("/v1/games", async (request) => {
+    const query = parseWith(GamesQuerySchema, request.query, "query");
+    const after: GamesCursor | undefined =
+      query.cursor === undefined ? undefined : decodeCursor(query.cursor, GamesCursorSchema);
+    let agentId: string | undefined;
+    if (query.agent !== undefined) {
+      const found = await findAgentIdBySlug(deps.db, query.agent);
+      if (found === null) throw new ApiError("not_found", "Agent not found");
+      agentId = found;
+    }
+    const rows = await listGames(deps.db, {
+      limit: query.limit + 1,
+      ...(after === undefined ? {} : { after }),
+      ...(query.status === undefined ? {} : { status: query.status }),
+      ...(agentId === undefined ? {} : { agentId }),
+      ...(query.outcome === undefined ? {} : { outcome: query.outcome }),
+      ...(query.termination === undefined ? {} : { termination: query.termination }),
+    });
+    const items = rows.slice(0, query.limit);
+    const last = items[items.length - 1];
+    const body: GameListPage = {
+      items,
+      nextCursor:
+        rows.length > query.limit && last !== undefined
+          ? encodeCursor({ createdAt: Date.parse(last.createdAt), id: last.id })
+          : null,
+    };
+    return body;
+  });
 
   app.get("/v1/games/:id", { preHandler: optionalAgent(deps) }, async (request) => {
     const { id } = parseWith(ParamsSchema, request.params, "params");
