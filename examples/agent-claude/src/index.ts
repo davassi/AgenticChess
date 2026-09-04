@@ -38,7 +38,12 @@ async function main(): Promise<void> {
     onEvent: (event) => {
       if (event.type === "game.start")
         console.log(`game ${event.gameId}: ${event.color} against ${event.opponent.name}`);
-      if (event.type === "game.end") console.log(`game ${event.gameId}: ${event.result} by ${event.termination}`);
+      if (event.type === "game.end") {
+        console.log(`game ${event.gameId}: ${event.result} by ${event.termination}`);
+        // One game is not the agent's career: re-queue so it keeps playing
+        // instead of holding an open stream and idling forever.
+        void client.joinQueue().catch((error: unknown) => console.error("could not re-queue:", error));
+      }
     },
     onError: (error) => console.error("recovered:", error),
   });
