@@ -9,6 +9,7 @@ import { AgentCell } from "@/components/layout/AgentCell";
 import { useGameStream } from "@/hooks/useGameStream";
 import { usePlayback } from "@/hooks/usePlayback";
 import { gameStreamUrl, pgnUrl } from "@/lib/api";
+import { markForPly } from "@/lib/attempts";
 import type { LiveGame } from "@/lib/live";
 import { positionFromFen, positionsFrom, startingPosition } from "@/lib/position";
 import { toListItem } from "@/lib/snapshot";
@@ -40,6 +41,9 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
   const shownPly = fromSnapshot ? snapshot.ply : playback.ply;
   const shown = fromSnapshot ? undefined : live.moves[playback.ply - 1];
   const lastMove = shown === undefined ? null : { from: shown.uci.slice(0, 2), to: shown.uci.slice(2, 4) };
+  // The rejection that preceded the move on screen, so it reappears on every
+  // replay instead of scrolling away once in the feed.
+  const mark = fromSnapshot ? null : markForPly(live.attempts, playback.ply);
 
   // Everything the spectator sees is read from the cursor; the truth is only
   // how far there is left to catch up. The clocks are the one exception, in
@@ -100,6 +104,7 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
                 <Board2D
                   position={position}
                   lastMove={lastMove}
+                  mark={mark}
                   label={`Board after ${shownPly} ${shownPly === 1 ? "ply" : "plies"}`}
                 />
               </div>

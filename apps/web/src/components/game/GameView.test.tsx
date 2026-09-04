@@ -167,4 +167,17 @@ describe("what the viewer is allowed to see", () => {
     await park(container);
     expect(container.querySelectorAll(".moves button")).toHaveLength(2);
   });
+
+  it("flashes the square of a rejected move at the ply it belongs to", () => {
+    const container = draw({
+      snapshot: { ...SNAPSHOT, fen: AFTER_E4, ply: 1, history: ["e4"] },
+      moves: [E4],
+      // The attempt carries the ply count before the move it was rejected
+      // for, so this one belongs to the board after ply 1.
+      attempts: [{ ply: 0, color: "white", submitted: "e2e5", reason: "not_legal", at: "2026-09-04T10:00:05.000Z" }],
+      finished: false,
+      gap: false,
+    });
+    expect(container.querySelector(".mark--illegal")).not.toBeNull();
+  });
 });
