@@ -5,3 +5,5 @@ pnpm-lock.yaml
 **/.turbo/
 **/.next/
 site/
+# Copied verbatim from site/css so the two stay comparable.
+apps/web/src/styles/

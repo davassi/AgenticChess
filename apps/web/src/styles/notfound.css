@@ -1,0 +1,37 @@
+/* Agentic Chess 404: a game-over screen with a continue prompt. */
+
+.screen--gameover { padding-top: 56px; }
+.frame--gameover {
+  max-width: 760px;
+  background:
+    repeating-linear-gradient(0deg, rgba(246, 231, 193, 0.035) 0 2px, transparent 2px 4px),
+    var(--dusk-deep);
+}
+.gameover {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.gameover-art svg { display: block; }
+.gameover h1 {
+  margin: 0;
+  font-size: clamp(22px, 5vw, 40px);
+  color: var(--red);
+  text-shadow: 4px 4px 0 var(--ink), 8px 8px 0 rgba(255, 68, 68, 0.35);
+}
+.gameover .title-kicker { margin: 8px 0 0; }
+.gameover-text { margin: 4px 0 0; max-width: 52ch; font-size: 19px; color: var(--text); }
+.gameover-continue {
+  margin: 16px 0 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--gold);
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+}
+.gameover-count { color: var(--ivory); min-width: 1.2em; text-align: left; font-variant-numeric: tabular-nums; }
+.gameover-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 8px; }
+.gameover-hint { margin: 16px 0 0; font-size: 15px; color: var(--muted); }
+.gameover-hint code { font-family: var(--font-code); color: var(--cyan); }

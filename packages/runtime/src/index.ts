@@ -17,3 +17,8 @@ export * from "./matchmaking/repository.js";
 export * from "./matchmaking/matchmaker.js";
 export * from "./jobs/locked-interval.js";
 export * from "./presence.js";
+export * from "./games/listing.js";
+export * from "./agents/repository.js";
+export * from "./agents/profile.js";
+export * from "./lobby.js";
+export * from "./agents/management.js";

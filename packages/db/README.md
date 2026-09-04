@@ -4,7 +4,8 @@ Drizzle schema, SQL migrations and Postgres client for aichess.
 
 ## Entry points
 
-- `@aichess/db`: tables, relations, `createDb(url)`, `runMigrations(db)`, `Database` and `Transaction` types.
+- `@aichess/db`: tables, relations, `createDb(url)`, `Database` and `Transaction` types.
+- `@aichess/db/migrate`: `runMigrations(db)`. It resolves the SQL folder relative to itself, which a bundler would try to follow at build time, so it stays off the root entry point that the web app imports.
 - `@aichess/db/testing`: `startTestDatabase()` and `truncateAll(db)` for integration tests. Requires Docker; never import it from production code.
 
 ## Migrations

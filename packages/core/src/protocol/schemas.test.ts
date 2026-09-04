@@ -1,16 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  AgentCreateSchema,
   AgentMeSchema,
+  AgentProfileSchema,
   ErrorResponseSchema,
   GameConfigSchema,
+  GameListItemSchema,
+  GameTimelineSchema,
+  GamesQuerySchema,
   LeaderboardPageSchema,
   LeaderboardQuerySchema,
   LegalMoveSchema,
+  LobbySchema,
   MoveRequestSchema,
   WireEventSchema,
 } from "./schemas.js";
-import { DEFAULT_GAME_CONFIG, MAX_COMMENT_LENGTH, TERMINATIONS } from "./enums.js";
+import { DEFAULT_GAME_CONFIG, GAMES_DEFAULT_LIMIT, MAX_COMMENT_LENGTH, TERMINATIONS } from "./enums.js";
 
 describe("MoveRequestSchema", () => {
   it("accepts a SAN move with a comment", () => {
@@ -203,5 +209,103 @@ describe("agent profile, queue and leaderboard schemas", () => {
     expect(WireEventSchema.safeParse({ ...base, queue: null }).success).toBe(true);
     expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z" } }).success).toBe(true);
     expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "yesterday" } }).success).toBe(false);
+  });
+});
+
+describe("public read schemas", () => {
+  const agent = {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "opusbot",
+    slug: "opusbot",
+    modelProvider: "Anthropic",
+    modelName: "claude-opus-5",
+  };
+
+  it("accepts a game list item and rejects a bad turn", () => {
+    const item = {
+      id: "22222222-2222-4222-8222-222222222222",
+      status: "active",
+      white: agent,
+      black: { ...agent, id: "33333333-3333-4333-8333-333333333333", slug: "gambit-flash" },
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      ply: 0,
+      turn: "white",
+      result: null,
+      termination: null,
+      moveDeadlineAt: "2026-09-04T10:00:00.000Z",
+      createdAt: "2026-09-04T09:59:00.000Z",
+      startedAt: "2026-09-04T09:59:30.000Z",
+      finishedAt: null,
+    };
+    expect(GameListItemSchema.parse(item)).toMatchObject({ turn: "white", result: null });
+    expect(GameListItemSchema.safeParse({ ...item, turn: "red" }).success).toBe(false);
+  });
+
+  it("defaults the games query and requires an agent for an outcome filter", () => {
+    expect(GamesQuerySchema.parse({})).toEqual({ limit: GAMES_DEFAULT_LIMIT });
+    expect(GamesQuerySchema.parse({ limit: "10", status: "finished" })).toMatchObject({ limit: 10 });
+    expect(GamesQuerySchema.safeParse({ limit: "0" }).success).toBe(false);
+    expect(GamesQuerySchema.safeParse({ outcome: "win" }).success).toBe(false);
+    expect(GamesQuerySchema.safeParse({ outcome: "win", agent: "opusbot" }).success).toBe(true);
+  });
+
+  it("accepts a move timeline with comments and rejected attempts", () => {
+    const timeline = {
+      moves: [
+        {
+          ply: 1,
+          color: "white",
+          san: "e4",
+          uci: "e2e4",
+          fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+          comment: "Centre.",
+          thinkTimeMs: 8100,
+          at: "2026-09-04T10:00:00.000Z",
+        },
+      ],
+      attempts: [
+        {
+          ply: 1,
+          color: "black",
+          submitted: "Qz9",
+          reason: "unparseable",
+          at: "2026-09-04T10:00:05.000Z",
+        },
+      ],
+    };
+    expect(GameTimelineSchema.parse(timeline).moves[0]?.san).toBe("e4");
+    expect(GameTimelineSchema.safeParse({ moves: [], attempts: [] }).success).toBe(true);
+  });
+
+  it("accepts an agent profile and a lobby", () => {
+    const profile = {
+      agent,
+      description: "Plays principled classical chess.",
+      status: "active",
+      online: true,
+      queue: { queuedAt: "2026-09-04T10:00:00.000Z" },
+      activeGameId: null,
+      rating: { rating: 1688, rd: 62, gamesPlayed: 41, provisional: false },
+      rank: 1,
+      createdAt: "2026-06-10T00:00:00.000Z",
+      stats: { games: 41, wins: 27, draws: 8, losses: 6, illegalRate: 0.004, avgThinkTimeMs: 8100 },
+      ratingHistory: [
+        { gameId: "44444444-4444-4444-8444-444444444444", rating: 1688, rd: 62, at: "2026-09-03T10:00:00.000Z" },
+      ],
+      recentGames: [],
+    };
+    expect(AgentProfileSchema.parse(profile).rank).toBe(1);
+    expect(AgentProfileSchema.safeParse({ ...profile, rank: 0 }).success).toBe(false);
+    expect(
+      LobbySchema.parse({ online: [agent], queue: [{ agent, rating: 1500, queuedAt: profile.createdAt }] }).queue,
+    ).toHaveLength(1);
+  });
+
+  it("validates agent creation input", () => {
+    const input = { name: "Rook and Roll", slug: "rook-and-roll", modelProvider: "Google", modelName: "gemma-3-27b" };
+    expect(AgentCreateSchema.parse(input).description).toBe("");
+    expect(AgentCreateSchema.safeParse({ ...input, slug: "Rook" }).success).toBe(false);
+    expect(AgentCreateSchema.safeParse({ ...input, slug: "-nope" }).success).toBe(false);
+    expect(AgentCreateSchema.safeParse({ ...input, name: "ab" }).success).toBe(false);
   });
 });

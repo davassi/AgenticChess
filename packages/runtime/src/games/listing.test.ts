@@ -1,0 +1,199 @@
+import { START_FEN } from "@aichess/core";
+import { games, moveAttempts, moves, type Database } from "@aichess/db";
+import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { findAgentIdBySlug } from "../agents/repository.js";
+import type { GameAgents } from "../events/wire.js";
+import { seedTwoAgents } from "../testing.js";
+import { listGames, loadGamePgn, loadGameTimeline } from "./listing.js";
+
+const T0 = Date.UTC(2026, 8, 4, 10, 0, 0);
+
+describe("game listing", () => {
+  let tdb: TestDatabase;
+  let db: Database;
+  let agents: GameAgents;
+
+  beforeAll(async () => {
+    tdb = await startTestDatabase();
+    db = tdb.db;
+  });
+
+  afterAll(async () => {
+    await tdb.stop();
+  });
+
+  beforeEach(async () => {
+    await truncateAll(db);
+    agents = await seedTwoAgents(db, { owners: "distinct" });
+  });
+
+  async function insertGame(overrides: Partial<typeof games.$inferInsert> = {}): Promise<string> {
+    const [row] = await db
+      .insert(games)
+      .values({
+        whiteAgentId: agents.white.id,
+        blackAgentId: agents.black.id,
+        status: "finished",
+        result: "1-0",
+        termination: "checkmate",
+        timePerMoveMs: 60_000,
+        moveLimitPlies: 300,
+        illegalAttemptsPerTurn: 3,
+        currentFen: START_FEN,
+        ply: 42,
+        createdAt: new Date(T0),
+        startedAt: new Date(T0),
+        finishedAt: new Date(T0 + 60_000),
+        ...overrides,
+      })
+      .returning({ id: games.id });
+    if (row === undefined) throw new Error("game not inserted");
+    return row.id;
+  }
+
+  it("returns newest first with both agents and the side to move", async () => {
+    await insertGame({ createdAt: new Date(T0 - 60_000) });
+    const newer = await insertGame({ status: "active", result: null, termination: null, ply: 3 });
+    const items = await listGames(db, { limit: 10 });
+    expect(items).toHaveLength(2);
+    expect(items[0]?.id).toBe(newer);
+    expect(items[0]?.white.slug).toBe(agents.white.slug);
+    expect(items[0]?.black.slug).toBe(agents.black.slug);
+    expect(items[0]?.turn).toBe("white");
+    expect(items[0]?.createdAt).toBe(new Date(T0).toISOString());
+    expect(items[1]?.finishedAt).toBe(new Date(T0 + 60_000).toISOString());
+  });
+
+  it("filters by status, termination and agent", async () => {
+    const active = await insertGame({ status: "active", result: null, termination: null });
+    await insertGame({ termination: "timeout" });
+    const other = await seedTwoAgents(db);
+    await insertGame({ whiteAgentId: other.white.id, blackAgentId: other.black.id });
+
+    expect((await listGames(db, { limit: 10, status: "active" })).map((g) => g.id)).toEqual([active]);
+    expect(await listGames(db, { limit: 10, termination: "timeout" })).toHaveLength(1);
+    expect(await listGames(db, { limit: 10, agentId: other.white.id })).toHaveLength(1);
+  });
+
+  it("filters by outcome from the named agent's point of view", async () => {
+    await insertGame({ result: "1-0" });
+    await insertGame({ result: "0-1" });
+    await insertGame({ result: "1/2-1/2", termination: "stalemate" });
+
+    const wins = await listGames(db, { limit: 10, agentId: agents.white.id, outcome: "win" });
+    const losses = await listGames(db, { limit: 10, agentId: agents.white.id, outcome: "loss" });
+    const draws = await listGames(db, { limit: 10, agentId: agents.white.id, outcome: "draw" });
+    expect(wins.map((g) => g.result)).toEqual(["1-0"]);
+    expect(losses.map((g) => g.result)).toEqual(["0-1"]);
+    expect(draws.map((g) => g.result)).toEqual(["1/2-1/2"]);
+  });
+
+  it("keeps a draw filter to the games the named agent actually played", async () => {
+    // Win and loss are read from the agent's side of the board; a draw has no
+    // side, so it needs the participation predicate spelled out.
+    const strangers = await seedTwoAgents(db, { owners: "distinct" });
+    const own = await insertGame({ result: "1/2-1/2", termination: "stalemate" });
+    await insertGame({
+      result: "1/2-1/2",
+      termination: "stalemate",
+      whiteAgentId: strangers.white.id,
+      blackAgentId: strangers.black.id,
+    });
+
+    const draws = await listGames(db, { limit: 10, agentId: agents.white.id, outcome: "draw" });
+    expect(draws.map((game) => game.id)).toEqual([own]);
+  });
+
+  it("pages with a keyset cursor and never repeats a row", async () => {
+    const ids = [
+      await insertGame({ createdAt: new Date(T0 - 2_000) }),
+      await insertGame({ createdAt: new Date(T0 - 1_000) }),
+      await insertGame({ createdAt: new Date(T0) }),
+    ].reverse();
+    const first = await listGames(db, { limit: 2 });
+    const last = first[first.length - 1];
+    if (last === undefined) throw new Error("empty first page");
+    const second = await listGames(db, {
+      limit: 2,
+      after: { createdAt: Date.parse(last.createdAt), id: last.id },
+    });
+    expect([...first, ...second].map((g) => g.id)).toEqual(ids);
+  });
+
+  it("resolves an agent id from a slug", async () => {
+    expect(await findAgentIdBySlug(db, agents.white.slug)).toBe(agents.white.id);
+    expect(await findAgentIdBySlug(db, "nobody")).toBeNull();
+  });
+
+  it("reads the move timeline with comments and rejected attempts", async () => {
+    const gameId = await insertGame({ status: "active", result: null, termination: null, ply: 2 });
+    await db.insert(moves).values([
+      {
+        gameId,
+        ply: 1,
+        color: "white",
+        san: "e4",
+        uci: "e2e4",
+        fenAfter: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        comment: "Centre.",
+        thinkTimeMs: 8_100,
+        illegalAttemptsBefore: 0,
+      },
+      {
+        gameId,
+        ply: 2,
+        color: "black",
+        san: "e5",
+        uci: "e7e5",
+        fenAfter: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+        comment: null,
+        thinkTimeMs: 1_400,
+        illegalAttemptsBefore: 1,
+      },
+    ]);
+    await db.insert(moveAttempts).values({
+      gameId,
+      agentId: agents.black.id,
+      ply: 2,
+      submitted: "Qz9",
+      reason: "unparseable",
+    });
+
+    const timeline = await loadGameTimeline(db, gameId);
+    expect(timeline?.moves.map((m) => [m.ply, m.san, m.comment, m.thinkTimeMs])).toEqual([
+      [1, "e4", "Centre.", 8_100],
+      [2, "e5", null, 1_400],
+    ]);
+    expect(timeline?.moves[0]?.at).toMatch(/^\d{4}-/);
+    expect(timeline?.attempts).toEqual([
+      expect.objectContaining({ ply: 2, color: "black", submitted: "Qz9", reason: "unparseable" }),
+    ]);
+    expect(await loadGameTimeline(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
+  });
+
+  it("builds a PGN for a game that has not finished yet", async () => {
+    const gameId = await insertGame({ status: "active", result: null, termination: null, ply: 1 });
+    await db.insert(moves).values({
+      gameId,
+      ply: 1,
+      color: "white",
+      san: "e4",
+      uci: "e2e4",
+      fenAfter: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+      comment: "Centre.",
+      thinkTimeMs: 8_100,
+      illegalAttemptsBefore: 0,
+    });
+    const pgn = await loadGamePgn(db, gameId);
+    expect(pgn).toContain('[White "');
+    expect(pgn).toContain("1. e4");
+    expect(pgn).toContain("Centre.");
+  });
+
+  it("prefers the stored PGN once the game is over", async () => {
+    const gameId = await insertGame({ pgn: '[Event "stored"]\n\n1. e4 e5 1-0' });
+    expect(await loadGamePgn(db, gameId)).toContain("stored");
+    expect(await loadGamePgn(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
+  });
+});
