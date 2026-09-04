@@ -5,7 +5,7 @@ import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { serverEnv } from "@/env";
 import { getDb } from "@/lib/db";
-import { fetchPrimaryEmail } from "@/lib/github";
+import { githubUser } from "@/lib/github";
 import { roleForEmail, type UserRole } from "@/lib/roles";
 
 function readRole(value: unknown): UserRole {
@@ -35,25 +35,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         clientId: env.githubId,
         clientSecret: env.githubSecret,
         authorization: { params: { scope: "read:user user:email" } },
-        async profile(profile, tokens) {
-          // GitHub returns a null name for accounts without a display name, and
-          // hides the address unless it is verified and the scope was granted.
-          const token = tokens.access_token;
-          const email =
-            typeof profile.email === "string" && profile.email !== ""
-              ? profile.email
-              : token === undefined
-                ? null
-                : await fetchPrimaryEmail(token);
-          if (email === null) {
-            throw new Error("GitHub did not return a verified email address for this account");
-          }
-          return {
-            id: String(profile.id),
-            name: profile.name ?? profile.login,
-            email,
-            image: profile.avatar_url,
-          };
+        profile(profile, tokens) {
+          return githubUser(profile, tokens.access_token);
         },
       }),
     ],

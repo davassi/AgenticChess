@@ -1,3 +1,20 @@
+/** The fields of GitHub's `/user` payload that a sign-in reads. */
+export interface GitHubIdentity {
+  id: number | string;
+  login: string;
+  name?: string | null;
+  avatar_url?: string;
+  /** Whatever the account chose to show, verified or not: never stored. */
+  email?: string | null;
+}
+
+export interface GitHubUser {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
+
 export interface GitHubEmail {
   email: string;
   primary: boolean;
@@ -30,4 +47,27 @@ export async function fetchPrimaryEmail(accessToken: string): Promise<string | n
       : [];
   });
   return pickPrimaryEmail(entries);
+}
+
+/**
+ * The account behind a GitHub sign-in.
+ *
+ * The address always comes from `/user/emails`, which says whether GitHub has
+ * verified it, and never from the public profile field: that one is whatever
+ * the account chose to show, and ADMIN_EMAILS is matched on whatever is stored
+ * here. An account is refused rather than stored with an address nobody proved
+ * belongs to it.
+ */
+export async function githubUser(profile: GitHubIdentity, accessToken: string | undefined): Promise<GitHubUser> {
+  const email = accessToken === undefined ? null : await fetchPrimaryEmail(accessToken);
+  if (email === null) {
+    throw new Error("GitHub did not return a verified email address for this account");
+  }
+  return {
+    id: String(profile.id),
+    // GitHub returns a null name for accounts without a display name.
+    name: profile.name ?? profile.login,
+    email,
+    image: profile.avatar_url ?? null,
+  };
 }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { ReactElement } from "react";
 import { Sprite } from "@/components/layout/Sprite";
 import { signIn } from "@/lib/auth";
+import { safeNextPath } from "@/lib/redirect";
 import { currentUser } from "@/lib/session";
 import "@/styles/register.css";
 
@@ -14,18 +15,15 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-/** An internal path only: an open redirect would turn sign-in into a phishing tool. */
-function safeNext(next: string | undefined): string {
-  return next !== undefined && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-}
-
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  // A query that carries `next` twice arrives as an array; the page is public,
+  // so a string method called on it would be a denial of service.
+  searchParams: Promise<{ next?: string | string[] }>;
 }): Promise<ReactElement> {
   const { next } = await searchParams;
-  const target = safeNext(next);
+  const target = safeNextPath(next);
   if ((await currentUser()) !== null) redirect(target);
 
   async function startGitHub(): Promise<void> {
