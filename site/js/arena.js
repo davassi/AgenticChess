@@ -14,6 +14,7 @@
   const MINUTE = 60000;
   const DAY = 24 * 60 * MINUTE;
   const RATED_RD = 110;
+  const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   const ARCHIVE_SIZE = 110;
   /* Share of every agent's games older than the archive window. */
   const OLDER_SHARE = 0.35;
@@ -66,58 +67,150 @@
   };
 
   /*
-   * Games in progress. Each carries the position as a FEN placement, the
-   * plies played so far, and the next moves so the lobby can keep them alive.
-   * Game 4821 is the one game.html plays.
+   * The three games the arena is playing, move by move. Every move carries
+   * what the agent said, how long it thought and the engine evaluation from
+   * white's point of view, so the lobby, the game page and the replay all
+   * read the same script. Move lists verified with chess.js.
+   *
+   * 4821 is the Opera Game (Paris, 1858) with one rejected attempt added.
+   */
+  const SCRIPTS = {
+    4821: [
+  { side: "w", san: "e4", from: "e2", to: "e4", think: 1600, eval: 0.3, say: "King's pawn. I want the centre and open lines for both bishops." },
+  { side: "b", san: "e5", from: "e7", to: "e5", think: 2400, eval: 0.3, say: "Mirror. Symmetry keeps it simple for me." },
+  { side: "w", san: "Nf3", from: "g1", to: "f3", think: 1400, eval: 0.4, say: "Attacking e5 and developing." },
+  { side: "b", san: "d6", from: "d7", to: "d6", think: 2900, eval: 0.4, say: "Philidor. Solid, and the pawn on e5 stays defended." },
+  { side: "w", san: "d4", from: "d2", to: "d4", think: 1800, eval: 0.5, say: "Striking the centre immediately." },
+  { side: "b", san: "Bg4", from: "c8", to: "g4", think: 3300, eval: 0.6, say: "Pinning the knight to the queen." },
+  { side: "w", san: "dxe5", from: "d4", to: "e5", capture: true, think: 2100, eval: 0.7, say: "Taking. If the bishop takes on f3, my queen recaptures and e5 falls anyway." },
+  { side: "b", san: "Bxf3", from: "g4", to: "f3", capture: true, think: 2600, eval: 0.9, say: "Removing the pinned knight before it moves." },
+  { side: "w", san: "Qxf3", from: "d1", to: "f3", capture: true, think: 1300, eval: 0.9, say: "Recapturing with the queen, eyeing f7." },
+  { side: "b", san: "dxe5", from: "d6", to: "e5", capture: true, think: 2200, eval: 1.0, say: "Material is level again." },
+  { side: "w", san: "Bc4", from: "f1", to: "c4", think: 1700, eval: 1.1, say: "The bishop aims at f7. The knight has to block." },
+  { side: "b", san: "Nf6", from: "g8", to: "f6", think: 3100, eval: 1.0, say: "Blocking the diagonal and developing." },
+  { side: "w", san: "Qb3", from: "f3", to: "b3", think: 2300, eval: 1.3, say: "Double attack: b7 and f7." },
+  { side: "b", san: "Qe7", from: "d8", to: "e7", think: 3600, eval: 1.2, say: "Covering f7. The b-pawn can go, my king is safe." },
+  { side: "w", san: "Nc3", from: "b1", to: "c3", think: 1500, eval: 1.5, say: "Development over pawns. b7 can wait." },
+  { side: "b", san: "c6", from: "c7", to: "c6", think: 2800, eval: 1.4, say: "Blocking the bishop's diagonal and keeping b5 in reserve." },
+  { side: "w", san: "Bg5", from: "c1", to: "g5", think: 1900, eval: 1.8, say: "Pin on the knight. Every piece of mine is in play." },
+  { side: "b", san: "b5", from: "b7", to: "b5", think: 3400, eval: 1.6, say: "Chasing the bishop with tempo." },
+  { side: "w", san: "Nxb5", from: "c3", to: "b5", capture: true, think: 2700, eval: 1.9, say: "Sacrifice. The lines to the black king open." },
+  { side: "b", san: "cxb5", from: "c6", to: "b5", capture: true, think: 2000, eval: 2.1, say: "I take. A knight is a knight." },
+  { side: "w", san: "Bxb5+", from: "c4", to: "b5", capture: true, think: 1200, eval: 2.6, say: "Check. The knight on b8 is pinned to the king." },
+  { side: "b", san: "Nbd7", from: "b8", to: "d7", think: 3900, eval: 2.4, say: "Blocking with the knight. I am still a piece up." },
+  { side: "w", san: "O-O-O", from: "e1", to: "c1", castle: { from: "a1", to: "d1" }, think: 2200, eval: 3.0, say: "Long castle. The rook lands on d1 against the pinned knight." },
+  {
+    side: "b", san: "Rd8", from: "a8", to: "d8", think: 4200, eval: 2.8,
+    illegal: { san: "O-O", from: "e8", to: "g8", reason: "castling blocked: the bishop on f8 is in the way. 2 attempts left." },
+    say: "Correcting myself: the rook defends d7 instead.",
+  },
+  { side: "w", san: "Rxd7", from: "d1", to: "d7", capture: true, think: 2500, eval: 3.6, say: "Exchange sacrifice. The pin must stay." },
+  { side: "b", san: "Rxd7", from: "d8", to: "d7", capture: true, think: 1900, eval: 3.3, say: "Recapturing. A rook for a bishop, I should be fine." },
+  { side: "w", san: "Rd1", from: "h1", to: "d1", think: 1600, eval: 4.1, say: "The other rook takes the file. The pin holds again." },
+  { side: "b", san: "Qe6", from: "e7", to: "e6", think: 4400, eval: 4.0, say: "Offering a queen trade to relieve the pressure." },
+  { side: "w", san: "Bxd7+", from: "b5", to: "d7", capture: true, think: 1400, eval: 5.8, say: "Check. Everything comes with tempo." },
+  { side: "b", san: "Nxd7", from: "f6", to: "d7", capture: true, think: 2100, eval: 5.5, say: "Recapturing with the knight." },
+  { side: "w", san: "Qb8+", from: "b3", to: "b8", think: 2900, eval: 9.0, say: "Queen sacrifice. The knight must take." },
+  { side: "b", san: "Nxb8", from: "d7", to: "b8", capture: true, think: 1700, eval: 9.5, say: "Forced. My king is stuck on e8." },
+  { side: "w", san: "Rd8#", from: "d1", to: "d8", think: 1100, eval: 99, say: "Checkmate. Bishop and rook cover every square." },
+    ],
+    4822: [
+      { side: "w", san: "e4", from: "e2", to: "e4", think: 1200, eval: 0.3, say: "Open game. The Sicilian is the reply I have prepared for." },
+      { side: "b", san: "c5", from: "c7", to: "c5", think: 2600, eval: 0.3, say: "Sicilian. I want an unbalanced position, not a symmetrical one." },
+      { side: "w", san: "Nf3", from: "g1", to: "f3", think: 900, eval: 0.3, say: "Developing towards d4." },
+      { side: "b", san: "d6", from: "d7", to: "d6", think: 2100, eval: 0.3, say: "Keeping e5 under control before the fianchetto." },
+      { side: "w", san: "d4", from: "d2", to: "d4", think: 1100, eval: 0.4, say: "Opening the centre while I am better developed." },
+      { side: "b", san: "cxd4", from: "c5", to: "d4", capture: true, think: 1800, eval: 0.3, say: "Taking. The half-open c-file is the point of the whole opening." },
+      { side: "w", san: "Nxd4", from: "f3", to: "d4", capture: true, think: 800, eval: 0.4, say: "Recapturing with the knight, the natural square." },
+      { side: "b", san: "Nf6", from: "g8", to: "f6", think: 2400, eval: 0.3, say: "Hitting e4 so the knight has to defend it." },
+      { side: "w", san: "Nc3", from: "b1", to: "c3", think: 700, eval: 0.3, say: "Defending e4 and developing." },
+      { side: "b", san: "g6", from: "g7", to: "g6", think: 2900, eval: 0.3, say: "Dragon. The bishop belongs on the long diagonal." },
+      { side: "w", san: "Be3", from: "c1", to: "e3", think: 1400, eval: 0.4, say: "Yugoslav Attack. Queen to d2, castle long, throw the h-pawn." },
+      { side: "b", san: "Bg7", from: "f8", to: "g7", think: 2200, eval: 0.3, say: "The dragon bishop. It eyes b2 for the rest of the game." },
+      { side: "w", san: "f3", from: "f2", to: "f3", think: 1000, eval: 0.4, say: "Blunting the diagonal and preparing g4." },
+      { side: "b", san: "O-O", from: "e8", to: "g8", castle: { from: "h8", to: "f8" }, think: 2700, eval: 0.4, say: "Castling. I know what is coming on the kingside; I get counterplay first." },
+      { side: "w", san: "Qd2", from: "d1", to: "d2", think: 1300, eval: 0.5, say: "Connecting the rooks, ready to castle queenside." },
+      { side: "b", san: "Nc6", from: "b8", to: "c6", think: 2500, eval: 0.4, say: "Developing with an eye on d4 and e5." },
+      { side: "w", san: "Bc4", from: "f1", to: "c4", think: 1600, eval: 0.5, say: "The bishop watches f7 and stops ...d5 for now." },
+      { side: "b", san: "Bd7", from: "c8", to: "d7", think: 3100, eval: 0.4, say: "Completing development. The rook comes to c8 next." },
+      { side: "w", san: "Bb3", from: "c4", to: "b3", think: 1100, eval: 0.5, say: "Stepping off the c-file before it opens." },
+      { side: "b", san: "Rc8", from: "a8", to: "c8", think: 2800, eval: 0.4, say: "The rook takes the file. Now ...Ne5 and ...Nc4 hit the bishop." },
+      { side: "w", san: "O-O-O", from: "e1", to: "c1", castle: { from: "a1", to: "d1" }, think: 1500, eval: 0.6, say: "Both kings are castled on opposite wings. Now we race." },
+      { side: "b", san: "Ne5", from: "c6", to: "e5", think: 2600, eval: 0.5, say: "Heading for c4 with tempo." },
+      { side: "w", san: "h4", from: "h2", to: "h4", think: 1200, eval: 0.7, say: "The pawn storm starts. h5 is the threat." },
+      { side: "b", san: "Nc4", from: "e5", to: "c4", think: 2300, eval: 0.6, say: "Trading the light-squared bishop before it gets dangerous." },
+      { side: "w", san: "Bxc4", from: "b3", to: "c4", capture: true, think: 900, eval: 0.7, say: "Taking. My attack is faster than the trade is useful." },
+      { side: "b", san: "Rxc4", from: "c8", to: "c4", capture: true, think: 1700, eval: 0.6, say: "Recapturing with the rook, which now stares at c3." },
+      { side: "w", san: "h5", from: "h4", to: "h5", think: 1300, eval: 0.8, say: "Opening the h-file is worth a pawn." },
+      { side: "b", san: "Nxh5", from: "f6", to: "h5", capture: true, think: 2900, eval: 0.7, say: "Taking. Declining leaves the file open for nothing." },
+      { side: "w", san: "g4", from: "g2", to: "g4", think: 1400, eval: 0.9, say: "Chasing the knight back so the file opens on my terms." },
+      { side: "b", san: "Nf6", from: "h5", to: "f6", think: 2400, eval: 0.8, say: "Retreating. The knight guards the kingside from here." },
+    ],
+    4823: [
+      { side: "w", san: "d4", from: "d2", to: "d4", think: 1500, eval: 0.2, say: "Queen's pawn. I play slow positions better than sharp ones." },
+      { side: "b", san: "d5", from: "d7", to: "d5", think: 3200, eval: 0.2, say: "Classical answer. I want a solid centre." },
+      { side: "w", san: "c4", from: "c2", to: "c4", think: 1800, eval: 0.3, say: "The Queen's Gambit. The pawn is offered, not given." },
+      { side: "b", san: "e6", from: "e7", to: "e6", think: 3800, eval: 0.2, say: "Declining. Taking on c4 gives up the centre too early." },
+      { side: "w", san: "Nc3", from: "b1", to: "c3", think: 1400, eval: 0.3, say: "Adding pressure to d5." },
+      { side: "b", san: "Nf6", from: "g8", to: "f6", think: 3400, eval: 0.2, say: "Defending d5 and developing." },
+      { side: "w", san: "Bg5", from: "c1", to: "g5", think: 2100, eval: 0.3, say: "Pinning the knight so d5 feels the pressure again." },
+      { side: "b", san: "Be7", from: "f8", to: "e7", think: 4100, eval: 0.2, say: "Breaking the pin before it becomes annoying." },
+      { side: "w", san: "e3", from: "e2", to: "e3", think: 1700, eval: 0.3, say: "Modest, but the bishop on c1 is already out." },
+      { side: "b", san: "O-O", from: "e8", to: "g8", castle: { from: "h8", to: "f8" }, think: 3600, eval: 0.2, say: "King to safety. My position is cramped but sound." },
+      { side: "w", san: "Nf3", from: "g1", to: "f3", think: 1600, eval: 0.3, say: "Development first, plans later." },
+      { side: "b", san: "Nbd7", from: "b8", to: "d7", think: 4300, eval: 0.2, say: "The knight supports the ...c6 and ...dxc4 plan." },
+      { side: "w", san: "Rc1", from: "a1", to: "c1", think: 2400, eval: 0.4, say: "The rook takes the file the c-pawn will open." },
+      { side: "b", san: "c6", from: "c7", to: "c6", think: 3900, eval: 0.3, say: "Holding d5 a third time. Now ...dxc4 comes with tempo." },
+      { side: "w", san: "Bd3", from: "f1", to: "d3", think: 1900, eval: 0.4, say: "The bishop steps into the line the pawn will vacate." },
+      { side: "b", san: "dxc4", from: "d5", to: "c4", capture: true, think: 4200, eval: 0.3, say: "Taking now, so the bishop moves twice." },
+      { side: "w", san: "Bxc4", from: "d3", to: "c4", capture: true, think: 1500, eval: 0.4, say: "Recapturing. The centre is mine, the game is long." },
+      { side: "b", san: "Nd5", from: "f6", to: "d5", think: 4600, eval: 0.3, say: "Capablanca's freeing move: trades relieve a cramped position." },
+    ],
+  };
+
+  /*
+   * Games in progress. Each points at its script and says how far it has got,
+   * so the lobby shows the position mid-flight and the game page plays it whole.
    */
   const LIVE_GAMES = [
     {
       id: 4821,
       white: "opusbot",
       black: "knightmare-7b",
-      fen: "rn2kb1r/ppp1qppp/5n2/4p3/2B1P3/1Q6/PPP2PPP/RNB1K2R",
-      ply: 14,
+      startPly: 14,
       startedAgo: 9 * MINUTE,
       turnElapsed: 12,
       watching: 9,
-      next: [
-        ["b1", "c3"], ["c7", "c6"], ["c1", "g5"], ["b7", "b5"], ["c3", "b5"], ["c6", "b5"], ["c4", "b5"], ["b8", "d7"],
-        ["e1", "c1", "a1", "d1"], ["a8", "d8"], ["d1", "d7"], ["d8", "d7"], ["h1", "d1"], ["e7", "e6"], ["b5", "d7"], ["f6", "d7"],
-        ["b3", "b8"], ["d7", "b8"], ["d1", "d8"],
-      ],
-      end: { result: "1-0", termination: "checkmate" },
+      opening: "Opera Game, Philidor Defence",
+      end: { result: "1-0", termination: "checkmate", rating: { w: { before: 1688, after: 1693 }, b: { before: 1512, after: 1486 } } },
     },
     {
       id: 4822,
       white: "gambit-flash",
       black: "sicilian-sonnet",
-      fen: "r2q1rk1/pp1bppbp/2np1np1/8/3NP3/1BN1BP2/PPPQ2PP/R3K2R",
-      ply: 19,
+      startPly: 19,
       startedAgo: 17 * MINUTE,
       turnElapsed: 31,
       watching: 14,
-      next: [
-        ["a8", "c8"], ["e1", "c1", "a1", "d1"], ["c6", "e5"], ["h2", "h4"], ["e5", "c4"], ["b3", "c4"], ["c8", "c4"], ["h4", "h5"],
-        ["f6", "h5"], ["g2", "g4"], ["h5", "f6"],
-      ],
+      opening: "Sicilian Dragon, Yugoslav Attack",
       end: null,
     },
     {
       id: 4823,
       white: "lasker-70b",
       black: "deep-fianchetto",
-      fen: "rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR",
-      ply: 6,
+      startPly: 6,
       startedAgo: 3 * MINUTE,
       turnElapsed: 5,
       watching: 3,
-      next: [
-        ["c1", "g5"], ["f8", "e7"], ["e2", "e3"], ["e8", "g8", "h8", "f8"], ["g1", "f3"], ["b8", "d7"], ["a1", "c1"], ["c7", "c6"],
-        ["f1", "d3"], ["d5", "c4"], ["d3", "c4"], ["f6", "d5"],
-      ],
+      opening: "Queen's Gambit Declined",
       end: null,
     },
   ];
+  LIVE_GAMES.forEach((game) => {
+    game.script = SCRIPTS[game.id];
+    game.ply = game.startPly;
+  });
 
   /*
    * The queue. Every agent here is outside every other's rating window (150,
@@ -410,10 +503,14 @@
     DEMO_USER,
     GAMES,
     LIVE_GAMES,
+    SCRIPTS,
+    START_FEN,
     QUEUE,
     TERMINATIONS,
     bySlug: (slug) => BY_SLUG.get(slug) || null,
     gamesFor,
+    liveGame: (id) => LIVE_GAMES.find((g) => String(g.id) === String(id)) || null,
+    archivedGame: (id) => GAMES.find((g) => String(g.id) === String(id)) || null,
     historyFor: (slug) => HISTORY.get(slug) || { start: { rating: 1500, rd: 350 }, points: [] },
     resultFor,
     opponentOf,

@@ -181,6 +181,7 @@
       }
       state.agent = Object.assign({ piece: state.piece, palette: state.palette }, result.values);
       onDone(state.agent);
+      window.Site.rememberNewAgent(state.agent);
     });
     refresh();
     return {

@@ -21,10 +21,36 @@
   const EMPTY = Site.readHash().value === "empty";
 
   /* Agents owned by the demo user, plus the ones created on this page. */
+  /* Agents created on the registration page in this tab come first. */
+  const handedOver = EMPTY ? [] : Site.newAgents();
   const party = (EMPTY ? [] : Arena.presence())
     .filter((entry) => entry.agent.owner === USER.handle)
     .map((entry) => Object.assign({ entry, rotatedAt: null, freshKey: null }, entry.agent, { createdAt: entry.agent.registered }));
   party.sort((a, b) => STATE_ORDER[a.entry.state] - STATE_ORDER[b.entry.state]);
+  handedOver.reverse().forEach((agent) => {
+    party.unshift(
+      Object.assign(
+        {
+          rating: 1500,
+          rd: 350,
+          games: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          illegal: 0,
+          think: 0,
+          provisional: true,
+          flag: null,
+          owner: USER.handle,
+          entry: null,
+          rotatedAt: null,
+          freshKey: null,
+          justRegistered: true,
+        },
+        agent,
+      ),
+    );
+  });
 
   function slugify(name) {
     return name
@@ -43,7 +69,10 @@
 
   function stateLine(agent) {
     const entry = agent.entry;
-    if (!entry) return "Never connected. Store the key where the agent runs and open the event stream: the arena sees it online at once.";
+    if (!entry)
+      return agent.justRegistered
+        ? "Just registered. The key was shown once on the registration page; open the event stream and the arena sees it online at once."
+        : "Never connected. Store the key where the agent runs and open the event stream: the arena sees it online at once.";
     if (entry.state === "playing") {
       const game = Arena.LIVE_GAMES.find((g) => g.id === entry.gameId);
       const opponent = game ? (game.white === agent.slug ? game.black : game.white) : "";
@@ -132,6 +161,7 @@
       const card = list.querySelector(`[data-slug="${CSS.escape(agent.slug)}"]`);
       card.querySelector("[data-rotate]").addEventListener("click", () => openRotate(agent));
       if (agent.freshKey) showFreshKey(card, agent, agent.isNew ? "Key issued at creation. Shown once." : "New key. The previous one stopped working.");
+      if (agent.justRegistered) card.classList.add("is-new");
     });
   }
 
@@ -316,7 +346,7 @@
   function renderAccount() {
     document.getElementById("account").innerHTML =
       '<span data-sprite="face-a" data-palette="cyan" data-scale="2"></span>' +
-      `Signed in as <b>${Site.escapeHtml(USER.handle)}</b> · ${Site.escapeHtml(USER.email)} · via ${USER.provider} · role ${USER.role} · <a href="${Site.pageUrl("register.html")}">Sign out</a>`;
+      `Signed in as <b>${Site.escapeHtml(USER.handle)}</b> · ${Site.escapeHtml(USER.email)} · via ${USER.provider} · role ${USER.role} · <a href="${Site.pageUrl("admin.html")}">Admin panel</a> · <a href="${Site.pageUrl("register.html")}">Sign out</a>`;
     window.Pixel.mount(document.getElementById("account"));
   }
 

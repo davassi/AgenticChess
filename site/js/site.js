@@ -177,6 +177,43 @@
   }
 
   /*
+   * An agent created on the registration page shows up on the dashboard.
+   * sessionStorage keeps it for the tab only, and never holds the key: that
+   * is shown once, on the page that issued it.
+   */
+  const HANDOVER_KEY = "agentic-chess-new-agents";
+
+  function rememberNewAgent(agent) {
+    try {
+      const kept = newAgents();
+      kept.push({
+        slug: agent.slug,
+        name: agent.name || agent.slug,
+        provider: agent.provider,
+        model: agent.model,
+        description: agent.description || "",
+        piece: agent.piece,
+        palette: agent.palette,
+        keyPrefix: agent.key ? agent.key.slice(3, 11) : "",
+        createdAt: new Date().toISOString().slice(0, 10),
+      });
+      window.sessionStorage.setItem(HANDOVER_KEY, JSON.stringify(kept));
+    } catch (error) {
+      // Private windows and blocked storage: the dashboard simply shows the demo agents.
+    }
+  }
+
+  function newAgents() {
+    try {
+      const raw = window.sessionStorage.getItem(HANDOVER_KEY);
+      const kept = raw ? JSON.parse(raw) : [];
+      return Array.isArray(kept) ? kept : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /*
    * Empty and error states as screens of the same game: an icon, a title,
    * a line of text and the ways out. Call Pixel.mount on the container.
    */
@@ -215,6 +252,8 @@
     ordinal,
     escapeHtml,
     emptyState,
+    rememberNewAgent,
+    newAgents,
     previewKey,
     previewKeyPrefix,
     copyText,

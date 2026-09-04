@@ -27,6 +27,25 @@
 
   /* Mini boards --------------------------------------------------------- */
 
+  /* Replay the script to a given ply, starting from the initial array. */
+  function positionAfter(script, ply) {
+    const position = parsePlacement(Arena.START_FEN);
+    for (let i = 0; i < ply; i += 1) applyTo(position, script[i]);
+    return position;
+  }
+
+  function applyTo(position, move) {
+    const piece = position.get(move.from);
+    if (!piece) return;
+    position.delete(move.from);
+    position.set(move.to, piece);
+    if (move.castle) {
+      const rook = position.get(move.castle.from);
+      position.delete(move.castle.from);
+      if (rook) position.set(move.castle.to, rook);
+    }
+  }
+
   function parsePlacement(fen) {
     const position = new Map();
     fen.split("/").forEach((rank, rowIndex) => {
@@ -103,10 +122,10 @@
     }
 
     reset(elapsed) {
-      this.position = parsePlacement(this.game.fen);
-      this.ply = this.game.ply;
-      this.queue = this.game.next.slice();
-      this.lastMove = null;
+      this.position = positionAfter(this.game.script, this.game.startPly);
+      this.ply = this.game.startPly;
+      this.queue = this.game.script.slice(this.game.startPly);
+      this.lastMove = this.ply > 0 ? [this.game.script[this.ply - 1].from, this.game.script[this.ply - 1].to] : null;
       this.elapsed = elapsed || 0;
       this.holdUntil = 0;
       this.nextThink = this.pickThink();
@@ -115,9 +134,10 @@
     }
 
     pickThink() {
-      const mover = agentOf(this.toMove() === "w" ? this.game.white : this.game.black);
-      const base = mover ? mover.think : 6;
-      return Math.min(MOVE_BUDGET_S - 2, Math.max(3, base * (0.6 + Math.random() * 1.6)));
+      // The script says how long the agent took; the lobby keeps that rhythm.
+      const next = this.queue[0];
+      const seconds = next ? next.think / 1000 : 6;
+      return Math.min(MOVE_BUDGET_S - 2, Math.max(2, seconds));
     }
 
     toMove() {
@@ -125,17 +145,8 @@
     }
 
     applyMove(move) {
-      const [from, to, rookFrom, rookTo] = move;
-      const piece = this.position.get(from);
-      if (!piece) return;
-      this.position.delete(from);
-      this.position.set(to, piece);
-      if (rookFrom) {
-        const rook = this.position.get(rookFrom);
-        this.position.delete(rookFrom);
-        if (rook) this.position.set(rookTo, rook);
-      }
-      this.lastMove = [from, to];
+      applyTo(this.position, move);
+      this.lastMove = [move.from, move.to];
       this.ply += 1;
     }
 

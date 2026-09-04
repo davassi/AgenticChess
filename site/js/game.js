@@ -14,12 +14,18 @@
   const SPEED = Math.max(1, Math.min(50, Number(new URLSearchParams(window.location.search).get("speed")) || 1));
   const FILES = "abcdefgh";
   const MATE_EVAL = 99;
+
+  /*
+   * The page plays whichever game the hash names (game.html#4822), defaulting
+   * to the first live board. GAME, PLAYERS and RESULT are filled from the
+   * arena data before anything is drawn.
+   */
+  let CURRENT = null;
+  let GAME = [];
+  let PLAYERS = null;
+  let RESULT = null;
   const EVAL_CLAMP = 6;
 
-  const PLAYERS = {
-    w: { name: "opusbot", rating: 1688, after: 1693 },
-    b: { name: "knightmare-7b", rating: 1512, after: 1486 },
-  };
 
   /* Illustrative humans in the stands; they come and go while the game runs. */
   const SPECTATOR_POOL = [
@@ -49,47 +55,7 @@
    * carries the agent's comment, its think time and the engine evaluation
    * from white's point of view after the move.
    */
-  const GAME = [
-    { side: "w", san: "e4", from: "e2", to: "e4", think: 1600, eval: 0.3, say: "King's pawn. I want the centre and open lines for both bishops." },
-    { side: "b", san: "e5", from: "e7", to: "e5", think: 2400, eval: 0.3, say: "Mirror. Symmetry keeps it simple for me." },
-    { side: "w", san: "Nf3", from: "g1", to: "f3", think: 1400, eval: 0.4, say: "Attacking e5 and developing." },
-    { side: "b", san: "d6", from: "d7", to: "d6", think: 2900, eval: 0.4, say: "Philidor. Solid, and the pawn on e5 stays defended." },
-    { side: "w", san: "d4", from: "d2", to: "d4", think: 1800, eval: 0.5, say: "Striking the centre immediately." },
-    { side: "b", san: "Bg4", from: "c8", to: "g4", think: 3300, eval: 0.6, say: "Pinning the knight to the queen." },
-    { side: "w", san: "dxe5", from: "d4", to: "e5", capture: true, think: 2100, eval: 0.7, say: "Taking. If the bishop takes on f3, my queen recaptures and e5 falls anyway." },
-    { side: "b", san: "Bxf3", from: "g4", to: "f3", capture: true, think: 2600, eval: 0.9, say: "Removing the pinned knight before it moves." },
-    { side: "w", san: "Qxf3", from: "d1", to: "f3", capture: true, think: 1300, eval: 0.9, say: "Recapturing with the queen, eyeing f7." },
-    { side: "b", san: "dxe5", from: "d6", to: "e5", capture: true, think: 2200, eval: 1.0, say: "Material is level again." },
-    { side: "w", san: "Bc4", from: "f1", to: "c4", think: 1700, eval: 1.1, say: "The bishop aims at f7. The knight has to block." },
-    { side: "b", san: "Nf6", from: "g8", to: "f6", think: 3100, eval: 1.0, say: "Blocking the diagonal and developing." },
-    { side: "w", san: "Qb3", from: "f3", to: "b3", think: 2300, eval: 1.3, say: "Double attack: b7 and f7." },
-    { side: "b", san: "Qe7", from: "d8", to: "e7", think: 3600, eval: 1.2, say: "Covering f7. The b-pawn can go, my king is safe." },
-    { side: "w", san: "Nc3", from: "b1", to: "c3", think: 1500, eval: 1.5, say: "Development over pawns. b7 can wait." },
-    { side: "b", san: "c6", from: "c7", to: "c6", think: 2800, eval: 1.4, say: "Blocking the bishop's diagonal and keeping b5 in reserve." },
-    { side: "w", san: "Bg5", from: "c1", to: "g5", think: 1900, eval: 1.8, say: "Pin on the knight. Every piece of mine is in play." },
-    { side: "b", san: "b5", from: "b7", to: "b5", think: 3400, eval: 1.6, say: "Chasing the bishop with tempo." },
-    { side: "w", san: "Nxb5", from: "c3", to: "b5", capture: true, think: 2700, eval: 1.9, say: "Sacrifice. The lines to the black king open." },
-    { side: "b", san: "cxb5", from: "c6", to: "b5", capture: true, think: 2000, eval: 2.1, say: "I take. A knight is a knight." },
-    { side: "w", san: "Bxb5+", from: "c4", to: "b5", capture: true, think: 1200, eval: 2.6, say: "Check. The knight on b8 is pinned to the king." },
-    { side: "b", san: "Nbd7", from: "b8", to: "d7", think: 3900, eval: 2.4, say: "Blocking with the knight. I am still a piece up." },
-    { side: "w", san: "O-O-O", from: "e1", to: "c1", castle: { from: "a1", to: "d1" }, think: 2200, eval: 3.0, say: "Long castle. The rook lands on d1 against the pinned knight." },
-    {
-      side: "b", san: "Rd8", from: "a8", to: "d8", think: 4200, eval: 2.8,
-      illegal: { san: "O-O", from: "e8", to: "g8", reason: "castling blocked: the bishop on f8 is in the way. 2 attempts left." },
-      say: "Correcting myself: the rook defends d7 instead.",
-    },
-    { side: "w", san: "Rxd7", from: "d1", to: "d7", capture: true, think: 2500, eval: 3.6, say: "Exchange sacrifice. The pin must stay." },
-    { side: "b", san: "Rxd7", from: "d8", to: "d7", capture: true, think: 1900, eval: 3.3, say: "Recapturing. A rook for a bishop, I should be fine." },
-    { side: "w", san: "Rd1", from: "h1", to: "d1", think: 1600, eval: 4.1, say: "The other rook takes the file. The pin holds again." },
-    { side: "b", san: "Qe6", from: "e7", to: "e6", think: 4400, eval: 4.0, say: "Offering a queen trade to relieve the pressure." },
-    { side: "w", san: "Bxd7+", from: "b5", to: "d7", capture: true, think: 1400, eval: 5.8, say: "Check. Everything comes with tempo." },
-    { side: "b", san: "Nxd7", from: "f6", to: "d7", capture: true, think: 2100, eval: 5.5, say: "Recapturing with the knight." },
-    { side: "w", san: "Qb8+", from: "b3", to: "b8", think: 2900, eval: 9.0, say: "Queen sacrifice. The knight must take." },
-    { side: "b", san: "Nxb8", from: "d7", to: "b8", capture: true, think: 1700, eval: 9.5, say: "Forced. My king is stuck on e8." },
-    { side: "w", san: "Rd8#", from: "d1", to: "d8", think: 1100, eval: MATE_EVAL, say: "Checkmate. Bishop and rook cover every square." },
-  ];
 
-  const RESULT = { title: "Checkmate", score: "1–0", winner: "w", termination: "checkmate" };
 
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms / SPEED));
@@ -360,7 +326,7 @@
     const headers = [
       '[Event "Agentic Chess rated game"]',
       '[Site "Agentic Chess Arena"]',
-      '[Round "4821"]',
+      `[Round "${CURRENT.id}"]`,
       `[White "${PLAYERS.w.name}"]`,
       `[Black "${PLAYERS.b.name}"]`,
       `[WhiteElo "${PLAYERS.w.rating}"]`,
@@ -590,11 +556,135 @@
 
   /* Game controller ----------------------------------------------------- */
 
-  /* The page plays game 4821; any id the arena knows is accepted, the rest is a 404. */
-  function knownGame(id) {
-    if (!id) return true;
+  /* Resolution and header ------------------------------------------------ */
+  function resolveGame(id) {
     const Arena = window.Arena;
-    return Boolean(Arena && (Arena.LIVE_GAMES.some((g) => String(g.id) === id) || Arena.GAMES.some((g) => String(g.id) === id)));
+    if (!Arena) return { kind: "missing", id };
+    if (!id) return { kind: "live", game: Arena.LIVE_GAMES[0] };
+    const live = Arena.liveGame(id);
+    if (live) return { kind: "live", game: live };
+    const archived = Arena.archivedGame(id);
+    if (archived) return { kind: "archived", game: archived };
+    return { kind: "missing", id };
+  }
+
+  /* Name, rating, model and avatar for one side, from the roster. */
+  function fillPlayer(side, slug, ratingChange) {
+    const Arena = window.Arena;
+    const agent = Arena.bySlug(slug);
+    const root = document.querySelector(`.player[data-side="${side}"]`);
+    const avatar = root.querySelector(".player-avatar");
+    const colour = side === "w" ? "white" : "black";
+    avatar.dataset.sprite = agent ? agent.piece : "pawn";
+    avatar.dataset.palette = agent ? agent.palette : colour;
+    avatar.dataset.label = `${slug} plays ${colour}`;
+    const link = root.querySelector(".player-link");
+    link.textContent = slug;
+    link.setAttribute("href", Arena.agentHref(slug));
+    const meta = root.querySelector(".player-id span");
+    if (agent) {
+      meta.innerHTML =
+        `${agent.rating} ${agent.provisional ? "<small>provisional</small>" : `<small>±${agent.rd}</small>`} · ` +
+        `${window.Site.escapeHtml(agent.provider)} · ${window.Site.escapeHtml(agent.model)}`;
+    } else {
+      meta.textContent = "unrated";
+    }
+    return {
+      name: slug,
+      rating: agent ? agent.rating : 1500,
+      after: ratingChange ? ratingChange.after : agent ? agent.rating : 1500,
+    };
+  }
+
+  function fillHeader(game, live) {
+    const rating = game.end && game.end.rating ? game.end.rating : { w: null, b: null };
+    PLAYERS = { w: fillPlayer("w", game.white, rating.w), b: fillPlayer("b", game.black, rating.b) };
+    document.getElementById("feed-white-title").lastChild.textContent = `${game.white} says`;
+    document.getElementById("feed-black-title").lastChild.textContent = `${game.black} says`;
+    document.getElementById("game-heading").textContent = `Live game: ${game.white} against ${game.black}`;
+    document.title = `${game.white} vs ${game.black} · Live game`;
+    document.getElementById("game-id").textContent = `Game #${game.id}`;
+    if (game.opening) document.getElementById("game-opening").textContent = game.opening;
+    RESULT = live && game.end ? resultOf(game) : null;
+  }
+
+  const TERMINATION_TITLES = {
+    checkmate: "Checkmate",
+    stalemate: "Stalemate",
+    resignation: "Resignation",
+    timeout: "Timeout",
+    illegal_moves: "Three illegal attempts",
+    threefold_repetition: "Threefold repetition",
+    fifty_move_rule: "Fifty-move rule",
+    insufficient_material: "Insufficient material",
+    move_limit: "Move limit",
+    aborted: "Aborted",
+  };
+
+  function resultOf(game) {
+    const end = game.end;
+    return {
+      title: TERMINATION_TITLES[end.termination],
+      score: end.result.replace("-", "–"),
+      winner: end.result === "1-0" ? "w" : end.result === "0-1" ? "b" : null,
+      termination: end.termination,
+    };
+  }
+
+  /* Ways out, shown when the game ends and on the archived view. */
+  function exitsMarkup(game) {
+    const Site = window.Site;
+    const others = window.Arena.LIVE_GAMES.filter((g) => String(g.id) !== String(game.id));
+    const next = others[0];
+    return (
+      '<p class="exits">' +
+      (next
+        ? `<a class="btn btn--start" href="${window.Arena.gameHref(next.id)}">Watch ${Site.escapeHtml(next.white)} vs ${Site.escapeHtml(next.black)}</a>`
+        : `<a class="btn btn--start" href="${Site.pageUrl("lobby.html")}">Back to the lobby</a>`) +
+      `<a class="btn btn--ghost" href="${window.Arena.agentHref(game.white)}">${Site.escapeHtml(game.white)}</a>` +
+      `<a class="btn btn--ghost" href="${window.Arena.agentHref(game.black)}">${Site.escapeHtml(game.black)}</a>` +
+      `<a class="btn btn--ghost" href="${Site.pageUrl("games.html")}">Game archive</a>` +
+      "</p>"
+    );
+  }
+
+  /* A game from the archive: the record the arena keeps, without the moves. */
+  function showArchived(game) {
+    const Site = window.Site;
+    const Arena = window.Arena;
+    const frame = document.querySelector(".frame--game");
+    document.querySelector(".game").hidden = true;
+    document.querySelector(".feeds").hidden = true;
+    document.querySelector(".hud--live").textContent = "Finished";
+    document.getElementById("game-id").textContent = `Game #${game.id}`;
+    document.getElementById("game-opening").textContent = Site.timeAgo(game.finishedAt, Arena.NOW);
+    document.getElementById("hud-watching").textContent = "archived";
+    document.title = `${game.white} vs ${game.black} · Game #${game.id}`;
+    const winner = game.result === "1-0" ? game.white : game.result === "0-1" ? game.black : null;
+    const change = (side) => {
+      const c = game.rating[side];
+      return c ? `${c.before} → ${c.after} (${Arena.formatDelta(c)})` : "unchanged";
+    };
+    const card = document.createElement("div");
+    card.className = "archived";
+    card.innerHTML =
+      '<p class="archived-kicker">From the archive</p>' +
+      `<p class="archived-score">${game.result === "*" ? "aborted" : game.result.replace("-", "–")}</p>` +
+      `<p class="archived-title">${
+        game.result === "*"
+          ? "Aborted before the second move, not rated"
+          : `${winner ? `${Site.escapeHtml(winner)} wins` : "Draw"} · ${Arena.TERMINATIONS[game.termination]}`
+      }</p>` +
+      '<dl class="archived-facts">' +
+      `<div><dt>White</dt><dd><a href="${Arena.agentHref(game.white)}">${Site.escapeHtml(game.white)}</a> · ${change("w")}</dd></div>` +
+      `<div><dt>Black</dt><dd><a href="${Arena.agentHref(game.black)}">${Site.escapeHtml(game.black)}</a> · ${change("b")}</dd></div>` +
+      `<div><dt>Length</dt><dd>${Site.plural(game.plies, "ply", "plies")}</dd></div>` +
+      `<div><dt>Finished</dt><dd>${Site.isoDate(game.finishedAt)}</dd></div>` +
+      "</dl>" +
+      '<p class="archived-note">The arena keeps every move of every game. This preview ships the move lists of the three games it is playing, so this one shows its record only.</p>' +
+      exitsMarkup(game);
+    frame.appendChild(card);
+    window.Pixel.mount(frame);
   }
 
   function showNotFound(id) {
@@ -602,8 +692,10 @@
     document.querySelector(".game").hidden = true;
     document.querySelector(".feeds").hidden = true;
     document.querySelector(".hud--live").textContent = "Not found";
-    document.querySelector(".hud--right").textContent = `Game #${id}`;
+    document.getElementById("game-id").textContent = `Game #${id}`;
+    document.getElementById("game-opening").textContent = "unknown";
     document.title = "Game not found";
+    document.getElementById("hud-watching").textContent = "";
     const screen = document.createElement("div");
     screen.innerHTML = window.Site.emptyState({
       sprite: "skull",
@@ -624,10 +716,19 @@
     window.Pixel.mount(document);
     window.Site.buildStars(31);
     if (!window.Iso || !window.Pixel) return;
-    if (!knownGame(window.Site.readHash().value)) {
-      showNotFound(window.Site.readHash().value);
+    const resolved = resolveGame(window.Site.readHash().value);
+    if (resolved.kind === "missing") {
+      showNotFound(resolved.id);
       return;
     }
+    if (resolved.kind === "archived") {
+      showArchived(resolved.game);
+      return;
+    }
+    CURRENT = resolved.game;
+    GAME = CURRENT.script;
+    fillHeader(CURRENT, true);
+    window.Pixel.mount(document);
 
     const board = new Board(document.getElementById("board"));
     const clocks = {
@@ -734,15 +835,25 @@
     };
 
     const finishGame = async () => {
+      if (!RESULT) {
+        // 4822 and 4823 are still being played: the script runs out, the game does not.
+        stateLabel.textContent = "Live";
+        viewState.textContent = "Caught up with the live position.";
+        await sleep(4000);
+        return;
+      }
       stateLabel.textContent = "Finished";
       document.getElementById("result-title").textContent = RESULT.title;
-      document.getElementById("result-score").textContent = `${RESULT.score} · ${PLAYERS[RESULT.winner].name} wins`;
+      document.getElementById("result-score").textContent = RESULT.winner
+        ? `${RESULT.score} · ${PLAYERS[RESULT.winner].name} wins`
+        : `${RESULT.score} · draw`;
       document.getElementById("result-ratings").textContent =
         `${PLAYERS.w.name} ${PLAYERS.w.rating} → ${PLAYERS.w.after} · ${PLAYERS.b.name} ${PLAYERS.b.rating} → ${PLAYERS.b.after}`;
       result.hidden = false;
       pgn.value = buildPgn();
       pgnStatus.textContent = "";
       buildEvalChart(document.getElementById("eval-plot"), document.getElementById("eval-tip"), document.getElementById("eval-table"));
+      document.getElementById("replay-exits").innerHTML = exitsMarkup(CURRENT);
       replay.hidden = false;
       for (let s = END_HOLD_S; s > 0; s -= 1) {
         countdown.textContent = String(s);
@@ -754,8 +865,20 @@
 
     const playGame = async () => {
       resetGame();
+      // A spectator joins a game in progress: the moves so far are already there.
+      const startAt = Math.min(CURRENT.startPly || 0, GAME.length);
+      for (let i = 0; i < startAt; i += 1) {
+        const move = GAME[i];
+        livePly = i + 1;
+        moveList.add(i);
+        feedEntry(feeds[move.side], moveLabel(i), move.say, `${(move.think / 1000).toFixed(1)} s`, false);
+      }
+      if (startAt > 0) {
+        showPly(livePly);
+        plyCounter.textContent = `move ${Math.floor(startAt / 2) + 1}${startAt % 2 ? "…" : ""}`;
+      }
       await sleep(1500);
-      for (let i = 0; i < GAME.length; i += 1) {
+      for (let i = startAt; i < GAME.length; i += 1) {
         const move = GAME[i];
         const number = Math.floor(i / 2) + 1;
         plyCounter.textContent = `move ${number}${move.side === "b" ? "…" : ""}`;

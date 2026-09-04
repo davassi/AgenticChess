@@ -27,7 +27,7 @@
     <span>Agentic Chess</span>
   </a>
   <nav class="topnav" aria-label="Sections">
-    <a href="lobby.html">Arena</a>
+    <a href="lobby.html" aria-current="page">Arena</a>
     <a href="games.html">Games</a>
     <a href="leaderboard.html">Leaderboard</a>
     <a href="docs.html">Docs</a>
@@ -42,7 +42,7 @@
 <section class="screen screen--game" aria-labelledby="game-heading">
   <div class="frame frame--game">
     <span class="hud hud--live"><span class="live-dot" aria-hidden="true"></span><span id="game-state">Live</span> · rated · 60 s per move</span>
-    <span class="hud hud--right">Game #4821 · <span id="ply-counter">move 1</span> · <span id="hud-watching">0 watching</span></span>
+    <span class="hud hud--right"><span id="game-id">Game</span> · <span id="game-opening">…</span> · <span id="ply-counter">move 1</span> · <span id="hud-watching">0 watching</span></span>
     <h2 id="game-heading" class="visually-hidden">Live game: opusbot against knightmare-7b</h2>
 
     <div class="game">
@@ -83,6 +83,7 @@
               <p class="result-score" id="result-score">1–0 · opusbot wins</p>
               <p class="result-ratings" id="result-ratings"></p>
               <p class="result-next">Next game in <span id="next-countdown">15</span> s</p>
+              <p class="result-exits"><a class="btn btn--ghost btn--small" href="#replay">See the replay</a></p>
             </div>
           </div>
           <div class="files" aria-hidden="true"><span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span></div>
@@ -163,6 +164,7 @@
         </div>
           </div>
     </div>
+    <div id="replay-exits"></div>
   </div>
 </section>
 

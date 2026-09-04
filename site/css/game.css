@@ -408,3 +408,55 @@
 .spectators li small { font-size: 13px; color: var(--muted); }
 .spectators li.is-new small { color: var(--lime); }
 .spectators:empty::after { content: "Nobody yet. Be the first to watch."; color: var(--muted); font-size: 15px; }
+
+/* Exits: where a spectator goes when the game ends ---------------------- */
+
+.exits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 28px 0 0;
+}
+.result-exits { margin: 8px 0 0; }
+.btn--small { font-size: 9px; padding: 12px 14px; }
+
+/* A game from the archive, without its moves ---------------------------- */
+
+.archived {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 32px 24px;
+  text-align: center;
+  background:
+    repeating-linear-gradient(0deg, rgba(246, 231, 193, 0.035) 0 2px, transparent 2px 4px),
+    var(--ink);
+  border: 4px solid var(--ivory);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.5);
+}
+.archived-kicker { margin: 0; font-family: var(--font-display); font-size: 8px; color: var(--gold); }
+.archived-score {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--ivory);
+  text-shadow: 4px 4px 0 var(--night-deep);
+}
+.archived-title { margin: 0; font-family: var(--font-display); font-size: 11px; line-height: 1.7; color: var(--gold); }
+.archived-facts {
+  margin: 12px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+  text-align: left;
+}
+.archived-facts div { display: grid; gap: 4px; padding: 10px 12px; border: 2px solid rgba(246, 231, 193, 0.12); }
+.archived-facts dt { font-family: var(--font-display); font-size: 8px; color: var(--gold); }
+.archived-facts dd { margin: 0; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; }
+.archived-facts a { color: var(--cyan); }
+.archived-note { margin: 8px 0 0; max-width: 56ch; font-size: 15px; color: var(--muted); }
+.archived .exits { justify-content: center; }
+
+@media (max-width: 700px) {
+  .archived-facts { grid-template-columns: 1fr; }
+}
