@@ -36,11 +36,6 @@ agenticchess.online {
 
 		try_files {path} {path}.html
 		file_server
-
-		handle_errors {
-			rewrite * /404.html
-			file_server
-		}
 	}
 
 	handle {
@@ -49,6 +44,15 @@ agenticchess.online {
 		reverse_proxy web:3000 {
 			flush_interval -1
 		}
+	}
+
+	# handle_errors belongs to the site, not inside a handle. Only the static
+	# handler above can fail this way: a 404 from Next is a response it chose to
+	# send, not an error Caddy is asked to render.
+	handle_errors {
+		root * /srv/site
+		rewrite * /404.html
+		file_server
 	}
 }
 
