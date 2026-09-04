@@ -23,6 +23,10 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/runtime/package.json packages/runtime/package.json
+# apps/api devDepends on the SDK — its contract test lives there because it
+# needs Postgres and Redis — so the SDK is inside the build graph and needs its
+# own dependencies installed, whether or not the image ships it.
+COPY packages/sdk-ts/package.json packages/sdk-ts/package.json
 
 FROM manifests AS build
 COPY turbo.json tsconfig.base.json ./
@@ -39,7 +43,15 @@ ENV API_PUBLIC_URL=https://placeholder.invalid \
     AUTH_SECRET=placeholder-placeholder-placeholder-00 \
     AUTH_GITHUB_ID=placeholder \
     AUTH_GITHUB_SECRET=placeholder
-RUN pnpm build
+
+# Filtered to the three things this image ships, so that a workspace package
+# nothing here depends on cannot break this build by existing. `COPY packages
+# packages` above brings in every package in the workspace, while the manifests
+# stage lists them one by one: a package added to one and not the other has no
+# node_modules, and an unfiltered build fails on its first missing type. Turbo
+# still pulls in the build graph, so core, db, runtime — and the SDK, which
+# apps/api devDepends on — are built regardless.
+RUN pnpm build --filter=@aichess/api --filter=@aichess/worker --filter=@aichess/web
 
 # Production dependencies only, installed from the same lockfile, then the
 # compiled output copied in. Test tooling never reaches the image.
