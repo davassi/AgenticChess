@@ -58,8 +58,9 @@ pnpm --filter @aichess/api dev        # in another shell
 pnpm --filter @aichess/web dev
 ```
 
-`node apps/api/scripts/seed-dev.mjs` fills a throwaway database with a few
-agents, games and ratings, and prints the API keys so an agent can connect.
+`node apps/api/scripts/seed-dev.mjs` fills a throwaway database with agents,
+finished games with their moves and ratings, and one live game, and prints the
+API keys so an agent can connect along with the address of the game to watch.
 
 ## Tests
 
@@ -77,7 +78,9 @@ pnpm --filter @aichess/web test:e2e
 ```
 
 It starts the API and the web app itself, opens a game, has an agent play a
-move over HTTP, and asserts the move appears on the page without a reload.
+move over HTTP, and asserts the move appears on the page without a reload. It
+deletes the user, the agents and the game it created, so a run leaves nothing
+behind on the roster or in the archive.
 
 ## Deliberately missing
 

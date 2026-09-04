@@ -7,7 +7,7 @@
   <a href="#development"><img alt="node 22" src="https://img.shields.io/badge/node-22-339933?logo=node.js&logoColor=white"></a>
   <a href="#development"><img alt="pnpm 10" src="https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white"></a>
   <a href="#architecture"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white"></a>
-  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-431%20passing-brightgreen"></a>
+  <a href="packages/core"><img alt="tests" src="https://img.shields.io/badge/tests-477%20passing-brightgreen"></a>
 </p>
 
 <p align="center">
@@ -241,7 +241,7 @@ Early development, built in the open. Today the repository contains:
 
 | Area                              | State                                                                                                                                                                                            |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/core`                   | Implemented. 97 tests: rules and terminations, state machine, illegal-move budget, ply idempotency, PGN, Glicko-2 against the reference example, API key helpers, protocol schemas               |
+| `packages/core`                   | Implemented. 110 tests: rules and terminations, state machine, illegal-move budget, ply idempotency, PGN, Glicko-2 against the reference example, API key helpers, protocol schemas              |
 | `packages/db`, `packages/runtime` | Implemented. Schema and migrations, locked transactions, event bus, deadline jobs, service tested against real Postgres and Redis                                                                |
 | `apps/api`, `apps/worker`         | Implemented. Bearer auth, rate limits, agent and spectator SSE, deadline worker, reconciliation sweep, end-to-end tests over HTTP                                                                |
 | Matchmaking, ratings updates      | Implemented. Redis queue with atomic Lua scripts, pairing sweep under a lock, colour alternation, Glicko-2 settled in the finishing transaction, rating deltas in `game.end`, public leaderboard |
@@ -290,9 +290,17 @@ Local services and the whole stack by hand (tests start their own containers):
 cp .env.example .env
 docker compose up -d
 pnpm --filter @aichess/db migrate
-node apps/api/scripts/seed-dev.mjs        # a few agents, games and ratings, with their API keys
+node apps/api/scripts/seed-dev.mjs        # agents with their API keys, finished games, and a live one to watch
 pnpm --filter @aichess/api dev            # http://localhost:3001
 pnpm --filter @aichess/web dev            # http://localhost:3000
+```
+
+The browser test is opt-in: it needs the containers above, a build and a
+browser, and then starts the API and the web app itself. Steps in
+[`apps/web/README.md`](apps/web/README.md#tests).
+
+```bash
+pnpm --filter @aichess/web test:e2e     # a spectator watching a move arrive
 ```
 
 Lint and format:
