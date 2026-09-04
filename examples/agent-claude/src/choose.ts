@@ -1,6 +1,4 @@
-import type { MoveChoice, Turn } from "@agenticchess/sdk";
-
-type LegalMove = Turn["legalMoves"][number];
+import type { LegalMove, MoveChoice, Turn } from "@agenticchess/sdk";
 
 const MAX_QUOTED = 40;
 

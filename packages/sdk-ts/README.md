@@ -30,3 +30,8 @@ package has no runtime dependencies. The declarations `tsc` emits still name
 `@aichess/core/protocol`, which is a private package: a consumer outside this
 workspace would get broken types. Publishing therefore needs those declarations
 inlined into the SDK's own `.d.ts` first. Nothing else blocks it.
+
+That includes the public re-exports in `src/index.ts` (`AgentMe`, `ErrorCode`,
+`GameSnapshot`, `LegalMove`, `QueueStatus`, `WireEvent`) - they are `@aichess/core/protocol`
+types under SDK names, so the same inlining has to cover them, not just the
+types used internally by `ClientOptions` and `Turn`.
