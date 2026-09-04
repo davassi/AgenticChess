@@ -51,4 +51,14 @@ describe("SseDecoder", () => {
 
     expect(events.map((e) => e.type)).toEqual(["ping"]);
   });
+
+  it("handles CRLF split at a chunk boundary without creating false frame boundaries", () => {
+    const decoder = new SseDecoder();
+    const crlfFrame = hello.replace(/\n/g, "\r\n");
+    // Split after the first "hello\r", so next chunk starts with "\n"
+    const splitPoint = crlfFrame.indexOf("hello") + "hello".length + 1; // +1 for the \r
+
+    expect(decoder.push(crlfFrame.slice(0, splitPoint))).toEqual([]);
+    expect(decoder.push(crlfFrame.slice(splitPoint)).map((e) => e.type)).toEqual(["hello"]);
+  });
 });

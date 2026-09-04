@@ -42,9 +42,14 @@ function decodeFrame(frame: string): WireEvent | null {
  */
 export class SseDecoder {
   private buffer = "";
+  private pending = "";
 
   push(chunk: string): WireEvent[] {
-    this.buffer += chunk.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const raw = this.pending + chunk;
+    // A trailing "\r" may be the first half of a "\r\n" still in flight.
+    this.pending = raw.endsWith("\r") ? "\r" : "";
+    const usable = this.pending === "" ? raw : raw.slice(0, -1);
+    this.buffer += usable.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const events: WireEvent[] = [];
     for (;;) {
       const end = this.buffer.indexOf("\n\n");
