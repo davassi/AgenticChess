@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import Link from "next/link";
 import { Sprite } from "@/components/layout/Sprite";
+import "@/styles/notfound.css";
 
 export default function NotFoundPage(): ReactElement {
   return (

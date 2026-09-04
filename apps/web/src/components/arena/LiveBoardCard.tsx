@@ -43,9 +43,9 @@ export function LiveBoardCard({ game, apiPublicUrl }: LiveBoardCardProps): React
         <IsoScene
           kind="board"
           className="mini"
-          width={128}
-          height={134}
-          maxScale={2}
+          width={256}
+          height={186}
+          maxScale={1}
           position={toIsoPosition(fen)}
           label="Current position"
         />

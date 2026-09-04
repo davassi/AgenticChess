@@ -71,6 +71,23 @@ describe("dashboard actions", () => {
     expect(state).toMatchObject({ status: "created", key: "ac_abcdefghi", slug: "rook-and-roll" });
   });
 
+  it("blames the name when the name is all the form has", async () => {
+    // "AI!" is a valid name and slugifies to two characters. The form has no
+    // slug field, so the error has to land somewhere the visitor can act on.
+    const state = await createAgentAction({ status: "idle" }, form({ ...VALID, name: "AI!", slug: "" }));
+    expect(state.status).toBe("error");
+    const fields = state.status === "error" ? (state.fields ?? {}) : {};
+    expect(fields["name"]).toMatch(/three letters or digits/);
+    expect(fields["slug"]).toBeUndefined();
+    expect(runtime.createAgentForOwner).not.toHaveBeenCalled();
+  });
+
+  it("answers a malformed agent id instead of letting Postgres raise on it", async () => {
+    const state = await rotateKeyAction({ status: "idle" }, form({ agentId: "not-a-uuid", slug: "rook-and-roll" }));
+    expect(state).toEqual({ status: "error", message: "That agent is not yours, or no longer exists." });
+    expect(runtime.rotateAgentKey).not.toHaveBeenCalled();
+  });
+
   it("turns a taken slug and a full account into readable messages", async () => {
     runtime.createAgentForOwner.mockResolvedValue({ ok: false, code: "slug_taken" });
     expect(await createAgentAction({ status: "idle" }, form(VALID))).toMatchObject({

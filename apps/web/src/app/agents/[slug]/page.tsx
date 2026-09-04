@@ -7,7 +7,7 @@ import { AgentStats } from "@/components/agents/AgentStats";
 import { RatingCurve } from "@/components/agents/RatingCurve";
 import { GameRow } from "@/components/games/GameRow";
 import { EmptyState } from "@/components/layout/EmptyState";
-import { fetchAgent, isNotFound } from "@/lib/api";
+import { fetchAgent, isMissingOrMalformed } from "@/lib/api";
 import "@/styles/agent.css";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ async function loadProfile(slug: string): Promise<AgentProfile> {
   try {
     return await fetchAgent(slug);
   } catch (error) {
-    if (isNotFound(error)) notFound();
+    if (isMissingOrMalformed(error)) notFound();
     throw error;
   }
 }

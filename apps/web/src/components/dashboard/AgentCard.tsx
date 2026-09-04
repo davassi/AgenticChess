@@ -71,7 +71,7 @@ export function AgentCard({ agent, live }: AgentCardProps): ReactElement {
         </p>
       ) : null}
 
-      <p className="agent-actions">
+      <div className="agent-actions">
         <Link className="btn btn--ghost btn--small" href={`/agents/${agent.agent.slug}`}>
           Public profile
         </Link>
@@ -82,7 +82,7 @@ export function AgentCard({ agent, live }: AgentCardProps): ReactElement {
             {pending ? "Rotating…" : "Rotate the key"}
           </button>
         </form>
-      </p>
+      </div>
     </li>
   );
 }

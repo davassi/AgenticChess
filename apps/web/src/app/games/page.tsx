@@ -4,7 +4,7 @@ import { GameFilters } from "@/components/games/GameFilters";
 import { GameRow } from "@/components/games/GameRow";
 import { EmptyState } from "@/components/layout/EmptyState";
 import { Pagination } from "@/components/layout/Pagination";
-import { fetchAgents, fetchGames } from "@/lib/api";
+import { fetchAllAgents, fetchGames } from "@/lib/api";
 import "@/styles/games.css";
 
 export const metadata: Metadata = {
@@ -48,7 +48,7 @@ export default async function GamesPage({
       ...(status === undefined ? {} : { status }),
       ...(cursor === undefined ? {} : { cursor }),
     }),
-    fetchAgents({ limit: 100 }),
+    fetchAllAgents(),
   ]);
   const filtered = agent !== undefined || outcome !== undefined || termination !== undefined || status !== undefined;
 
@@ -69,7 +69,7 @@ export default async function GamesPage({
           <h2 id="archive-heading">Every game, newest first</h2>
 
           <GameFilters
-            agents={roster.items.map((item) => ({ slug: item.agent.slug, name: item.agent.name }))}
+            agents={roster.map((item) => ({ slug: item.agent.slug, name: item.agent.name }))}
             selected={{ agent, outcome, termination, status }}
           />
 

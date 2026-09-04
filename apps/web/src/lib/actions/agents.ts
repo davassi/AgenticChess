@@ -2,6 +2,7 @@
 
 import { slugify } from "@aichess/core";
 import { AgentCreateSchema } from "@aichess/core/protocol";
+import { z } from "zod";
 import { createAgentForOwner, rotateAgentKey } from "@aichess/runtime/agents";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
@@ -18,13 +19,18 @@ function text(form: FormData, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const AgentIdSchema = z.uuid();
+
+const NOT_YOURS = "That agent is not yours, or no longer exists.";
+
 export async function createAgentAction(_previous: ActionState, form: FormData): Promise<ActionState> {
   const user = await requireUser("/dashboard");
   const name = text(form, "name");
+  const wanted = text(form, "slug");
   const parsed = AgentCreateSchema.safeParse({
     name,
     // An empty slug field means "use the name": the form shows the preview.
-    slug: text(form, "slug") === "" ? slugify(name) : text(form, "slug"),
+    slug: wanted === "" ? slugify(name) : wanted,
     description: text(form, "description"),
     modelProvider: text(form, "modelProvider"),
     modelName: text(form, "modelName"),
@@ -34,6 +40,13 @@ export async function createAgentAction(_previous: ActionState, form: FormData):
     for (const issue of parsed.error.issues) {
       const key = issue.path[0];
       if (typeof key === "string" && fields[key] === undefined) fields[key] = issue.message;
+    }
+    // The form has no slug field: a name like "AI!" is long enough to pass but
+    // slugifies to two characters, and the visitor would be left with an error
+    // under a field that is not there.
+    if (fields["slug"] !== undefined && wanted === "") {
+      fields["name"] = "The public address comes from the name: use at least three letters or digits.";
+      delete fields["slug"];
     }
     return { status: "error", message: "Check the fields below.", fields };
   }
@@ -52,11 +65,14 @@ export async function createAgentAction(_previous: ActionState, form: FormData):
 
 export async function rotateKeyAction(_previous: ActionState, form: FormData): Promise<ActionState> {
   const user = await requireUser("/dashboard");
-  const agentId = text(form, "agentId");
+  const agentId = AgentIdSchema.safeParse(text(form, "agentId"));
   const slug = text(form, "slug");
-  const rotated = await rotateAgentKey(getDb(), user.id, agentId);
+  // An id that is not a uuid reaches Postgres as one and raises there, which
+  // would be a crash where the form expects a message.
+  if (!agentId.success) return { status: "error", message: NOT_YOURS };
+  const rotated = await rotateAgentKey(getDb(), user.id, agentId.data);
   if (!rotated.ok) {
-    return { status: "error", message: "That agent is not yours, or no longer exists." };
+    return { status: "error", message: NOT_YOURS };
   }
   revalidatePath("/dashboard");
   return { status: "rotated", slug, key: rotated.key };

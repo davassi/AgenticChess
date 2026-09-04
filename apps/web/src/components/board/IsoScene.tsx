@@ -34,6 +34,9 @@ export function IsoScene({
     const canvas = canvasRef.current;
     if (canvas === null) return;
     let stopFitting: (() => void) | null = null;
+    // React resets the bitmap when the intrinsic size changes, so this effect
+    // has to run again and draw on the blank canvas it is handed.
+    let gone = false;
     try {
       stopFitting = keepFitted(canvas, { maxScale });
       if (kind === "board") {
@@ -42,20 +45,22 @@ export function IsoScene({
       } else {
         const scene = new CityScene(canvas, ARCHITECTURE_BUILDINGS, ARCHITECTURE_LINKS);
         scene.draw();
-        // The labels use a web font; redraw once it is ready.
-        void document.fonts?.load('8px "Press Start 2P"').then(
-          () => scene.draw(),
-          () => scene.draw(),
-        );
+        // The labels use a web font; redraw once it is ready, unless the
+        // canvas has moved on to another scene in the meantime.
+        const redraw = (): void => {
+          if (!gone) scene.draw();
+        };
+        void document.fonts?.load('8px "Press Start 2P"').then(redraw, redraw);
       }
     } catch (error) {
       // A browser without a 2d context gets an empty canvas, not a broken page.
       console.warn("isometric scene unavailable", error);
     }
     return () => {
+      gone = true;
       stopFitting?.();
     };
-  }, [kind, position, maxScale]);
+  }, [kind, position, maxScale, width, height]);
 
   return <canvas ref={canvasRef} className={className} width={width} height={height} role="img" aria-label={label} />;
 }

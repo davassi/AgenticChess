@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactElement } from "react";
 import { GameView } from "@/components/game/GameView";
 import { serverEnv } from "@/env";
-import { fetchGame, fetchGameTimeline, isNotFound } from "@/lib/api";
+import { fetchGame, fetchGameTimeline, isMissingOrMalformed } from "@/lib/api";
 import "@/styles/game.css";
 
 export const metadata: Metadata = { title: "Game" };
@@ -22,7 +22,7 @@ async function loadGame(id: string): Promise<{ snapshot: GameSnapshot; timeline:
     const timeline = await fetchGameTimeline(id);
     return { snapshot, timeline };
   } catch (error) {
-    if (isNotFound(error)) notFound();
+    if (isMissingOrMalformed(error)) notFound();
     throw error;
   }
 }

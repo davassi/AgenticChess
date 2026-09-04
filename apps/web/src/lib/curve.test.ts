@@ -44,6 +44,17 @@ describe("buildRatingCurve", () => {
     expect(buildRatingCurve([])).toBeNull();
   });
 
+  it("keeps the 1500 line when the range is wide enough to step over it", () => {
+    // Beyond 400 points the ticks go every hundred, and starting them at an
+    // odd fifty walked straight past the one value the chart emphasises.
+    const wide = [
+      { gameId: "g1", rating: 1490, rd: 40, at: "2026-09-01T10:00:00.000Z" },
+      { gameId: "g2", rating: 1960, rd: 40, at: "2026-09-02T10:00:00.000Z" },
+    ];
+    const curve = buildRatingCurve(wide);
+    expect(curve?.gridLines.some((line) => line.value === 1500 && line.emphasis)).toBe(true);
+  });
+
   it("puts a grid line on 1500 and labels it", () => {
     const curve = buildRatingCurve(history);
     expect(curve?.gridLines.some((line) => line.value === 1500 && line.emphasis)).toBe(true);

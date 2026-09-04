@@ -56,7 +56,7 @@ export function CommentFeed({ color, name, moves, attempts }: CommentFeedProps):
       ) : (
         <ul className="feed-list">
           {entries.map((entry) => (
-            <li key={entry.key} className={entry.illegal ? "feed-entry feed-entry--illegal" : "feed-entry"}>
+            <li key={entry.key} className={entry.illegal ? "is-illegal" : undefined}>
               <b>{entry.label}</b>
               <q>{entry.text}</q>
               <small>{entry.meta}</small>

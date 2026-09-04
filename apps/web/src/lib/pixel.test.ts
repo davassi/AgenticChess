@@ -38,6 +38,14 @@ describe("pixel renderer", () => {
     expect(spriteMask("not-a-sprite")).toBeNull();
   });
 
+  it("never mistakes a name every object has for a sprite", () => {
+    // Plain objects answer to "toString" and "constructor" with functions,
+    // and a caller that took one for a mask would throw while drawing.
+    expect(spriteMask("toString")).toBeNull();
+    expect(avatarMask("constructor")).toBeNull();
+    expect(paletteFor("hasOwnProperty")).toBeNull();
+  });
+
   it("resolves palettes by name", () => {
     expect(paletteFor("gold")).toBe(PALETTES.gold);
     expect(paletteFor("chartreuse")).toBeNull();

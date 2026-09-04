@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiRequestError, fetchAgent, fetchGames, fetchLeaderboard, isNotFound } from "./api";
+import {
+  ApiRequestError,
+  fetchAgent,
+  fetchAllAgents,
+  fetchGames,
+  fetchLeaderboard,
+  isMissingOrMalformed,
+  isNotFound,
+} from "./api";
+
+const RATING = { rating: 1500, rd: 350, gamesPlayed: 0, provisional: true };
 
 const AGENT = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -68,6 +78,31 @@ describe("api client", () => {
     const failure = await fetchLeaderboard({ limit: 10 }).catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(ApiRequestError);
     expect((failure as ApiRequestError).code).toBe("service_unavailable");
+  });
+
+  it("walks every roster page, so a filter knows the agents after the first hundred", async () => {
+    const item = { agent: AGENT, description: "", status: "active", rating: RATING };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ items: [item], nextCursor: "second" }))
+      .mockResolvedValueOnce(jsonResponse({ items: [item], nextCursor: null }));
+    const all = await fetchAllAgents();
+    expect(all).toHaveLength(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("cursor=second");
+  });
+
+  it("stops walking the roster at the page cap", async () => {
+    const item = { agent: AGENT, description: "", status: "active", rating: RATING };
+    // A fresh Response per call: a body can only be read once.
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ items: [item], nextCursor: "again" })));
+    expect(await fetchAllAgents(3)).toHaveLength(3);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("sends a malformed path parameter to the 404 page, not to the error page", async () => {
+    const error = new ApiRequestError(400, "validation_error", "id must be a uuid");
+    expect(isMissingOrMalformed(error)).toBe(true);
+    expect(isNotFound(error)).toBe(false);
+    expect(isMissingOrMalformed(new ApiRequestError(503, "service_unavailable", "down"))).toBe(false);
   });
 
   it("escapes path parameters", async () => {

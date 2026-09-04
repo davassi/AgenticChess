@@ -173,3 +173,61 @@
   .agent-head { grid-template-columns: auto minmax(0, 1fr); }
   .agent-head .presence { grid-column: 2; justify-self: start; }
 }
+
+/* The key box, the chips and the facts -------------------------------- */
+
+/*
+ * `.keybox` in arena.css is the two-column box the registration screen used,
+ * with the key beside the button. The dashboard's key box is a component with
+ * four stacked children, and these are the styles that were missing for them.
+ */
+.agent-card .keybox,
+.frame .keybox {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.keybox-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--gold);
+}
+.keybox-key {
+  font-family: var(--font-code);
+  font-size: 15px;
+  color: var(--ivory);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.keybox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.keybox-warning { margin: 0; font-size: 14px; color: var(--muted); }
+.agent-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 8px;
+}
+.fact { display: grid; gap: 2px; padding: 8px; background: var(--dusk-deep); }
+.fact dt { font-size: 13px; color: var(--muted); }
+.fact dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.fact dd small { color: var(--muted); }
+.fact dd code { font-family: var(--font-code); font-size: 12px; }
+.form-error { margin: 0; font-size: 15px; color: var(--red); }

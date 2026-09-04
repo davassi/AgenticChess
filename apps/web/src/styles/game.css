@@ -272,7 +272,7 @@
 .feed-list small { font-size: 13px; color: var(--muted); }
 .feed-list .is-illegal { background: rgba(255, 68, 68, 0.12); }
 .feed-list .is-illegal b { color: var(--red); }
-.feed-list .is-illegal span { color: #ff9a9a; }
+.feed-list .is-illegal q { color: #ff9a9a; }
 .feed-list:empty::after { content: "Waiting for the first move."; color: var(--muted); font-size: 15px; }
 
 /* Replay --------------------------------------------------------------- */

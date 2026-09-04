@@ -61,8 +61,11 @@ export function buildRatingCurve(history: CurvePoint[]): RatingCurve | null {
     .join(" ");
 
   const tickStep = hi - lo > 400 ? 100 : 50;
+  // From the first multiple of the step, not from `lo`: a wide curve starting
+  // at an odd fifty stepped straight over 1500, which is the one line the
+  // chart emphasises.
   const gridLines: GridLine[] = [];
-  for (let value = lo; value <= hi; value += tickStep) {
+  for (let value = Math.ceil(lo / tickStep) * tickStep; value <= hi; value += tickStep) {
     gridLines.push({ value, y: round(y(value)), emphasis: value === GLICKO2_DEFAULTS.rating });
   }
 

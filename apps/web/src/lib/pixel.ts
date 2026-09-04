@@ -544,21 +544,26 @@ export function rowRuns(shaded: ShadedGrid): Run[][] {
   });
 }
 
+/**
+ * A name that is not in the table gives nothing, including the names every
+ * object inherits: `PIECES["toString"]` is a function, and a caller that took
+ * it for a mask would throw while drawing.
+ */
+function entry<T>(table: Record<string, T>, name: string): T | null {
+  return Object.hasOwn(table, name) ? (table[name] ?? null) : null;
+}
+
 /** Every mask an agent may wear: the six pieces plus the extra avatars. */
 export function avatarMask(name: string): Mask | null {
-  const pieces: Record<string, Mask> = PIECES;
-  const avatars: Record<string, Mask> = AVATARS;
-  return pieces[name] ?? avatars[name] ?? null;
+  return entry<Mask>(PIECES, name) ?? entry<Mask>(AVATARS, name);
 }
 
 export function spriteMask(name: string): Mask | null {
-  const icons: Record<string, Mask> = ICONS;
-  return icons[name] ?? avatarMask(name);
+  return entry<Mask>(ICONS, name) ?? avatarMask(name);
 }
 
 export function paletteFor(name: string): Palette | null {
-  const palettes: Record<string, Palette> = PALETTES;
-  return palettes[name] ?? null;
+  return entry<Palette>(PALETTES, name);
 }
 
 /** Browser only: the isometric board draws sprites with drawImage. */

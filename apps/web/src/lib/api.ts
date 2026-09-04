@@ -1,4 +1,5 @@
 import {
+  AGENTS_MAX_LIMIT,
   AgentListPageSchema,
   AgentProfileSchema,
   ErrorResponseSchema,
@@ -7,6 +8,7 @@ import {
   GameTimelineSchema,
   LeaderboardPageSchema,
   LobbySchema,
+  type AgentListItem,
   type AgentListPage,
   type AgentProfile,
   type ErrorCode,
@@ -32,6 +34,15 @@ export class ApiRequestError extends Error {
 
 export function isNotFound(error: unknown): boolean {
   return error instanceof ApiRequestError && error.code === "not_found";
+}
+
+/**
+ * A path parameter the API refuses to parse — a game id that is not a uuid, a
+ * slug with a slash in it — describes a page that cannot exist, so it belongs
+ * on the 404 rather than on the error page.
+ */
+export function isMissingOrMalformed(error: unknown): boolean {
+  return error instanceof ApiRequestError && (error.code === "not_found" || error.code === "validation_error");
 }
 
 export type QueryValue = string | number | undefined;
@@ -107,6 +118,26 @@ export interface AgentsParams {
 
 export function fetchAgents(params: AgentsParams = {}): Promise<AgentListPage> {
   return getJson(`/v1/agents${queryString({ ...params })}`, AgentListPageSchema);
+}
+
+/** Enough pages for a thousand agents; beyond that the selector is a search box, not a list. */
+export const ROSTER_PAGE_CAP = 10;
+
+/**
+ * The whole roster, for the places that have to name every agent rather than
+ * show a few: a filter that only knows the first page silently cannot find
+ * the agents that come after it.
+ */
+export async function fetchAllAgents(cap = ROSTER_PAGE_CAP): Promise<AgentListItem[]> {
+  const all: AgentListItem[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < cap; page += 1) {
+    const answer = await fetchAgents({ limit: AGENTS_MAX_LIMIT, ...(cursor === undefined ? {} : { cursor }) });
+    all.push(...answer.items);
+    if (answer.nextCursor === null) break;
+    cursor = answer.nextCursor;
+  }
+  return all;
 }
 
 export function fetchAgent(slug: string): Promise<AgentProfile> {
