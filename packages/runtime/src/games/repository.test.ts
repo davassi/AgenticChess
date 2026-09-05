@@ -53,6 +53,19 @@ describe("game repository", () => {
     expect(await loadGame(db, state.id)).toEqual(state);
   });
 
+  it("stores and reads back an unrated game", async () => {
+    const state = createGame({
+      id: randomUUID(),
+      whiteAgentId: agents.white.id,
+      blackAgentId: agents.black.id,
+      config: { ...DEFAULT_GAME_CONFIG, rated: false },
+      now: T0,
+    });
+    await insertGame(db, state);
+    const loaded = await loadGame(db, state.id);
+    expect(loaded?.config.rated).toBe(false);
+  });
+
   it("returns null for an unknown game", async () => {
     expect(await loadGame(db, randomUUID())).toBeNull();
   });

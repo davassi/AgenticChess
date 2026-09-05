@@ -13,6 +13,7 @@ export interface AuthenticatedAgent {
   slug: string;
   modelProvider: string;
   modelName: string;
+  isHouse: boolean;
   status: AgentStatus;
 }
 
@@ -48,6 +49,7 @@ async function resolveAgent(deps: AppDeps, request: FastifyRequest): Promise<Aut
       slug: agents.slug,
       modelProvider: agents.modelProvider,
       modelName: agents.modelName,
+      isHouse: agents.isHouse,
       status: agents.status,
       apiKeyHash: agents.apiKeyHash,
     })
@@ -65,6 +67,7 @@ async function resolveAgent(deps: AppDeps, request: FastifyRequest): Promise<Aut
     slug: match.slug,
     modelProvider: match.modelProvider,
     modelName: match.modelName,
+    isHouse: match.isHouse,
     status: match.status,
   };
 }

@@ -17,6 +17,7 @@ const AGENT = {
   slug: "opusbot",
   modelProvider: "Anthropic",
   modelName: "claude-opus-5",
+  isHouse: false,
 };
 
 function jsonResponse(body: unknown, status = 200): Response {

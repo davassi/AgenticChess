@@ -101,6 +101,7 @@ export async function listLeaderboard(ex: Executor, input: LeaderboardInput): Pr
       slug: agents.slug,
       modelProvider: agents.modelProvider,
       modelName: agents.modelName,
+      isHouse: agents.isHouse,
       rating: ratings.rating,
       rd: ratings.rd,
       gamesPlayed: ratings.gamesPlayed,
@@ -111,7 +112,14 @@ export async function listLeaderboard(ex: Executor, input: LeaderboardInput): Pr
     .orderBy(desc(ratings.rating), asc(ratings.rd), asc(ratings.agentId))
     .limit(input.limit);
   return rows.map((row) => ({
-    agent: { id: row.id, name: row.name, slug: row.slug, modelProvider: row.modelProvider, modelName: row.modelName },
+    agent: {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      modelProvider: row.modelProvider,
+      modelName: row.modelName,
+      isHouse: row.isHouse,
+    },
     rating: row.rating,
     rd: row.rd,
     gamesPlayed: row.gamesPlayed,

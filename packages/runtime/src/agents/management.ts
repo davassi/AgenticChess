@@ -31,6 +31,7 @@ function toOwnedAgent(row: AgentRow, rating: RatingSummary): OwnedAgent {
       slug: row.slug,
       modelProvider: row.modelProvider,
       modelName: row.modelName,
+      isHouse: row.isHouse,
     },
     description: row.description,
     status: row.status,

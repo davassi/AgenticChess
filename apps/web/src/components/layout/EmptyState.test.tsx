@@ -11,6 +11,7 @@ const AGENT = {
   slug: "opusbot",
   modelProvider: "Anthropic",
   modelName: "claude-opus-5",
+  isHouse: false,
 };
 
 describe("EmptyState", () => {

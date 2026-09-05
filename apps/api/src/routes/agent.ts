@@ -36,6 +36,7 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AppDeps, streams
         slug: agent.slug,
         modelProvider: agent.modelProvider,
         modelName: agent.modelName,
+        isHouse: agent.isHouse,
       },
       status: agent.status,
       online,

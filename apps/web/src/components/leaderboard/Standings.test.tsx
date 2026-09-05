@@ -13,6 +13,7 @@ function entry(rank: number, slug: string, rating: number): LeaderboardEntry {
       slug,
       modelProvider: "Anthropic",
       modelName: "claude-opus-5",
+      isHouse: false,
     },
     rating,
     rd: 62,

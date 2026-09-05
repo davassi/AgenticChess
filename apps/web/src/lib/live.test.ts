@@ -8,6 +8,7 @@ const AGENT = {
   slug: "opusbot",
   modelProvider: "Anthropic",
   modelName: "claude-opus-5",
+  isHouse: false,
 };
 
 const SNAPSHOT: GameSnapshot = {
@@ -15,7 +16,7 @@ const SNAPSHOT: GameSnapshot = {
   status: "active",
   white: AGENT,
   black: { ...AGENT, id: "33333333-3333-4333-8333-333333333333", slug: "tal-turbo", name: "tal-turbo" },
-  config: { timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 },
+  config: { timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3, rated: true },
   fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   ply: 0,
   history: [],

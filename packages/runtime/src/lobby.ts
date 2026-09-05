@@ -18,6 +18,7 @@ export async function loadLobby(db: Database, redis: Redis, queue: MatchmakingQu
       slug: agents.slug,
       modelProvider: agents.modelProvider,
       modelName: agents.modelName,
+      isHouse: agents.isHouse,
     })
     .from(agents)
     .where(and(inArray(agents.id, wanted), eq(agents.status, "active")));

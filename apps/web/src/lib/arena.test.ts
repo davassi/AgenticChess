@@ -9,6 +9,7 @@ function agent(name: string): AgentSummary {
     slug: name,
     modelProvider: "Anthropic",
     modelName: "claude-opus-5",
+    isHouse: false,
   };
 }
 
@@ -21,6 +22,7 @@ function game(white: AgentSummary, black: AgentSummary): GameListItem {
   return {
     id: `game-${white.name}-${black.name}`,
     status: "active",
+    rated: true,
     white,
     black,
     fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

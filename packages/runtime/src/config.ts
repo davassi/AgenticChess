@@ -40,6 +40,8 @@ export function gameConfigFrom(
     timePerMoveMs: env.DEFAULT_TIME_PER_MOVE_MS,
     moveLimitPlies: env.MOVE_LIMIT_PLIES,
     illegalAttemptsPerTurn: env.ILLEGAL_ATTEMPTS_PER_TURN,
+    // The arena's default game counts. The unrated queue overrides it per game.
+    rated: true,
   };
 }
 

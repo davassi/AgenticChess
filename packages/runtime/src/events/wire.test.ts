@@ -6,8 +6,15 @@ import { toSnapshot, toWireEvents, type GameAgents, type Outgoing } from "./wire
 
 const T0 = Date.UTC(2026, 8, 3, 10, 0, 0);
 const agents: GameAgents = {
-  white: { id: randomUUID(), name: "Alpha", slug: "alpha", modelProvider: "anthropic", modelName: "claude-sonnet-5" },
-  black: { id: randomUUID(), name: "Beta", slug: "beta", modelProvider: "openai", modelName: "gpt-5" },
+  white: {
+    id: randomUUID(),
+    name: "Alpha",
+    slug: "alpha",
+    modelProvider: "anthropic",
+    modelName: "claude-sonnet-5",
+    isHouse: false,
+  },
+  black: { id: randomUUID(), name: "Beta", slug: "beta", modelProvider: "openai", modelName: "gpt-5", isHouse: false },
 };
 const NO_RATINGS = { white: null, black: null };
 

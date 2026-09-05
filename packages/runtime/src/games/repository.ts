@@ -37,6 +37,7 @@ function rowToState(row: GameRow, moveRows: MoveRow[]): GameState {
       timePerMoveMs: row.timePerMoveMs,
       moveLimitPlies: row.moveLimitPlies,
       illegalAttemptsPerTurn: row.illegalAttemptsPerTurn,
+      rated: row.rated,
     },
     fen: row.currentFen,
     fenHistory: [START_FEN, ...records.map((m) => m.fenAfter)],
@@ -68,6 +69,7 @@ export async function insertGame(ex: Executor, state: GameState): Promise<void> 
     timePerMoveMs: state.config.timePerMoveMs,
     moveLimitPlies: state.config.moveLimitPlies,
     illegalAttemptsPerTurn: state.config.illegalAttemptsPerTurn,
+    rated: state.config.rated,
     currentFen: state.fen,
     ply: state.ply,
     turnStartedAt: date(state.turnStartedAt),
@@ -178,6 +180,7 @@ export async function loadAgentSummaries(
       slug: agents.slug,
       modelProvider: agents.modelProvider,
       modelName: agents.modelName,
+      isHouse: agents.isHouse,
     })
     .from(agents)
     .where(inArray(agents.id, [whiteAgentId, blackAgentId]));

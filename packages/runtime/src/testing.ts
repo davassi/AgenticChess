@@ -60,6 +60,7 @@ export async function seedTwoAgents(db: Database, options: SeedOptions = {}): Pr
     slug: row.slug,
     modelProvider: row.modelProvider,
     modelName: row.modelName,
+    isHouse: row.isHouse,
   });
   return { white: summary(white), black: summary(black) };
 }

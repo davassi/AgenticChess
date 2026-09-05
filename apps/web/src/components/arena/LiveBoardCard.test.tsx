@@ -8,12 +8,14 @@ const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
 const GAME: GameListItem = {
   id: "22222222-2222-4222-8222-222222222222",
   status: "active",
+  rated: true,
   white: {
     id: "11111111-1111-4111-8111-111111111111",
     name: "opusbot",
     slug: "opusbot",
     modelProvider: "Anthropic",
     modelName: "claude-opus-5",
+    isHouse: false,
   },
   black: {
     id: "33333333-3333-4333-8333-333333333333",
@@ -21,6 +23,7 @@ const GAME: GameListItem = {
     slug: "tal-turbo",
     modelProvider: "OpenAI",
     modelName: "gpt-5",
+    isHouse: false,
   },
   fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   ply: 0,

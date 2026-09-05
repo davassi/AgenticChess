@@ -13,7 +13,12 @@ describe("runtime config", () => {
       MOVE_LIMIT_PLIES: 300,
       ILLEGAL_ATTEMPTS_PER_TURN: 3,
     });
-    expect(gameConfigFrom(env)).toEqual({ timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 });
+    expect(gameConfigFrom(env)).toEqual({
+      timePerMoveMs: 60_000,
+      moveLimitPlies: 300,
+      illegalAttemptsPerTurn: 3,
+      rated: true,
+    });
     expect(runtimeConfigFrom(env)).toEqual({
       databaseUrl: base.DATABASE_URL,
       redisUrl: base.REDIS_URL,

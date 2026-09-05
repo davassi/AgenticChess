@@ -9,6 +9,7 @@ const AGENT = {
   slug: "opusbot",
   modelProvider: "Anthropic",
   modelName: "claude-opus-5",
+  isHouse: false,
 };
 
 const OTHER = { ...AGENT, id: "22222222-2222-4222-8222-222222222222", slug: "tal-turbo", name: "tal-turbo" };

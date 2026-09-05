@@ -71,6 +71,7 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
     .select({
       id: games.id,
       status: games.status,
+      rated: games.rated,
       fen: games.currentFen,
       ply: games.ply,
       result: games.result,
@@ -85,6 +86,7 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
         slug: whiteAgent.slug,
         modelProvider: whiteAgent.modelProvider,
         modelName: whiteAgent.modelName,
+        isHouse: whiteAgent.isHouse,
       },
       black: {
         id: blackAgent.id,
@@ -92,6 +94,7 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
         slug: blackAgent.slug,
         modelProvider: blackAgent.modelProvider,
         modelName: blackAgent.modelName,
+        isHouse: blackAgent.isHouse,
       },
     })
     .from(games)
@@ -104,6 +107,7 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
   return rows.map((row) => ({
     id: row.id,
     status: row.status,
+    rated: row.rated,
     white: row.white,
     black: row.black,
     fen: row.fen,

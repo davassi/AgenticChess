@@ -8,6 +8,7 @@ export function toListItem(snapshot: GameSnapshot): GameListItem {
   return {
     id: snapshot.id,
     status: snapshot.status,
+    rated: snapshot.config.rated,
     white: snapshot.white,
     black: snapshot.black,
     fen: snapshot.fen,
