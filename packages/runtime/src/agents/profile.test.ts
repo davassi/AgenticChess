@@ -27,7 +27,7 @@ describe("agent profile", () => {
     agents = await seedTwoAgents(db, { owners: "distinct" });
   });
 
-  async function playedGame(result: "1-0" | "0-1" | "1/2-1/2", createdAt: number): Promise<string> {
+  async function playedGame(result: "1-0" | "0-1" | "1/2-1/2", createdAt: number, rated = true): Promise<string> {
     const [row] = await db
       .insert(games)
       .values({
@@ -35,6 +35,7 @@ describe("agent profile", () => {
         blackAgentId: agents.black.id,
         status: "finished",
         result,
+        rated,
         termination: result === "1/2-1/2" ? "stalemate" : "checkmate",
         timePerMoveMs: 60_000,
         moveLimitPlies: 300,
@@ -240,5 +241,15 @@ describe("agent profile", () => {
     const next = await listAgents(db, { limit: 5, after: { name: first.agent.name, id: first.agent.id } });
     expect(next.map((i) => i.agent.id)).not.toContain(first.agent.id);
     expect(first.rating).toMatchObject({ rating: 1500, provisional: true });
+  });
+
+  it("counts only rated games in the profile statistics", async () => {
+    await playedGame("1-0", T0);
+    await playedGame("1-0", T0 + 1_000, false);
+
+    const profile = await loadAgentProfile(db, agents.white.slug);
+
+    expect(profile?.stats.games).toBe(1);
+    expect(profile?.stats.wins).toBe(1);
   });
 });

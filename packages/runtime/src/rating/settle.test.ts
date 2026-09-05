@@ -32,12 +32,13 @@ describe("settleRatings", () => {
 
   async function startedGame(
     timePerMoveMs: number = DEFAULT_GAME_CONFIG.timePerMoveMs,
+    rated = true,
   ): Promise<ReturnType<typeof startGame>> {
     const created = createGame({
       id: randomUUID(),
       whiteAgentId: agents.white.id,
       blackAgentId: agents.black.id,
-      config: { ...DEFAULT_GAME_CONFIG, timePerMoveMs },
+      config: { ...DEFAULT_GAME_CONFIG, timePerMoveMs, rated },
       now: T0,
     });
     await insertGame(db, created);
@@ -94,5 +95,17 @@ describe("settleRatings", () => {
   it("returns null for a game that is still active", async () => {
     const { state } = await startedGame();
     expect(await db.transaction((tx) => settleRatings(tx, state, T0))).toBeNull();
+  });
+
+  it("leaves both ratings alone when the game was not rated", async () => {
+    const { state } = await startedGame(DEFAULT_GAME_CONFIG.timePerMoveMs, false);
+    const resigned = applyResign(state, agents.white.id, T0 + 5_000);
+    if (!resigned.ok) throw new Error(resigned.code);
+
+    const settled = await db.transaction((tx) => settleRatings(tx, resigned.state, T0 + 5_000));
+
+    expect(settled).toBeNull();
+    expect(await db.select().from(ratings)).toEqual([]);
+    expect(await db.select().from(ratingHistory)).toEqual([]);
   });
 });

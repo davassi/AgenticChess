@@ -25,6 +25,7 @@ export interface GamesListInput {
   agentId?: string;
   outcome?: GameOutcomeFilter;
   termination?: Termination;
+  rated?: boolean;
 }
 
 const whiteAgent = alias(agents, "white_agent");
@@ -56,6 +57,7 @@ export async function listGames(ex: Executor, input: GamesListInput): Promise<Ga
   const conditions: Array<SQL | undefined> = [];
   if (input.status !== undefined) conditions.push(eq(games.status, input.status));
   if (input.termination !== undefined) conditions.push(eq(games.termination, input.termination));
+  if (input.rated !== undefined) conditions.push(eq(games.rated, input.rated));
   if (input.agentId !== undefined) {
     conditions.push(
       input.outcome === undefined ? playedBy(input.agentId) : outcomeCondition(input.agentId, input.outcome),

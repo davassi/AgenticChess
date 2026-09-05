@@ -196,4 +196,19 @@ describe("game listing", () => {
     expect(await loadGamePgn(db, gameId)).toContain("stored");
     expect(await loadGamePgn(db, "00000000-0000-4000-8000-000000000000")).toBeNull();
   });
+
+  it("says whether each game counted, and filters on it", async () => {
+    const rated = await insertGame({ createdAt: new Date(T0 + 2_000) });
+    const practice = await insertGame({ rated: false, createdAt: new Date(T0 + 1_000) });
+
+    const all = await listGames(db, { limit: 10 });
+    expect(new Map(all.map((row) => [row.id, row.rated]))).toEqual(
+      new Map([
+        [rated, true],
+        [practice, false],
+      ]),
+    );
+    expect((await listGames(db, { limit: 10, rated: true })).map((row) => row.id)).toEqual([rated]);
+    expect((await listGames(db, { limit: 10, rated: false })).map((row) => row.id)).toEqual([practice]);
+  });
 });

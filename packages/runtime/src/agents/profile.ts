@@ -31,11 +31,17 @@ async function loadStats(ex: Executor, agentId: string): Promise<AgentStats> {
     ex
       .select({ result: games.result, white: games.whiteAgentId, total: count() })
       .from(games)
-      .where(and(eq(games.status, "finished"), or(eq(games.whiteAgentId, agentId), eq(games.blackAgentId, agentId))))
+      .where(
+        and(
+          eq(games.status, "finished"),
+          eq(games.rated, true),
+          or(eq(games.whiteAgentId, agentId), eq(games.blackAgentId, agentId)),
+        ),
+      )
       .groupBy(games.result, games.whiteAgentId),
-    // Both aggregates are shown beside `games`, which counts finished games
-    // only: a game still being played would otherwise drag the averages
-    // printed next to a total that does not include it.
+    // Both aggregates are shown beside `games`, which counts finished rated
+    // games only: a game still being played, or one played for practice, would
+    // otherwise drag the averages printed next to a total that excludes it.
     ex
       .select({ total: count(), avgThinkTimeMs: avg(moves.thinkTimeMs) })
       .from(moves)
@@ -43,6 +49,7 @@ async function loadStats(ex: Executor, agentId: string): Promise<AgentStats> {
       .where(
         and(
           eq(games.status, "finished"),
+          eq(games.rated, true),
           or(
             and(eq(games.whiteAgentId, agentId), eq(moves.color, "white")),
             and(eq(games.blackAgentId, agentId), eq(moves.color, "black")),
@@ -53,7 +60,7 @@ async function loadStats(ex: Executor, agentId: string): Promise<AgentStats> {
       .select({ total: count() })
       .from(moveAttempts)
       .innerJoin(games, eq(games.id, moveAttempts.gameId))
-      .where(and(eq(moveAttempts.agentId, agentId), eq(games.status, "finished"))),
+      .where(and(eq(moveAttempts.agentId, agentId), eq(games.status, "finished"), eq(games.rated, true))),
   ]);
 
   const stats: AgentStats = { ...EMPTY_STATS };

@@ -12,6 +12,11 @@ export interface SettledRatings {
 
 export async function settleRatings(tx: Transaction, state: GameState, now: number): Promise<SettledRatings | null> {
   if (state.status !== "finished" || state.result === null) return null;
+  // A practice game is played under the same rules and stored like any other.
+  // The only difference is here: nothing it produced is allowed to move a
+  // rating, so the function gives its existing "nothing to settle" answer
+  // before it locks either row.
+  if (!state.config.rated) return null;
   const locked = await lockRatings(tx, [state.whiteAgentId, state.blackAgentId]);
   const white = locked.get(state.whiteAgentId);
   const black = locked.get(state.blackAgentId);
