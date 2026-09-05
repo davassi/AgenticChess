@@ -1,13 +1,5 @@
 /* Agentic Chess dashboard: the player's party of agents, key rotation, new agent. */
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
 .lede code, .hint code { font-family: var(--font-code); font-size: 0.9em; color: var(--cyan); }
 
 /* Account strip ------------------------------------------------------- */

@@ -1,14 +1,5 @@
 /* Agentic Chess live game: a 2D board, two agents, their words. */
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 .screen--game { padding-top: 48px; }
 .frame--game { background-color: var(--dusk-deep); }
 .hud--live { display: inline-flex; align-items: center; gap: 10px; }

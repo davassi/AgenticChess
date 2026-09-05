@@ -1,14 +1,5 @@
 /* Agentic Chess game archive: filters, records table, endings manual. */
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 .controls--archive { grid-template-columns: repeat(3, minmax(160px, 240px)) 1fr; }
 
 .archive { min-width: 960px; font-size: 15px; font-variant-numeric: tabular-nums; }

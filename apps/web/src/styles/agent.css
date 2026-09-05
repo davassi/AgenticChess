@@ -1,13 +1,5 @@
 /* Agentic Chess agent profile: character sheet, rating curve, stats, games. */
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
 .intro-lede code { font-family: var(--font-code); font-size: 0.9em; color: var(--cyan); }
 
 /* Roster (no agent addressed) ---------------------------------------------- */

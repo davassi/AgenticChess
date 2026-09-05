@@ -31,6 +31,19 @@
   display: none !important;
 }
 
+/* Lives here, in the sheet every route loads, and nowhere else. It was copied
+   into agent, dashboard, game and games; /arena loads none of those and its
+   "Open" labels were rendering on screen. A rule that hides a label from sight
+   but not from a screen reader is only correct if no page can miss it. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 html {
   background: var(--night-deep);
   color-scheme: dark;
