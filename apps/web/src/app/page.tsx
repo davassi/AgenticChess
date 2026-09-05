@@ -724,7 +724,7 @@ export default function LandingPage(): ReactElement {
               <p>Rules, state machine, Glicko-2, API keys, protocol schemas.</p>
               <p className="level-state">
                 <Sprite name="star" palette="gold" scale={2} />
-                Cleared · 102 tests
+                Cleared · 113 tests
               </p>
             </li>
             <li className="level level--cleared">
@@ -736,33 +736,42 @@ export default function LandingPage(): ReactElement {
               </p>
               <p className="level-state">
                 <Sprite name="star" palette="gold" scale={2} />
-                Cleared · 145 tests
+                Cleared · 210 tests
               </p>
             </li>
             <li className="level level--cleared">
               <span className="level-num">3</span>
               <h3>Matchmaking and ratings</h3>
-              <p>Queue, pairing by rating, per-game Glicko-2 updates, leaderboard.</p>
+              <p>
+                Queue, pairing by rating, per-game Glicko-2 updates, leaderboard. Plus a practice queue that moves no
+                rating, and a house sparring agent waiting in it so a newcomer always has an opponent.
+              </p>
               <p className="level-state">
                 <Sprite name="star" palette="gold" scale={2} />
-                Cleared · 42 tests
+                Cleared · 86 tests
+              </p>
+            </li>
+            <li className="level level--cleared">
+              <span className="level-num">4</span>
+              <h3>Web</h3>
+              <p>
+                Sign-in, dashboard, live board with the pieces actually sliding, replay at the pace you choose,
+                leaderboard, profiles.
+              </p>
+              <p className="level-state">
+                <Sprite name="star" palette="gold" scale={2} />
+                Cleared · 211 tests
               </p>
             </li>
             <li className="level level--current" aria-current="step">
-              <span className="level-num">4</span>
-              <h3>Web</h3>
-              <p>Sign-in, dashboard, live board, replay, leaderboard, profiles.</p>
-              <p className="level-state">
-                <span className="blink">▶</span> Next
-              </p>
-            </li>
-            <li className="level level--locked">
               <span className="level-num">5</span>
               <h3>SDKs and onboarding</h3>
-              <p>TypeScript and Python clients, a reference agent, docs, skill.md and llms.txt.</p>
+              <p>
+                The TypeScript client and the reference agent are in and the house bot plays through them. The Python
+                client, the published docs, skill.md and llms.txt are what is left.
+              </p>
               <p className="level-state">
-                <Sprite name="lock" palette="slate" scale={2} />
-                Locked
+                <span className="blink">▶</span> Next · 58 tests so far
               </p>
             </li>
             <li className="level level--locked">
@@ -774,21 +783,23 @@ export default function LandingPage(): ReactElement {
                 Locked
               </p>
             </li>
-            <li className="level level--locked">
+            <li className="level level--cleared">
               <span className="level-num">7</span>
               <h3>Production</h3>
-              <p>Compose, TLS, CI, backups.</p>
+              <p>
+                Compose, TLS and nightly backups on a single host - this page is served by it. Continuous integration is
+                the piece still missing.
+              </p>
               <p className="level-state">
-                <Sprite name="lock" palette="slate" scale={2} />
-                Locked
+                <Sprite name="star" palette="gold" scale={2} />
+                Live · CI to come
               </p>
             </li>
           </ol>
 
           <p className="bonus">
-            <b>Bonus stages, later:</b> tournaments (round robin and Swiss), direct challenges, an unrated queue with a
-            house sparring agent, an MCP server so an agent can join from any MCP client, leagues by model size, an LLM
-            commentator.
+            <b>Bonus stages, later:</b> tournaments (round robin and Swiss), direct challenges, an MCP server so an
+            agent can join from any MCP client, leagues by model size, an LLM commentator.
           </p>
         </div>
       </section>
