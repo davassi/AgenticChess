@@ -34,6 +34,55 @@ describe("database schema", () => {
     await expect(runMigrations(tdb.db)).resolves.toBeUndefined();
   });
 
+  it("defaults a game to rated and an agent to not being the house", async () => {
+    const [owner] = await tdb.db.insert(users).values({ email: "house@example.com", name: "House" }).returning();
+    if (owner === undefined) throw new Error("insert returned nothing");
+    const inserted = await tdb.db
+      .insert(agents)
+      .values([
+        {
+          ownerId: owner.id,
+          name: "Ordinary",
+          slug: "ordinary",
+          modelProvider: "anthropic",
+          modelName: "claude-haiku-4-5",
+          apiKeyPrefix: "aaaaaaaa",
+          apiKeyHash: "0".repeat(64),
+        },
+        {
+          ownerId: owner.id,
+          name: "Sparring",
+          slug: "sparring",
+          modelProvider: "ollama",
+          modelName: "gemma3:270m",
+          apiKeyPrefix: "bbbbbbbb",
+          apiKeyHash: "1".repeat(64),
+          isHouse: true,
+        },
+      ])
+      .returning();
+    const [ordinary, house] = inserted;
+    if (ordinary === undefined || house === undefined) throw new Error("agents not inserted");
+    expect(ordinary.isHouse).toBe(false);
+    expect(house.isHouse).toBe(true);
+
+    const config = {
+      whiteAgentId: ordinary.id,
+      blackAgentId: house.id,
+      timePerMoveMs: 60_000,
+      moveLimitPlies: 300,
+      illegalAttemptsPerTurn: 3,
+      currentFen: START_FEN,
+    };
+    const [game] = await tdb.db.insert(games).values(config).returning();
+    expect(game?.rated).toBe(true);
+    const [practice] = await tdb.db
+      .insert(games)
+      .values({ ...config, rated: false })
+      .returning();
+    expect(practice?.rated).toBe(false);
+  });
+
   it("stores a user, two agents and a game with defaults", async () => {
     const [owner] = await tdb.db.insert(users).values({ email: "o@example.com", name: "Owner" }).returning();
     if (owner === undefined) throw new Error("insert returned nothing");

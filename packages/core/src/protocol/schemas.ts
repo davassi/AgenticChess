@@ -37,6 +37,12 @@ export const GameConfigSchema = z.object({
   timePerMoveMs: z.int().min(1_000).max(3_600_000),
   moveLimitPlies: z.int().min(2).max(2_000),
   illegalAttemptsPerTurn: z.int().min(1).max(10),
+  /**
+   * Whether the result moves the players' ratings. It rides in the config
+   * because the config is the one object already carried from `createGame`
+   * through the snapshot to the SDK and the board.
+   */
+  rated: z.boolean(),
 });
 export type GameConfig = z.infer<typeof GameConfigSchema>;
 
@@ -60,6 +66,8 @@ export const AgentSummarySchema = z.object({
   slug: z.string(),
   modelProvider: z.string(),
   modelName: z.string(),
+  /** The arena's own sparring agent, so a viewer knows who they are looking at. */
+  isHouse: z.boolean(),
 });
 export type AgentSummary = z.infer<typeof AgentSummarySchema>;
 
@@ -220,6 +228,9 @@ export const PingEventSchema = z.object({
 export const GameListItemSchema = z.object({
   id: z.uuid(),
   status: GameStatusSchema,
+  // The list item does not carry the game config, so it needs the flag of its
+  // own: the archive rows and the arena cards draw their badge from here.
+  rated: z.boolean(),
   white: AgentSummarySchema,
   black: AgentSummarySchema,
   fen: z.string(),

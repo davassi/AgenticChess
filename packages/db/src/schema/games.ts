@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { doublePrecision, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { agents } from "./agents.js";
 import { gameResultEnum, gameStatusEnum, terminationEnum } from "./enums.js";
 import { moves } from "./moves.js";
@@ -20,6 +20,9 @@ export const games = pgTable(
     timePerMoveMs: integer("time_per_move_ms").notNull(),
     moveLimitPlies: integer("move_limit_plies").notNull(),
     illegalAttemptsPerTurn: integer("illegal_attempts_per_turn").notNull(),
+    // Defaults to true so the migration needs no backfill: every game played
+    // before this column existed was rated.
+    rated: boolean("rated").notNull().default(true),
     currentFen: text("current_fen").notNull(),
     ply: integer("ply").notNull().default(0),
     turnStartedAt: timestamp("turn_started_at", { withTimezone: true }),

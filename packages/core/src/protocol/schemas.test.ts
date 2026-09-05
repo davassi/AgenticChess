@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   AgentCreateSchema,
   AgentMeSchema,
+  AgentSummarySchema,
   AgentProfileSchema,
   ErrorResponseSchema,
   GameConfigSchema,
@@ -58,6 +59,7 @@ describe("GameConfigSchema", () => {
       timePerMoveMs: 60_000,
       moveLimitPlies: 300,
       illegalAttemptsPerTurn: 3,
+      rated: true,
     });
   });
 
@@ -128,9 +130,23 @@ describe("WireEventSchema", () => {
       game: {
         id: gameId,
         status: "active",
-        white: { id: "5b1d0d3e-1c2b-4a4d-9e0f-0a1b2c3d4e5f", name: "A", slug: "a", modelProvider: "x", modelName: "y" },
-        black: { id: "6c2e1e4f-2d3c-4b5e-8f10-1b2c3d4e5f60", name: "B", slug: "b", modelProvider: "x", modelName: "y" },
-        config: { timePerMoveMs: 60000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 },
+        white: {
+          id: "5b1d0d3e-1c2b-4a4d-9e0f-0a1b2c3d4e5f",
+          name: "A",
+          slug: "a",
+          modelProvider: "x",
+          modelName: "y",
+          isHouse: false,
+        },
+        black: {
+          id: "6c2e1e4f-2d3c-4b5e-8f10-1b2c3d4e5f60",
+          name: "B",
+          slug: "b",
+          modelProvider: "x",
+          modelName: "y",
+          isHouse: false,
+        },
+        config: { timePerMoveMs: 60000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3, rated: true },
         fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         ply: 0,
         history: [],
@@ -170,6 +186,7 @@ describe("agent profile, queue and leaderboard schemas", () => {
     slug: "alpha",
     modelProvider: "anthropic",
     modelName: "claude-sonnet-5",
+    isHouse: false,
   };
 
   it("describes the agent profile", () => {
@@ -219,12 +236,14 @@ describe("public read schemas", () => {
     slug: "opusbot",
     modelProvider: "Anthropic",
     modelName: "claude-opus-5",
+    isHouse: false,
   };
 
   it("accepts a game list item and rejects a bad turn", () => {
     const item = {
       id: "22222222-2222-4222-8222-222222222222",
       status: "active",
+      rated: true,
       white: agent,
       black: { ...agent, id: "33333333-3333-4333-8333-333333333333", slug: "gambit-flash" },
       fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -307,5 +326,33 @@ describe("public read schemas", () => {
     expect(AgentCreateSchema.safeParse({ ...input, slug: "Rook" }).success).toBe(false);
     expect(AgentCreateSchema.safeParse({ ...input, slug: "-nope" }).success).toBe(false);
     expect(AgentCreateSchema.safeParse({ ...input, name: "ab" }).success).toBe(false);
+  });
+});
+
+describe("the rated flag and the house flag", () => {
+  it("carries rated inside the game config, defaulting to true in DEFAULT_GAME_CONFIG", () => {
+    expect(DEFAULT_GAME_CONFIG.rated).toBe(true);
+    expect(GameConfigSchema.parse({ ...DEFAULT_GAME_CONFIG })).toMatchObject({ rated: true });
+    expect(
+      GameConfigSchema.safeParse({ timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 }).success,
+    ).toBe(false);
+  });
+
+  it("says on every agent summary whether it is the house", () => {
+    const summary = {
+      id: "0f1d3a8e-2b47-4c9a-8f5e-6d2c1b0a9e88",
+      name: "Sparring Partner",
+      slug: "sparring",
+      modelProvider: "ollama",
+      modelName: "gemma3:270m",
+      isHouse: true,
+    };
+    expect(AgentSummarySchema.parse(summary).isHouse).toBe(true);
+    const { isHouse: _omitted, ...withoutFlag } = summary;
+    expect(AgentSummarySchema.safeParse(withoutFlag).success).toBe(false);
+  });
+
+  it("says on every listed game whether it counted", () => {
+    expect(GameListItemSchema.shape.rated).toBeDefined();
   });
 });

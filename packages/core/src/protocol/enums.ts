@@ -54,6 +54,9 @@ export const DEFAULT_GAME_CONFIG = {
   timePerMoveMs: 60_000,
   moveLimitPlies: 300,
   illegalAttemptsPerTurn: 3,
+  // Practice games are the exception, so the default is the rated one: a
+  // caller that says nothing gets a game that counts.
+  rated: true,
 } as const;
 
 export const GAME_OUTCOME_FILTERS = ["win", "loss", "draw"] as const;

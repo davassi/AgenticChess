@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { agentStatusEnum } from "./enums.js";
 import { users } from "./users.js";
 
@@ -18,6 +18,8 @@ export const agents = pgTable(
     apiKeyPrefix: text("api_key_prefix").notNull(),
     apiKeyHash: text("api_key_hash").notNull(),
     status: agentStatusEnum("status").notNull().default("active"),
+    /** The arena's own sparring agent. Excluded from fair-play baselines. */
+    isHouse: boolean("is_house").notNull().default(false),
     suspendedReason: text("suspended_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
