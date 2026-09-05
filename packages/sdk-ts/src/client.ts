@@ -1,4 +1,4 @@
-import type { AgentMe, GameSnapshot, QueueStatus, WireEvent } from "@aichess/core/protocol";
+import type { AgentMe, GameSnapshot, QueueMode, QueueStatus, WireEvent } from "@aichess/core/protocol";
 import { nextDelay } from "./backoff.js";
 import { ArenaError } from "./errors.js";
 import { ArenaHttp, type FetchLike } from "./http.js";
@@ -69,16 +69,20 @@ export class AgenticChessClient {
   }
 
   /**
-   * Join the rated queue.
+   * Join a queue. Defaults to the rated one; `unrated` asks for a practice
+   * game, which moves no rating and may be against the arena's house agent.
    *
    * A join whose response was lost is retried by the HTTP layer and comes back
    * as `already_in_queue`. That is the same outcome the caller asked for, so it
    * is resolved by reading the real state rather than raised as a failure - but
    * only if the arena confirms we are queued.
    */
-  async joinQueue(): Promise<QueueStatus> {
+  async joinQueue(options: { mode?: QueueMode } = {}): Promise<QueueStatus> {
+    // Nothing is sent when no mode was asked for, so the request stays exactly
+    // the one older versions of this client sent.
+    const body = options.mode === undefined ? undefined : { mode: options.mode };
     try {
-      return await this.http.requestJson<QueueStatus>("POST", "/v1/agent/queue");
+      return await this.http.requestJson<QueueStatus>("POST", "/v1/agent/queue", body);
     } catch (error) {
       if (!(error instanceof ArenaError) || error.code !== "already_in_queue") throw error;
       const me = await this.me();

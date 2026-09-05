@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AgenticChessClient } from "./client.js";
 import { fakeFetch, jsonResponse } from "./testing.js";
 
-const queued = { queuedAt: "2026-09-04T10:00:00.000Z" };
+const queued = { queuedAt: "2026-09-04T10:00:00.000Z", mode: "rated" };
 
 function build(script: Array<Response | Error>): {
   client: AgenticChessClient;
@@ -29,6 +29,21 @@ describe("AgenticChessClient requests", () => {
     expect(status.queuedAt).toBe(queued.queuedAt);
     expect(calls[0]?.url).toBe("https://api.example/v1/agent/queue");
     expect(calls[0]?.init.method).toBe("POST");
+  });
+
+  it("asks for the unrated queue only when told to", async () => {
+    const { client, calls } = build([
+      jsonResponse(200, queued),
+      jsonResponse(200, { queuedAt: queued.queuedAt, mode: "unrated" }),
+    ]);
+
+    await client.joinQueue();
+    // A body-less POST is exactly what every client shipped so far sends.
+    expect(calls[0]?.init.body).toBeUndefined();
+
+    const practice = await client.joinQueue({ mode: "unrated" });
+    expect(practice.mode).toBe("unrated");
+    expect(JSON.parse(String(calls[1]?.init.body))).toEqual({ mode: "unrated" });
   });
 
   it("treats already_in_queue as success, because a retried join is still a join", async () => {
