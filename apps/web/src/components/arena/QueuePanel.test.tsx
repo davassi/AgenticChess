@@ -21,7 +21,7 @@ describe("QueuePanel", () => {
     render(
       <QueuePanel
         now={now}
-        queue={[{ agent: AGENT, rating: 1688, queuedAt: new Date(now - 90_000).toISOString() }]}
+        queue={[{ agent: AGENT, rating: 1688, queuedAt: new Date(now - 90_000).toISOString(), mode: "rated" }]}
         playing={[OTHER]}
         idle={[]}
         offline={[]}

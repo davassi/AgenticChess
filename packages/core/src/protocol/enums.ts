@@ -59,6 +59,9 @@ export const DEFAULT_GAME_CONFIG = {
   rated: true,
 } as const;
 
+export const QUEUE_MODES = ["rated", "unrated"] as const;
+export type QueueMode = (typeof QUEUE_MODES)[number];
+
 export const GAME_OUTCOME_FILTERS = ["win", "loss", "draw"] as const;
 export type GameOutcomeFilter = (typeof GAME_OUTCOME_FILTERS)[number];
 

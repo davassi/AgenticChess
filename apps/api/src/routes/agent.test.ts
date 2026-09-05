@@ -45,16 +45,16 @@ describe("agent queue routes", () => {
     expect(again.json()).toMatchObject({ error: "already_in_queue" });
 
     const me = await h.app.inject({ method: "GET", url: "/v1/agent/me", headers: auth(h.agents.white) });
-    expect(me.json()).toMatchObject({ queue: { queuedAt: body.queuedAt } });
+    expect(me.json()).toMatchObject({ queue: { queuedAt: body.queuedAt, mode: "rated" } });
 
     const leave = await h.app.inject({ method: "DELETE", url: "/v1/agent/queue", headers: auth(h.agents.white) });
     expect(leave.statusCode).toBe(200);
-    expect(leave.json()).toEqual({ queuedAt: body.queuedAt });
+    expect(leave.json()).toEqual({ queuedAt: body.queuedAt, mode: "rated" });
 
     const leaveAgain = await h.app.inject({ method: "DELETE", url: "/v1/agent/queue", headers: auth(h.agents.white) });
     expect(leaveAgain.statusCode).toBe(409);
     expect(leaveAgain.json()).toMatchObject({ error: "not_in_queue" });
-    expect(await h.deps.queue.size()).toBe(0);
+    expect(await h.deps.queue.size("rated")).toBe(0);
   });
 
   it("refuses to queue an agent that is playing", async () => {
@@ -76,12 +76,12 @@ describe("agent queue routes", () => {
 
     const join = await h.app.inject({ method: "POST", url: "/v1/agent/queue", headers: auth(h.agents.white) });
     const { queuedAt } = join.json() as QueueStatus;
-    expect(await first.take("queue.joined")).toEqual({ type: "queue.joined", queuedAt });
+    expect(await first.take("queue.joined")).toEqual({ type: "queue.joined", queuedAt, mode: "rated" });
 
     const second = await connect(h.agents.white);
     expect(await second.take("hello")).toMatchObject({ queue: { queuedAt } });
 
     await h.app.inject({ method: "DELETE", url: "/v1/agent/queue", headers: auth(h.agents.white) });
-    expect(await second.take("queue.left")).toEqual({ type: "queue.left", queuedAt });
+    expect(await second.take("queue.left")).toEqual({ type: "queue.left", queuedAt, mode: "rated" });
   });
 });

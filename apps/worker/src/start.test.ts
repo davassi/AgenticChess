@@ -77,7 +77,7 @@ describe("startWorker", () => {
       expect((await runtime.matchmaking.join(pair.black.id)).ok).toBe(true);
       await waitFor(async () => (await runtime.service.activeGameFor(pair.white.id)) !== null, 8_000);
       expect((await runtime.service.activeGameFor(pair.black.id))?.status).toBe("active");
-      expect(await runtime.queue.size()).toBe(0);
+      expect(await runtime.queue.size("rated")).toBe(0);
     } finally {
       await worker.stop();
     }

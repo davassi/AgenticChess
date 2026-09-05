@@ -7,7 +7,14 @@ import { listOnlineAgentIds } from "./presence.js";
 
 /** Who is connected and who is waiting: both facts live in Redis, the names in Postgres. */
 export async function loadLobby(db: Database, redis: Redis, queue: MatchmakingQueue, limit: number): Promise<Lobby> {
-  const [onlineIds, entries] = await Promise.all([listOnlineAgentIds(redis, limit), queue.entries()]);
+  const [onlineIds, rated, unrated] = await Promise.all([
+    listOnlineAgentIds(redis, limit),
+    queue.entries("rated"),
+    queue.entries("unrated"),
+  ]);
+  // Both queues. Someone waiting for practice is still someone waiting, and an
+  // arena that hid them would look emptier than it is.
+  const entries = [...rated, ...unrated];
   const wanted = [...new Set([...onlineIds, ...entries.map((entry) => entry.agentId)])];
   if (wanted.length === 0) return { online: [], queue: [] };
 
@@ -35,7 +42,14 @@ export async function loadLobby(db: Database, redis: Redis, queue: MatchmakingQu
       const summary = byId.get(entry.agentId);
       return summary === undefined
         ? []
-        : [{ agent: summary, rating: entry.rating, queuedAt: new Date(entry.queuedAt).toISOString() }];
+        : [
+            {
+              agent: summary,
+              rating: entry.rating,
+              queuedAt: new Date(entry.queuedAt).toISOString(),
+              mode: entry.mode,
+            },
+          ];
     });
   return { online, queue: waiting };
 }

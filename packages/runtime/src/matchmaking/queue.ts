@@ -1,30 +1,50 @@
+import type { QueueMode } from "@aichess/core/protocol";
 import type { Redis } from "ioredis";
 
-export const QUEUE_KEY = "mm:queue";
-export const QUEUE_META_KEY = "mm:meta";
+/**
+ * One sorted set per mode, and one hash holding every waiting agent.
+ *
+ * The hash is deliberately shared. It is what makes "an agent is in at most one
+ * queue" a single atomic check instead of two, and it is what lets `leave` find
+ * the right sorted set without the caller having to remember which queue the
+ * agent joined.
+ *
+ * The key names are new: the previous single-queue layout used `mm:queue` and
+ * `mm:meta`, whose values carry no mode. Rather than parse two formats for
+ * ever, the old keys are abandoned - a queue holds nothing that has to survive
+ * a deploy.
+ */
+export const QUEUE_KEYS: Record<QueueMode, string> = {
+  rated: "mm:queue:rated",
+  unrated: "mm:queue:unrated",
+};
+export const QUEUE_ENTRY_KEY = "mm:entry";
 
 export interface QueueEntry {
   agentId: string;
   rating: number;
   queuedAt: number;
+  mode: QueueMode;
 }
 
 export interface QueueMembership {
   queuedAt: number;
+  mode: QueueMode;
 }
 
 const JOIN_SCRIPT = `
-if redis.call("ZSCORE", KEYS[1], ARGV[1]) then return 0 end
+if redis.call("HEXISTS", KEYS[2], ARGV[1]) == 1 then return 0 end
 redis.call("ZADD", KEYS[1], ARGV[2], ARGV[1])
 redis.call("HSET", KEYS[2], ARGV[1], ARGV[3])
 return 1`;
 
 const LEAVE_SCRIPT = `
-if not redis.call("ZSCORE", KEYS[1], ARGV[1]) then return {0, ""} end
-local queuedAt = redis.call("HGET", KEYS[2], ARGV[1]) or ""
+local entry = redis.call("HGET", KEYS[3], ARGV[1])
+if not entry then return {0, ""} end
 redis.call("ZREM", KEYS[1], ARGV[1])
-redis.call("HDEL", KEYS[2], ARGV[1])
-return {1, queuedAt}`;
+redis.call("ZREM", KEYS[2], ARGV[1])
+redis.call("HDEL", KEYS[3], ARGV[1])
+return {1, entry}`;
 
 const REMOVE_PAIR_SCRIPT = `
 if not redis.call("ZSCORE", KEYS[1], ARGV[1]) then return 0 end
@@ -33,70 +53,80 @@ redis.call("ZREM", KEYS[1], ARGV[1], ARGV[2])
 redis.call("HDEL", KEYS[2], ARGV[1], ARGV[2])
 return 1`;
 
-function parseQueuedAt(agentId: string, raw: string | null | undefined): number {
-  const value = raw === null || raw === undefined || raw === "" ? Number.NaN : Number(raw);
-  if (!Number.isFinite(value)) {
+function encodeEntry(queuedAt: number, mode: QueueMode): string {
+  return `${String(queuedAt)}:${mode}`;
+}
+
+function parseEntry(agentId: string, raw: string | null | undefined): QueueMembership {
+  const [at, mode] = (raw ?? "").split(":");
+  const queuedAt = at === undefined || at === "" ? Number.NaN : Number(at);
+  if (!Number.isFinite(queuedAt) || (mode !== "rated" && mode !== "unrated")) {
     throw new Error(`queue metadata missing or corrupt for agent ${agentId}`);
   }
-  return value;
+  return { queuedAt, mode };
 }
 
 export class MatchmakingQueue {
   constructor(private readonly redis: Redis) {}
 
-  async join(agentId: string, rating: number, queuedAt: number): Promise<boolean> {
+  async join(agentId: string, rating: number, queuedAt: number, mode: QueueMode): Promise<boolean> {
     const added = await this.redis.eval(
       JOIN_SCRIPT,
       2,
-      QUEUE_KEY,
-      QUEUE_META_KEY,
+      QUEUE_KEYS[mode],
+      QUEUE_ENTRY_KEY,
       agentId,
       String(rating),
-      String(queuedAt),
+      encodeEntry(queuedAt, mode),
     );
     return added === 1;
   }
 
   async leave(agentId: string): Promise<QueueMembership | null> {
-    const result = (await this.redis.eval(LEAVE_SCRIPT, 2, QUEUE_KEY, QUEUE_META_KEY, agentId)) as [number, string];
+    const result = (await this.redis.eval(
+      LEAVE_SCRIPT,
+      3,
+      QUEUE_KEYS.rated,
+      QUEUE_KEYS.unrated,
+      QUEUE_ENTRY_KEY,
+      agentId,
+    )) as [number, string];
     if (result[0] !== 1) return null;
-    return { queuedAt: parseQueuedAt(agentId, result[1]) };
+    return parseEntry(agentId, result[1]);
   }
 
-  async removePair(a: string, b: string): Promise<boolean> {
-    const removed = await this.redis.eval(REMOVE_PAIR_SCRIPT, 2, QUEUE_KEY, QUEUE_META_KEY, a, b);
+  async removePair(a: string, b: string, mode: QueueMode): Promise<boolean> {
+    const removed = await this.redis.eval(REMOVE_PAIR_SCRIPT, 2, QUEUE_KEYS[mode], QUEUE_ENTRY_KEY, a, b);
     return removed === 1;
   }
 
   async status(agentId: string): Promise<QueueMembership | null> {
-    const [score, raw] = await Promise.all([
-      this.redis.zscore(QUEUE_KEY, agentId),
-      this.redis.hget(QUEUE_META_KEY, agentId),
-    ]);
-    if (score === null) return null;
-    return { queuedAt: parseQueuedAt(agentId, raw) };
+    const raw = await this.redis.hget(QUEUE_ENTRY_KEY, agentId);
+    if (raw === null) return null;
+    return parseEntry(agentId, raw);
   }
 
-  async entries(): Promise<QueueEntry[]> {
-    const [members, meta] = await Promise.all([
-      this.redis.zrange(QUEUE_KEY, 0, -1, "WITHSCORES"),
-      this.redis.hgetall(QUEUE_META_KEY),
+  async entries(mode: QueueMode): Promise<QueueEntry[]> {
+    const [members, stored] = await Promise.all([
+      this.redis.zrange(QUEUE_KEYS[mode], 0, -1, "WITHSCORES"),
+      this.redis.hgetall(QUEUE_ENTRY_KEY),
     ]);
     const out: QueueEntry[] = [];
     for (let i = 0; i + 1 < members.length; i += 2) {
       const agentId = members[i];
       const score = members[i + 1];
       if (agentId === undefined || score === undefined) continue;
-      out.push({ agentId, rating: Number(score), queuedAt: parseQueuedAt(agentId, meta[agentId]) });
+      const entry = parseEntry(agentId, stored[agentId]);
+      out.push({ agentId, rating: Number(score), queuedAt: entry.queuedAt, mode: entry.mode });
     }
     return out;
   }
 
-  async size(): Promise<number> {
-    return this.redis.zcard(QUEUE_KEY);
+  async size(mode: QueueMode): Promise<number> {
+    return this.redis.zcard(QUEUE_KEYS[mode]);
   }
 
   async clear(): Promise<void> {
-    await this.redis.del(QUEUE_KEY, QUEUE_META_KEY);
+    await this.redis.del(QUEUE_KEYS.rated, QUEUE_KEYS.unrated, QUEUE_ENTRY_KEY);
   }
 }

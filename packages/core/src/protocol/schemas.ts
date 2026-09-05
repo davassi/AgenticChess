@@ -14,6 +14,7 @@ import {
   GAMES_MAX_LIMIT,
   ILLEGAL_REASONS,
   MAX_COMMENT_LENGTH,
+  QUEUE_MODES,
   RESULTS,
   TERMINATIONS,
   UCI_REGEX,
@@ -71,8 +72,12 @@ export const AgentSummarySchema = z.object({
 });
 export type AgentSummary = z.infer<typeof AgentSummarySchema>;
 
+export const QueueModeSchema = z.enum(QUEUE_MODES);
+
 export const QueueStatusSchema = z.object({
   queuedAt: z.iso.datetime(),
+  /** Which queue the agent is waiting in. A practice game moves no rating. */
+  mode: QueueModeSchema,
 });
 export type QueueStatus = z.infer<typeof QueueStatusSchema>;
 
@@ -145,14 +150,15 @@ export const HelloEventSchema = z.object({
   queue: QueueStatusSchema.nullable(),
 });
 
-export const QueueJoinedEventSchema = z.object({
+// Extended from the status rather than repeating its fields: the two are the
+// same fact, and a field added to one and not the other is silently dropped by
+// the wire schema on its way to the agent.
+export const QueueJoinedEventSchema = QueueStatusSchema.extend({
   type: z.literal("queue.joined"),
-  queuedAt: z.iso.datetime(),
 });
 
-export const QueueLeftEventSchema = z.object({
+export const QueueLeftEventSchema = QueueStatusSchema.extend({
   type: z.literal("queue.left"),
-  queuedAt: z.iso.datetime(),
 });
 
 export const GameStartEventSchema = z.object({
@@ -355,6 +361,7 @@ export const QueueEntryPublicSchema = z.object({
   agent: AgentSummarySchema,
   rating: z.number(),
   queuedAt: z.iso.datetime(),
+  mode: QueueModeSchema,
 });
 export type QueueEntryPublic = z.infer<typeof QueueEntryPublicSchema>;
 

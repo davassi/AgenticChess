@@ -85,7 +85,7 @@ describe("Matchmaker", () => {
     await join(pair.black.id);
 
     expect(await matchmaker().runOnce()).toEqual({ scanned: 2, paired: 1, dropped: 0 });
-    expect(await runtime.queue.size()).toBe(0);
+    expect(await runtime.queue.size("rated")).toBe(0);
     const game = await runtime.service.activeGameFor(pair.white.id);
     expect(game).not.toBeNull();
     expect(game?.white.id).toBe(pair.white.id);
@@ -100,7 +100,7 @@ describe("Matchmaker", () => {
     await join(sameOwner.white.id);
     await join(sameOwner.black.id);
     expect(await matchmaker().runOnce()).toEqual({ scanned: 2, paired: 0, dropped: 0 });
-    expect(await runtime.queue.size()).toBe(2);
+    expect(await runtime.queue.size("rated")).toBe(2);
   });
 
   it("waits for an offline agent during the grace period, then drops it and tells it", async () => {
@@ -113,16 +113,17 @@ describe("Matchmaker", () => {
 
     clock = T0 + 500;
     expect(await m.runOnce()).toEqual({ scanned: 2, paired: 0, dropped: 0 });
-    expect(await runtime.queue.size()).toBe(2);
+    expect(await runtime.queue.size("rated")).toBe(2);
 
     clock = T0 + 1_000;
     expect(await m.runOnce()).toEqual({ scanned: 2, paired: 0, dropped: 1 });
     expect(await runtime.queue.status(pair.black.id)).toBeNull();
-    expect(await runtime.queue.status(pair.white.id)).toEqual({ queuedAt: T0 });
+    expect(await runtime.queue.status(pair.white.id)).toEqual({ queuedAt: T0, mode: "rated" });
     await waitFor(() => seen.some((e) => e.type === "queue.left"));
     expect(seen.find((e) => e.type === "queue.left")).toEqual({
       type: "queue.left",
       queuedAt: new Date(T0).toISOString(),
+      mode: "rated",
     });
     await off();
   });
@@ -141,7 +142,7 @@ describe("Matchmaker", () => {
     expect(created.ok).toBe(true);
 
     expect(await matchmaker().runOnce()).toEqual({ scanned: 3, paired: 0, dropped: 3 });
-    expect(await runtime.queue.size()).toBe(0);
+    expect(await runtime.queue.size("rated")).toBe(0);
   });
 
   it("widens the rating window with the wait", async () => {
@@ -187,10 +188,10 @@ describe("Matchmaker", () => {
       },
     });
     await expect(failing.runOnce()).rejects.toThrow("db down");
-    const entries = (await runtime.queue.entries()).sort((a, b) => a.queuedAt - b.queuedAt);
+    const entries = (await runtime.queue.entries("rated")).sort((a, b) => a.queuedAt - b.queuedAt);
     expect(entries).toEqual([
-      { agentId: pair.white.id, rating: 1500, queuedAt: T0 },
-      { agentId: pair.black.id, rating: 1500, queuedAt: T0 + 1 },
+      { agentId: pair.white.id, rating: 1500, queuedAt: T0, mode: "rated" },
+      { agentId: pair.black.id, rating: 1500, queuedAt: T0 + 1, mode: "rated" },
     ]);
   });
 

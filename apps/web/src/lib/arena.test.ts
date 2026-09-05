@@ -40,7 +40,7 @@ function game(white: AgentSummary, black: AgentSummary): GameListItem {
 describe("rollCall", () => {
   const lobby: Lobby = {
     online: [ALICE, BOB, CARLA, DAN],
-    queue: [{ agent: CARLA, rating: 1500, queuedAt: "2026-09-04T09:59:00.000Z" }],
+    queue: [{ agent: CARLA, rating: 1500, queuedAt: "2026-09-04T09:59:00.000Z", mode: "rated" }],
   };
 
   it("counts an agent playing on a board the page has no room for", () => {
@@ -72,7 +72,7 @@ describe("rollCall", () => {
     // be absent from `online` — and it was then listed under both "In queue"
     // and "Offline" on the same page.
     const roll = rollCall(
-      { online: [], queue: [{ agent: BOB, rating: 1500, queuedAt: "2026-09-04T09:59:00.000Z" }] },
+      { online: [], queue: [{ agent: BOB, rating: 1500, queuedAt: "2026-09-04T09:59:00.000Z", mode: "rated" }] },
       [],
       [ALICE, BOB],
     );

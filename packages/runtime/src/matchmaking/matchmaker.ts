@@ -41,7 +41,7 @@ export class Matchmaker {
   }
 
   async runOnce(): Promise<PairingReport> {
-    const entries = await this.deps.queue.entries();
+    const entries = await this.deps.queue.entries("rated");
     const report: PairingReport = { scanned: entries.length, paired: 0, dropped: 0 };
     if (entries.length === 0) return report;
 
@@ -117,7 +117,7 @@ export class Matchmaker {
   private async startGame(pair: Pair): Promise<boolean> {
     const white = pair.white.agentId;
     const black = pair.black.agentId;
-    const removed = await this.deps.queue.removePair(white, black);
+    const removed = await this.deps.queue.removePair(white, black, "rated");
     if (!removed) return false;
     try {
       const created = await this.deps.games.createAndStartGame({ whiteAgentId: white, blackAgentId: black });
@@ -137,7 +137,7 @@ export class Matchmaker {
 
   private async requeue(candidate: Candidate): Promise<void> {
     try {
-      await this.deps.queue.join(candidate.agentId, candidate.rating, candidate.queuedAt);
+      await this.deps.queue.join(candidate.agentId, candidate.rating, candidate.queuedAt, "rated");
     } catch (error) {
       this.deps.logger.error({ err: error, agentId: candidate.agentId }, "requeue failed");
     }
