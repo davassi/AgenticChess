@@ -26,7 +26,9 @@ export function toLegalChoice(answer: string, turn: Turn): MoveChoice {
     return { move: read.san, comment: exact ? `Playing ${read.san}.` : `Read ${read.san} out of the answer.` };
   }
 
-  const quoted = said.slice(0, MAX_QUOTED);
+  // By code point: slicing a UTF-16 unit could leave a lone surrogate in the
+  // comment, which the arena's database refuses on insert.
+  const quoted = [...said].slice(0, MAX_QUOTED).join("");
   return {
     move: firstLegal(turn).move,
     comment: `The answer "${quoted}" is not legal here, so I played the first legal move instead.`,
