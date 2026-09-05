@@ -187,6 +187,10 @@ small {
 .topnav-signout {
   font-family: var(--font-display);
   font-size: 9px;
+  /* A button does not inherit line-height - the UA sheet sets `normal`, which
+     makes its box 4px shorter than a link's and its hover border a different
+     size. Inheriting puts them on the same line box. */
+  line-height: inherit;
   color: var(--muted);
   background: none;
   margin: 0;
