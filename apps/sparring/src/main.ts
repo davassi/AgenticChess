@@ -1,6 +1,6 @@
 import pino from "pino";
 import { ConfigError, loadConfig, type SparringConfig } from "./config.js";
-import { startSparring } from "./start.js";
+import { startIdle, startSparring } from "./start.js";
 
 function readConfig(): SparringConfig {
   try {
@@ -17,13 +17,20 @@ function readConfig(): SparringConfig {
 const config = readConfig();
 const logger = pino({ level: config.logLevel });
 
-if (!config.enabled) {
-  logger.info("SPARRING_ENABLED is false: the house agent stays out of the queue");
-  process.exit(0);
+// Exiting here would be worse than idling: the container restarts unless it is
+// stopped, and a clean exit restarts too - so the documented off switch would
+// produce a container restarting for ever instead of one sitting there healthy.
+const service = config.enabled ? await startSparring(config, logger) : await startIdle(config);
+if (config.enabled) {
+  logger.info({ healthPort: service.healthPort, identities: config.apiKeys.length }, "sparring running");
+} else {
+  logger.info(
+    { healthPort: service.healthPort },
+    config.apiKeys.length === 0
+      ? "no SPARRING_API_KEY: idling, so the arena runs without a house agent"
+      : "SPARRING_ENABLED is false: idling, so the house agent stays out of the queue",
+  );
 }
-
-const service = await startSparring(config, logger);
-logger.info({ healthPort: service.healthPort, identities: config.apiKeys.length }, "sparring running");
 
 let shuttingDown = false;
 const shutdown = async (signal: string): Promise<void> => {

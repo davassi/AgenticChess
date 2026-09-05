@@ -91,4 +91,13 @@ describe("createTurnHandler", () => {
 
     expect(choice.comment?.length ?? 0).toBeLessThanOrEqual(500);
   });
+
+  it("never cuts a character in half, whatever the model says", async () => {
+    const choice = await handler(() => Promise.resolve("🙂".repeat(2_000)))(turn);
+    const comment = choice.comment ?? "";
+    expect(comment.length).toBeLessThanOrEqual(500);
+    // A lone surrogate is what a naive slice leaves behind, and Postgres
+    // refuses it on insert.
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(comment)).toBe(false);
+  });
 });

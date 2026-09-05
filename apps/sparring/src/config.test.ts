@@ -19,9 +19,16 @@ describe("loadConfig", () => {
     expect(loadConfig({ SPARRING_API_KEY: `${KEY}, ${second}` }).apiKeys).toEqual([KEY, second]);
   });
 
-  it("says what is missing instead of starting without a key", () => {
-    expect(() => loadConfig({})).toThrow(ConfigError);
-    expect(() => loadConfig({ SPARRING_API_KEY: " , " })).toThrow(/holds no key/);
+  it("treats a missing key as switched off rather than refusing to start", () => {
+    // The container restarts unless stopped, so refusing to start would leave
+    // a host without the key restarting for ever.
+    expect(loadConfig({}).enabled).toBe(false);
+    expect(loadConfig({ SPARRING_API_KEY: " , " }).enabled).toBe(false);
+    expect(loadConfig({}).apiKeys).toEqual([]);
+  });
+
+  it("still refuses a value it cannot make sense of", () => {
+    expect(() => loadConfig({ SPARRING_API_KEY: KEY, SPARRING_BASE_URL: "not-a-url" })).toThrow(ConfigError);
   });
 
   it("reads SPARRING_ENABLED=false as false", () => {

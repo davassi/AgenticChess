@@ -22,8 +22,20 @@ export interface TurnHandlerDeps {
   onDecision?: (decision: { source: MoveSource; san: string }) => void;
 }
 
+/**
+ * Cut by code point, not by UTF-16 unit.
+ *
+ * A model's answer can carry anything, and slicing an emoji in half leaves a
+ * lone surrogate that Postgres refuses on insert - which would turn a stray
+ * character in the model's prose into a failed move and a burnt turn.
+ */
+function clip(text: string, max: number): string {
+  const points = [...text];
+  return points.length <= max ? text : points.slice(0, max).join("");
+}
+
 function trim(comment: string): string {
-  return comment.length <= MAX_COMMENT_LENGTH ? comment : `${comment.slice(0, MAX_COMMENT_LENGTH - 1)}…`;
+  return comment.length <= MAX_COMMENT_LENGTH ? comment : `${clip(comment, MAX_COMMENT_LENGTH - 1)}…`;
 }
 
 function reasonOf(error: unknown): string {
@@ -73,7 +85,7 @@ export function createTurnHandler(deps: TurnHandlerDeps): (turn: Turn) => Promis
     return decide(
       "unusable_answer",
       move,
-      `${deps.label} answered "${said.slice(0, MAX_QUOTED)}", which names no legal move, so the ${deps.fallback} fallback played ${move}.`,
+      `${deps.label} answered "${clip(said, MAX_QUOTED)}", which names no legal move, so the ${deps.fallback} fallback played ${move}.`,
     );
   };
 }
