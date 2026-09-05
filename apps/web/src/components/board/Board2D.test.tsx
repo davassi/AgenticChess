@@ -18,6 +18,39 @@ describe("Board2D", () => {
     expect(container.querySelectorAll(".sq--light")).toHaveLength(32);
   });
 
+  it("never reorders the pieces, because a node React moves cannot slide", () => {
+    // Keeping the same node is not enough. React reorders keyed children with
+    // insertBefore, which detaches and re-attaches the node, and a CSS
+    // transition does not run on a node that was just re-inserted - so the one
+    // piece that is supposed to slide is the one that teleports.
+    const ids = (root: HTMLElement): string[] =>
+      [...root.querySelectorAll<HTMLElement>(".piece")].map((node) => node.dataset["pieceId"] ?? "");
+
+    let position = startingPosition();
+    const { container, rerender } = render(<Board2D position={position} lastMove={null} />);
+    const opening = ids(container);
+
+    for (const uci of ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4"]) {
+      position = applyUci(position, uci);
+      rerender(<Board2D position={position} lastMove={null} />);
+      expect(ids(container)).toEqual(opening);
+    }
+  });
+
+  it("drops a captured piece and leaves the order of the rest alone", () => {
+    const ids = (root: HTMLElement): string[] =>
+      [...root.querySelectorAll<HTMLElement>(".piece")].map((node) => node.dataset["pieceId"] ?? "");
+
+    let position = applyUci(applyUci(startingPosition(), "e2e4"), "d7d5");
+    const { container, rerender } = render(<Board2D position={position} lastMove={null} />);
+    const before = ids(container);
+
+    position = applyUci(position, "e4d5");
+    rerender(<Board2D position={position} lastMove={null} />);
+
+    expect(ids(container)).toEqual(before.filter((id) => id !== "d7"));
+  });
+
   it("keeps the same node for a piece that moved, which is what makes it slide", () => {
     const { container, rerender } = render(<Board2D position={startingPosition()} lastMove={null} />);
     const before = container.querySelector('[data-piece-id="e2"]');
