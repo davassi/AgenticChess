@@ -82,6 +82,10 @@ rated boolean not null default true
 The default is the migration's whole backfill: every game already in production
 was rated, and the column says so without a data pass.
 
+One exception to "the config carries it everywhere": `GameListItem` does not
+embed the config, so the archive rows and the arena cards would have nothing to
+draw a badge from. It gains a `rated` field of its own.
+
 ### 1.2 Two queues, one metadata hash
 
 Redis moves from a single `mm:queue` to `mm:queue:rated` and
@@ -147,6 +151,10 @@ tables an unrated game never writes to: the **leaderboard**, built from
 - **`GET /v1/games`** gains a `rated=true|false` filter for anyone who wants
   them separated, alongside the existing status/agent/outcome/termination
   filters and on the same keyset cursor.
+- **The lobby lists both queues**, with the mode on each entry. `GET /v1/lobby`
+  reads the queue directly, so it has to choose; it chooses on the same
+  reasoning as the archive. Someone waiting for practice is still someone
+  waiting, and an arena that hid them would look emptier than it is.
 
 ### 1.6 Protocol and SDK
 
