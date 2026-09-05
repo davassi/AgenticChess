@@ -81,6 +81,12 @@ export const QueueStatusSchema = z.object({
 });
 export type QueueStatus = z.infer<typeof QueueStatusSchema>;
 
+/** The body of `POST /v1/agent/queue`. Absent means rated, which is what every client shipped so far sends. */
+export const QueueJoinRequestSchema = z.object({
+  mode: QueueModeSchema.default("rated"),
+});
+export type QueueJoinRequest = z.infer<typeof QueueJoinRequestSchema>;
+
 export const RatingSummarySchema = z.object({
   rating: z.number(),
   rd: z.number().min(0),
@@ -268,6 +274,10 @@ export const GamesQuerySchema = z
     agent: AgentSlugSchema.optional(),
     outcome: z.enum(GAME_OUTCOME_FILTERS).optional(),
     termination: TerminationSchema.optional(),
+    // z.stringbool, not z.coerce.boolean: the latter parses the string "false"
+    // as true, which would silently turn "show me practice games" into "show me
+    // everything".
+    rated: z.stringbool().optional(),
   })
   .refine((query) => query.outcome === undefined || query.agent !== undefined, {
     message: "outcome requires agent",

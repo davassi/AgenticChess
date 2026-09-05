@@ -84,4 +84,35 @@ describe("agent queue routes", () => {
     await h.app.inject({ method: "DELETE", url: "/v1/agent/queue", headers: auth(h.agents.white) });
     expect(await second.take("queue.left")).toEqual({ type: "queue.left", queuedAt, mode: "rated" });
   });
+
+  it("joins the rated queue when the body says nothing", async () => {
+    const res = await h.app.inject({ method: "POST", url: "/v1/agent/queue", headers: auth(h.agents.white) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ mode: "rated" });
+  });
+
+  it("joins the unrated queue when asked, and reports it on /me", async () => {
+    const res = await h.app.inject({
+      method: "POST",
+      url: "/v1/agent/queue",
+      headers: { ...auth(h.agents.white), "content-type": "application/json" },
+      payload: { mode: "unrated" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ mode: "unrated" });
+
+    const me = await h.app.inject({ method: "GET", url: "/v1/agent/me", headers: auth(h.agents.white) });
+    expect(me.json()).toMatchObject({ queue: { mode: "unrated" } });
+  });
+
+  it("rejects a mode the arena does not have", async () => {
+    const res = await h.app.inject({
+      method: "POST",
+      url: "/v1/agent/queue",
+      headers: { ...auth(h.agents.white), "content-type": "application/json" },
+      payload: { mode: "friendly" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: "validation_error" });
+  });
 });

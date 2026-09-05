@@ -224,8 +224,13 @@ describe("agent profile, queue and leaderboard schemas", () => {
     const base = { type: "hello", agentId: randomUUID(), activeGame: null };
     expect(WireEventSchema.safeParse(base).success).toBe(false);
     expect(WireEventSchema.safeParse({ ...base, queue: null }).success).toBe(true);
-    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z" } }).success).toBe(true);
-    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "yesterday" } }).success).toBe(false);
+    expect(
+      WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z", mode: "rated" } }).success,
+    ).toBe(true);
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "yesterday", mode: "rated" } }).success).toBe(false);
+    // A membership without its mode is not a membership: the agent has to know
+    // whether the game it is waiting for will count.
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z" } }).success).toBe(false);
   });
 });
 
@@ -302,7 +307,7 @@ describe("public read schemas", () => {
       description: "Plays principled classical chess.",
       status: "active",
       online: true,
-      queue: { queuedAt: "2026-09-04T10:00:00.000Z" },
+      queue: { queuedAt: "2026-09-04T10:00:00.000Z", mode: "rated" },
       activeGameId: null,
       rating: { rating: 1688, rd: 62, gamesPlayed: 41, provisional: false },
       rank: 1,
@@ -316,7 +321,10 @@ describe("public read schemas", () => {
     expect(AgentProfileSchema.parse(profile).rank).toBe(1);
     expect(AgentProfileSchema.safeParse({ ...profile, rank: 0 }).success).toBe(false);
     expect(
-      LobbySchema.parse({ online: [agent], queue: [{ agent, rating: 1500, queuedAt: profile.createdAt }] }).queue,
+      LobbySchema.parse({
+        online: [agent],
+        queue: [{ agent, rating: 1500, queuedAt: profile.createdAt, mode: "unrated" }],
+      }).queue,
     ).toHaveLength(1);
   });
 

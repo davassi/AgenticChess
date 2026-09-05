@@ -40,6 +40,7 @@ export function registerGameRoutes(app: FastifyInstance, deps: AppDeps, gameStre
       ...(agentId === undefined ? {} : { agentId }),
       ...(query.outcome === undefined ? {} : { outcome: query.outcome }),
       ...(query.termination === undefined ? {} : { termination: query.termination }),
+      ...(query.rated === undefined ? {} : { rated: query.rated }),
     });
     const items = rows.slice(0, query.limit);
     const last = items[items.length - 1];

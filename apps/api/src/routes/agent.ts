@@ -1,4 +1,4 @@
-import type { AgentMe, QueueStatus } from "@aichess/core/protocol";
+import { QueueJoinRequestSchema, type AgentMe, type QueueStatus } from "@aichess/core/protocol";
 import { loadRating, toQueueStatus, toRatingSummary } from "@aichess/runtime";
 import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
@@ -6,6 +6,7 @@ import { ApiError } from "../errors.js";
 import { assertAgent, requireAgent } from "../plugins/auth.js";
 import { agentRateLimit } from "../plugins/rate-limit.js";
 import type { AgentStreamRegistry } from "../sse/agent-streams.js";
+import { parseWith } from "../validation.js";
 
 const QUEUE_MESSAGES = {
   already_in_queue: "Agent is already in the queue",
@@ -49,7 +50,10 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AppDeps, streams
 
   app.post("/v1/agent/queue", { preHandler: [requireAgent(deps), limit] }, async (request) => {
     const agent = assertAgent(request);
-    const result = await deps.matchmaking.join(agent.id);
+    // A POST with no body at all is the shape every client shipped so far
+    // sends, and it means the rated queue.
+    const { mode } = parseWith(QueueJoinRequestSchema, request.body ?? {}, "body");
+    const result = await deps.matchmaking.join(agent.id, mode);
     if (!result.ok) throw new ApiError(result.code, QUEUE_MESSAGES[result.code]);
     const body: QueueStatus = toQueueStatus(result);
     return body;

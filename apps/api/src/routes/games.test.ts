@@ -193,4 +193,23 @@ describe("game routes", () => {
       expect(again.json().error).toBe("game_not_active");
     });
   });
+
+  describe("the rated filter", () => {
+    it("separates the games that counted from the ones that did not", async () => {
+      const id = await createGame();
+      const rated = await h.app.inject({ method: "GET", url: "/v1/games?rated=true" });
+      expect(rated.statusCode).toBe(200);
+      expect(rated.json().items.map((item: { id: string }) => item.id)).toContain(id);
+      for (const item of rated.json().items as Array<{ rated: boolean }>) expect(item.rated).toBe(true);
+
+      const practice = await h.app.inject({ method: "GET", url: "/v1/games?rated=false" });
+      expect(practice.statusCode).toBe(200);
+      expect(practice.json().items).toEqual([]);
+    });
+
+    it("refuses a rated filter that is not a boolean", async () => {
+      const res = await h.app.inject({ method: "GET", url: "/v1/games?rated=maybe" });
+      expect(res.statusCode).toBe(400);
+    });
+  });
 });
