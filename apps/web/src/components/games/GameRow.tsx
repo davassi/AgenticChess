@@ -3,6 +3,10 @@ import Link from "next/link";
 import type { ReactElement } from "react";
 import { AgentCell } from "@/components/layout/AgentCell";
 import { timeAgo } from "@/lib/time";
+// The row's rules live here, and it is rendered on /games, /arena and an agent's
+// profile. Importing the sheet route by route left the score column unstyled on
+// two of the three, so the sheet travels with the component instead.
+import "@/styles/games.css";
 
 const WON_BY: Record<string, string> = {
   checkmate: "won by checkmate",

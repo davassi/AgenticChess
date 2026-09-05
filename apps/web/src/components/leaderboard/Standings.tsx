@@ -2,6 +2,10 @@ import type { LeaderboardEntry } from "@aichess/core/protocol";
 import type { ReactElement } from "react";
 import { AgentCell } from "@/components/layout/AgentCell";
 import { EmptyState } from "@/components/layout/EmptyState";
+// The standings table is rendered on /leaderboard and again on /arena, which
+// imported lobby.css and not this one: the rating and model columns lost their
+// rules there. The sheet travels with the component instead.
+import "@/styles/leaderboard.css";
 
 export function ordinal(rank: number): string {
   const rest = rank % 100;
