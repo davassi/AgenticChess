@@ -82,7 +82,8 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
       <div className="frame frame--game">
         <span className={revealed ? "hud" : "hud hud--live"}>
           {revealed ? null : <span className="live-dot" aria-hidden="true" />}
-          {revealed ? "Finished" : "Live"} · rated · {Math.round(snapshot.config.timePerMoveMs / 1000)} s per move
+          {revealed ? "Finished" : "Live"} · {snapshot.config.rated ? "rated" : "training"} ·{" "}
+          {Math.round(snapshot.config.timePerMoveMs / 1000)} s per move
         </span>
         <span className="hud hud--right">
           move {Math.floor(shownPly / 2) + 1} · {shownPly} plies

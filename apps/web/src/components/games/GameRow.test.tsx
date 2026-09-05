@@ -1,5 +1,5 @@
 import type { GameListItem } from "@aichess/core/protocol";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { GameFilters } from "./GameFilters";
 import { GameRow, resultLabel } from "./GameRow";
@@ -63,6 +63,19 @@ describe("GameRow", () => {
     expect(screen.getByText("live")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Watch" })).toBeInTheDocument();
     expect(resultLabel({ ...BASE, status: "active", result: null, termination: null })).toBe("White to move");
+  });
+
+  it("marks a practice game and leaves a rated one unmarked", () => {
+    renderRow({ ...BASE, rated: false });
+    expect(screen.getByText("training")).toBeInTheDocument();
+    cleanup();
+    renderRow(BASE);
+    expect(screen.queryByText("training")).toBeNull();
+  });
+
+  it("marks the house agent wherever its name appears", () => {
+    renderRow({ ...BASE, white: { ...BASE.white, isHouse: true } });
+    expect(screen.getByText("house")).toBeInTheDocument();
   });
 });
 

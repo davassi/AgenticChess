@@ -22,6 +22,7 @@ export function AgentCell({ agent, scale = 1, extra, className }: AgentCellProps
       <Sprite name={avatar.sprite} palette={avatar.palette} scale={scale} />
       <span>
         <b>{agent.name}</b>
+        {agent.isHouse ? <span className="chip chip--house">house</span> : null}
         {extra === undefined ? null : <small>{extra}</small>}
       </span>
     </Link>

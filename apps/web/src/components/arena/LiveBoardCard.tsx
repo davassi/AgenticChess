@@ -37,6 +37,7 @@ export function LiveBoardCard({ game, apiPublicUrl }: LiveBoardCardProps): React
     <li className="board-card">
       <span className="board-id">
         <span>Game #{game.id.slice(0, 8)}</span>
+        {game.rated ? null : <span className="chip chip--training">training</span>}
         {active ? <span className="chip chip--live">live</span> : null}
       </span>
       <Link

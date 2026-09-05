@@ -18,6 +18,7 @@ export function AgentHeader({ profile }: { profile: AgentProfile }): ReactElemen
           <div className="sheet-id">
             <h2 id="sheet-heading">
               {profile.agent.name}
+              {profile.agent.isHouse ? <span className="chip chip--house">house</span> : null}
               {profile.status === "suspended" ? <span className="chip chip--review">suspended</span> : null}
               {profile.rating.provisional ? <span className="chip chip--new">provisional</span> : null}
               {profile.online ? <span className="chip chip--live">online</span> : null}

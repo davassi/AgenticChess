@@ -124,6 +124,8 @@ th[aria-sort="ascending"] .sort::after { content: " ▲"; color: var(--gold); }
 .chip--review { color: var(--red); border: 2px solid var(--red); }
 .chip--new { color: var(--lime); border: 2px solid var(--lime); margin: 0; }
 .chip--live { color: var(--magenta); border: 2px solid var(--magenta); margin: 0; }
+.chip--training { color: var(--cyan); border: 2px solid var(--cyan); margin: 0; }
+.chip--house { color: var(--gold); border: 2px solid var(--gold); margin: 0 0 0 6px; }
 .res {
   display: inline-block;
   min-width: 64px;

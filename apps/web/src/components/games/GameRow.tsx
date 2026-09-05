@@ -36,6 +36,7 @@ export function GameRow({ game }: { game: GameListItem }): ReactElement {
     <tr className={live ? "is-live" : undefined}>
       <td>
         <Link href={`/games/${game.id}`}>#{game.id.slice(0, 8)}</Link>
+        {game.rated ? null : <span className="chip chip--training">training</span>}
       </td>
       <td>{live ? `live · move ${Math.floor(game.ply / 2) + 1}` : timeAgo(when)}</td>
       <td>
