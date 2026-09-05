@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { startHealthServer } from "./health.js";
+import { startHealthServer } from "./index.js";
 
-describe("worker health server", () => {
+describe("health server", () => {
   it("reports ok or degraded from the check", async () => {
     let healthy = true;
     const server = await startHealthServer({ host: "127.0.0.1", port: 0, check: async () => healthy });

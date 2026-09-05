@@ -10,7 +10,7 @@ import {
 import { sql } from "drizzle-orm";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.js";
-import { startHealthServer, type HealthServer } from "./health.js";
+import { startHealthServer, type HealthServer } from "@aichess/health";
 
 export interface RunningWorker {
   healthPort: number;

@@ -12,6 +12,7 @@
     "dev": "pnpm build && node --env-file=../../.env dist/main.js"
   },
   "dependencies": {
+    "@aichess/health": "workspace:*",
     "@aichess/runtime": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "ioredis": "^5.6.0",

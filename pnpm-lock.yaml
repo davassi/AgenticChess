@@ -93,6 +93,9 @@ importers:
       '@aichess/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@aichess/health':
+        specifier: workspace:*
+        version: link:../../packages/health
       pino:
         specifier: ^10.0.0
         version: 10.3.1
@@ -179,6 +182,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aichess/health':
+        specifier: workspace:*
+        version: link:../../packages/health
       '@aichess/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -276,6 +282,18 @@ importers:
       testcontainers:
         specifier: ^12.0.0
         version: 12.1.0
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.1)(jsdom@30.0.1)(tsx@4.23.13)(yaml@2.9.0)
+
+  packages/health:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
       typescript:
         specifier: ^5.9.0
         version: 5.9.3

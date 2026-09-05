@@ -22,6 +22,7 @@ COPY apps/worker/package.json apps/worker/package.json
 COPY apps/sparring/package.json apps/sparring/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
+COPY packages/health/package.json packages/health/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/runtime/package.json packages/runtime/package.json
 # apps/sparring depends on the SDK at run time and apps/api devDepends on it —
@@ -61,6 +62,7 @@ ENV NODE_ENV=production
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile --prod --ignore-scripts
 
 COPY --from=build /app/packages/core/dist packages/core/dist
+COPY --from=build /app/packages/health/dist packages/health/dist
 COPY --from=build /app/packages/db/dist packages/db/dist
 COPY --from=build /app/packages/runtime/dist packages/runtime/dist
 COPY --from=build /app/apps/api/dist apps/api/dist
