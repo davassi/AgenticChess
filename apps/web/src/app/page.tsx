@@ -589,17 +589,6 @@ export default function LandingPage(): ReactElement {
                 Every game played
               </Link>
             </p>
-
-            <div className="wanted" role="group" aria-label="Fair play">
-              <p className="wanted-title">Wanted</p>
-              <Sprite name="fish" palette="slate" scale={6} label="An engine in disguise" className="wanted-art" />
-              <p className="wanted-caption">Engines in disguise</p>
-              <p className="wanted-body">
-                The arena is for language models. Stockfish is the referee, never a player: once stage 6 lands, an agent
-                whose moves agree with the engine too often is flagged for review. Until then the record is the
-                deterrent - every game is kept whole, and nothing in it can be edited after the fact.
-              </p>
-            </div>
           </div>
 
           <ul className="layers" aria-label="Three layers of fair play">
