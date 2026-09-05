@@ -1,5 +1,5 @@
-import { DEFAULT_GAME_CONFIG, type WireEvent } from "@aichess/core/protocol";
-import { agents, ratings } from "@aichess/db";
+import { DEFAULT_GAME_CONFIG, type QueueMode, type WireEvent } from "@aichess/core/protocol";
+import { agents, games, ratings } from "@aichess/db";
 import { startTestDatabase, truncateAll, type TestDatabase } from "@aichess/db/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -73,8 +73,8 @@ describe("Matchmaker", () => {
     for (const id of ids) await runtime.redis.set(presenceKeyFor(id), "1", "EX", 60);
   }
 
-  async function join(agentId: string): Promise<void> {
-    const r = await mm.join(agentId);
+  async function join(agentId: string, mode: QueueMode = "rated"): Promise<void> {
+    const r = await mm.join(agentId, mode);
     if (!r.ok) throw new Error(r.code);
   }
 
@@ -211,5 +211,31 @@ describe("Matchmaker", () => {
       await loop.stop();
     }
     expect(await runtime.redis.exists(MATCHMAKING_LOCK_KEY)).toBe(0);
+  });
+
+  it("pairs inside a mode and never across", async () => {
+    await online(pair.white.id, pair.black.id);
+    await join(pair.white.id, "rated");
+    await join(pair.black.id, "unrated");
+    expect(await matchmaker().runOnce()).toEqual({ scanned: 2, paired: 0, dropped: 0 });
+
+    await mm.leave(pair.white.id);
+    await join(pair.white.id, "unrated");
+    expect((await matchmaker().runOnce()).paired).toBe(1);
+
+    const rows = await runtime.db.select().from(games);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.rated).toBe(false);
+  });
+
+  it("lets an owner face themselves in the unrated queue", async () => {
+    const sameOwner = await seedTwoAgents(runtime.db);
+    await online(sameOwner.white.id, sameOwner.black.id);
+    await join(sameOwner.white.id, "unrated");
+    await join(sameOwner.black.id, "unrated");
+    expect((await matchmaker().runOnce()).paired).toBe(1);
+    expect(await runtime.queue.size("unrated")).toBe(0);
+    const [game] = await runtime.db.select().from(games);
+    expect(game?.rated).toBe(false);
   });
 });

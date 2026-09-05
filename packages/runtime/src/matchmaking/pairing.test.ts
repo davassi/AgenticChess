@@ -109,4 +109,21 @@ describe("pairCandidates", () => {
     expect(pairs).toHaveLength(1);
     expect(ids(pairs)).toEqual([["a", "b"]]);
   });
+
+  it("pairs two agents of the same owner only when the rating is not at stake", () => {
+    const mine = (agentId: string, queuedAt: number): Candidate => ({
+      agentId,
+      ownerId: "owner-1",
+      rating: 1500,
+      queuedAt,
+      lastColor: null,
+    });
+    const queue = [mine("a", T0), mine("b", T0 + 1)];
+
+    expect(pairCandidates(queue, T0 + 100)).toEqual([]);
+
+    const pairs = pairCandidates(queue, T0 + 100, { allowSameOwner: true });
+    expect(pairs).toHaveLength(1);
+    expect([pairs[0]?.white.agentId, pairs[0]?.black.agentId].sort()).toEqual(["a", "b"]);
+  });
 });

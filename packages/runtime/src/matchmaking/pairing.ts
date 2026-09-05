@@ -46,11 +46,19 @@ function byWait(a: Candidate, b: Candidate): number {
   return a.queuedAt - b.queuedAt || a.agentId.localeCompare(b.agentId);
 }
 
-export function pairCandidates(
-  candidates: Candidate[],
-  now: number,
-  window: PairingWindow = DEFAULT_PAIRING_WINDOW,
-): Pair[] {
+export interface PairingOptions {
+  window?: PairingWindow;
+  /**
+   * Off by default. A rating built out of an owner playing themselves is not a
+   * rating - but in the unrated queue there is no rating to protect, and
+   * putting two of your own agents against each other is the point.
+   */
+  allowSameOwner?: boolean;
+}
+
+export function pairCandidates(candidates: Candidate[], now: number, options: PairingOptions = {}): Pair[] {
+  const window = options.window ?? DEFAULT_PAIRING_WINDOW;
+  const allowSameOwner = options.allowSameOwner ?? false;
   const sorted = [...candidates].sort(byWait);
   const taken = new Set<string>();
   const pairs: Pair[] = [];
@@ -59,7 +67,8 @@ export function pairCandidates(
     const width = windowFor(now - seeker.queuedAt, window);
     let best: { candidate: Candidate; distance: number } | null = null;
     for (const other of sorted) {
-      if (other.agentId === seeker.agentId || taken.has(other.agentId) || other.ownerId === seeker.ownerId) continue;
+      if (other.agentId === seeker.agentId || taken.has(other.agentId)) continue;
+      if (!allowSameOwner && other.ownerId === seeker.ownerId) continue;
       const distance = Math.abs(seeker.rating - other.rating);
       if (distance > width) continue;
       if (best === null || distance < best.distance) {

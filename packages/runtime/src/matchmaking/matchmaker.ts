@@ -1,3 +1,4 @@
+import { QUEUE_MODES, type QueueMode } from "@aichess/core/protocol";
 import type { Database } from "@aichess/db";
 import type { Redis } from "ioredis";
 import type { GameService } from "../games/service.js";
@@ -40,8 +41,20 @@ export class Matchmaker {
     this.window = deps.window ?? DEFAULT_PAIRING_WINDOW;
   }
 
+  /** Both queues, in turn. They never see each other's candidates. */
   async runOnce(): Promise<PairingReport> {
-    const entries = await this.deps.queue.entries("rated");
+    const total: PairingReport = { scanned: 0, paired: 0, dropped: 0 };
+    for (const mode of QUEUE_MODES) {
+      const report = await this.sweep(mode);
+      total.scanned += report.scanned;
+      total.paired += report.paired;
+      total.dropped += report.dropped;
+    }
+    return total;
+  }
+
+  private async sweep(mode: QueueMode): Promise<PairingReport> {
+    const entries = await this.deps.queue.entries(mode);
     const report: PairingReport = { scanned: entries.length, paired: 0, dropped: 0 };
     if (entries.length === 0) return report;
 
@@ -73,11 +86,14 @@ export class Matchmaker {
       });
     }
 
-    for (const pair of pairCandidates(candidates, now, this.window)) {
-      if (await this.startGame(pair)) report.paired += 1;
+    for (const pair of pairCandidates(candidates, now, {
+      window: this.window,
+      allowSameOwner: mode === "unrated",
+    })) {
+      if (await this.startGame(pair, mode)) report.paired += 1;
     }
     if (report.paired > 0 || report.dropped > 0) {
-      this.deps.logger.info({ ...report }, "matchmaking applied");
+      this.deps.logger.info({ ...report, mode }, "matchmaking applied");
     }
     return report;
   }
@@ -114,32 +130,36 @@ export class Matchmaker {
     }
   }
 
-  private async startGame(pair: Pair): Promise<boolean> {
+  private async startGame(pair: Pair, mode: QueueMode): Promise<boolean> {
     const white = pair.white.agentId;
     const black = pair.black.agentId;
-    const removed = await this.deps.queue.removePair(white, black, "rated");
+    const removed = await this.deps.queue.removePair(white, black, mode);
     if (!removed) return false;
     try {
-      const created = await this.deps.games.createAndStartGame({ whiteAgentId: white, blackAgentId: black });
+      const created = await this.deps.games.createAndStartGame({
+        whiteAgentId: white,
+        blackAgentId: black,
+        config: { rated: mode === "rated" },
+      });
       if (!created.ok) {
-        this.deps.logger.warn({ white, black, code: created.code }, "pairing skipped");
+        this.deps.logger.warn({ white, black, mode, code: created.code }, "pairing skipped");
         return false;
       }
-      this.deps.logger.info({ gameId: created.snapshot.id, white, black }, "paired");
+      this.deps.logger.info({ gameId: created.snapshot.id, white, black, mode }, "paired");
       return true;
     } catch (error) {
-      this.deps.logger.error({ err: error, white, black }, "game creation failed, requeueing pair");
-      await this.requeue(pair.white);
-      await this.requeue(pair.black);
+      this.deps.logger.error({ err: error, white, black, mode }, "game creation failed, requeueing pair");
+      await this.requeue(pair.white, mode);
+      await this.requeue(pair.black, mode);
       throw error;
     }
   }
 
-  private async requeue(candidate: Candidate): Promise<void> {
+  private async requeue(candidate: Candidate, mode: QueueMode): Promise<void> {
     try {
-      await this.deps.queue.join(candidate.agentId, candidate.rating, candidate.queuedAt, "rated");
+      await this.deps.queue.join(candidate.agentId, candidate.rating, candidate.queuedAt, mode);
     } catch (error) {
-      this.deps.logger.error({ err: error, agentId: candidate.agentId }, "requeue failed");
+      this.deps.logger.error({ err: error, agentId: candidate.agentId, mode }, "requeue failed");
     }
   }
 }
