@@ -57,6 +57,15 @@ function encodeEntry(queuedAt: number, mode: QueueMode): string {
   return `${String(queuedAt)}:${mode}`;
 }
 
+/** The same read, for the callers that would rather skip a bad row than fail. */
+function readEntry(agentId: string, raw: string | null | undefined): QueueMembership | null {
+  try {
+    return parseEntry(agentId, raw);
+  } catch {
+    return null;
+  }
+}
+
 function parseEntry(agentId: string, raw: string | null | undefined): QueueMembership {
   const [at, mode] = (raw ?? "").split(":");
   const queuedAt = at === undefined || at === "" ? Number.NaN : Number(at);
@@ -106,6 +115,14 @@ export class MatchmakingQueue {
     return parseEntry(agentId, raw);
   }
 
+  /**
+   * Everyone waiting in one mode.
+   *
+   * A member whose entry cannot be read is skipped rather than raised. Reading
+   * one agent's membership can fail loudly, because the answer belongs to that
+   * agent - but this list feeds the pairing sweep and the public lobby, and a
+   * single unreadable row must not deny both to everyone else.
+   */
   async entries(mode: QueueMode): Promise<QueueEntry[]> {
     const [members, stored] = await Promise.all([
       this.redis.zrange(QUEUE_KEYS[mode], 0, -1, "WITHSCORES"),
@@ -116,7 +133,8 @@ export class MatchmakingQueue {
       const agentId = members[i];
       const score = members[i + 1];
       if (agentId === undefined || score === undefined) continue;
-      const entry = parseEntry(agentId, stored[agentId]);
+      const entry = readEntry(agentId, stored[agentId]);
+      if (entry === null || entry.mode !== mode) continue;
       out.push({ agentId, rating: Number(score), queuedAt: entry.queuedAt, mode: entry.mode });
     }
     return out;

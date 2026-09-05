@@ -91,4 +91,19 @@ describe("MatchmakingQueue", () => {
     expect(await queue.entries("unrated")).toEqual([]);
     expect(await redis.exists(QUEUE_KEYS.rated, QUEUE_KEYS.unrated, QUEUE_ENTRY_KEY)).toBe(0);
   });
+
+  it("skips a member whose entry cannot be read instead of failing the whole sweep", async () => {
+    await queue.join("good", 1500, 10, "rated");
+    // A member with no entry row at all, and one whose entry is nonsense: both
+    // would once have thrown out of entries() and taken the pairing sweep and
+    // the public lobby down with them.
+    await redis.zadd(QUEUE_KEYS.rated, 1400, "orphan");
+    await queue.join("corrupt", 1600, 12, "rated");
+    await redis.hset(QUEUE_ENTRY_KEY, "corrupt", "not-a-timestamp");
+
+    expect(await queue.entries("rated")).toEqual([{ agentId: "good", rating: 1500, queuedAt: 10, mode: "rated" }]);
+    // Reading one agent's own membership still fails loudly: that answer
+    // belongs to that agent.
+    await expect(queue.status("corrupt")).rejects.toThrow(/corrupt/i);
+  });
 });

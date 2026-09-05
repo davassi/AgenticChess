@@ -53,6 +53,13 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AppDeps, streams
     // A POST with no body at all is the shape every client shipped so far
     // sends, and it means the rated queue.
     const { mode } = parseWith(QueueJoinRequestSchema, request.body ?? {}, "body");
+    // The house agent plays for practice and nothing else. Until now the only
+    // thing enforcing that was a hardcoded string in the bot's own source, and
+    // a rating is not something to protect by convention: one stray call with
+    // the house key would move a real player's Glicko-2.
+    if (agent.isHouse && mode === "rated") {
+      throw new ApiError("validation_error", "The house agent plays practice games only");
+    }
     const result = await deps.matchmaking.join(agent.id, mode);
     if (!result.ok) throw new ApiError(result.code, QUEUE_MESSAGES[result.code]);
     const body: QueueStatus = toQueueStatus(result);

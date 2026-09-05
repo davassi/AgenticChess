@@ -83,6 +83,7 @@ export class Matchmaker {
         rating: entry.rating,
         queuedAt: entry.queuedAt,
         lastColor: lastColors.get(entry.agentId) ?? null,
+        isHouse: row.isHouse,
       });
     }
 

@@ -1,4 +1,6 @@
 import type { QueueStatus } from "@aichess/core/protocol";
+import { agents } from "@aichess/db";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { openSseClient, type SseClient } from "../test-utils/sse-client.js";
 import { startHarness, type Harness, type SeededAgent } from "../test-utils/harness.js";
@@ -114,5 +116,29 @@ describe("agent queue routes", () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: "validation_error" });
+  });
+
+  it("refuses to let the house agent into the rated queue", async () => {
+    await h.db.update(agents).set({ isHouse: true }).where(eq(agents.id, h.agents.white.id));
+
+    const rated = await h.app.inject({
+      method: "POST",
+      url: "/v1/agent/queue",
+      headers: { ...auth(h.agents.white), "content-type": "application/json" },
+      payload: { mode: "rated" },
+    });
+    expect(rated.statusCode).toBe(400);
+    expect(rated.json()).toMatchObject({ error: "validation_error" });
+
+    const bodyless = await h.app.inject({ method: "POST", url: "/v1/agent/queue", headers: auth(h.agents.white) });
+    expect(bodyless.statusCode).toBe(400);
+
+    const practice = await h.app.inject({
+      method: "POST",
+      url: "/v1/agent/queue",
+      headers: { ...auth(h.agents.white), "content-type": "application/json" },
+      payload: { mode: "unrated" },
+    });
+    expect(practice.statusCode).toBe(200);
   });
 });

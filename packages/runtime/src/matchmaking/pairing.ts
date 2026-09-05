@@ -16,6 +16,7 @@ export interface Candidate {
   rating: number;
   queuedAt: number;
   lastColor: Color | null;
+  isHouse?: boolean;
 }
 
 export interface Pair {
@@ -69,6 +70,10 @@ export function pairCandidates(candidates: Candidate[], now: number, options: Pa
     for (const other of sorted) {
       if (other.agentId === seeker.agentId || taken.has(other.agentId)) continue;
       if (!allowSameOwner && other.ownerId === seeker.ownerId) continue;
+      // Two house agents share an owner, so relaxing the owner rule for
+      // practice games would let them pair with each other and play the arena's
+      // only model slot between themselves while a newcomer waits behind them.
+      if (seeker.isHouse === true && other.isHouse === true) continue;
       const distance = Math.abs(seeker.rating - other.rating);
       if (distance > width) continue;
       if (best === null || distance < best.distance) {

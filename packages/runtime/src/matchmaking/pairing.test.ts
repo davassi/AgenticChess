@@ -126,4 +126,30 @@ describe("pairCandidates", () => {
     expect(pairs).toHaveLength(1);
     expect([pairs[0]?.white.agentId, pairs[0]?.black.agentId].sort()).toEqual(["a", "b"]);
   });
+
+  it("never pairs two house agents, even where the owner rule is relaxed", () => {
+    const house = (agentId: string, queuedAt: number): Candidate => ({
+      agentId,
+      ownerId: "house",
+      rating: 1500,
+      queuedAt,
+      lastColor: null,
+      isHouse: true,
+    });
+    const newcomer: Candidate = {
+      agentId: "newcomer",
+      ownerId: "someone",
+      rating: 1500,
+      queuedAt: T0 + 2,
+      lastColor: null,
+    };
+
+    expect(pairCandidates([house("h1", T0), house("h2", T0 + 1)], T0 + 100, { allowSameOwner: true })).toEqual([]);
+
+    const pairs = pairCandidates([house("h1", T0), house("h2", T0 + 1), newcomer], T0 + 100, {
+      allowSameOwner: true,
+    });
+    expect(pairs).toHaveLength(1);
+    expect([pairs[0]?.white.agentId, pairs[0]?.black.agentId]).toContain("newcomer");
+  });
 });

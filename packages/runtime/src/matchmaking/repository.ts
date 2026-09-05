@@ -7,12 +7,13 @@ export interface QueueAgent {
   id: string;
   ownerId: string;
   status: AgentStatus;
+  isHouse: boolean;
 }
 
 export async function loadQueueAgents(ex: Executor, agentIds: string[]): Promise<Map<string, QueueAgent>> {
   if (agentIds.length === 0) return new Map();
   const rows = await ex
-    .select({ id: agents.id, ownerId: agents.ownerId, status: agents.status })
+    .select({ id: agents.id, ownerId: agents.ownerId, status: agents.status, isHouse: agents.isHouse })
     .from(agents)
     .where(inArray(agents.id, agentIds));
   return new Map(rows.map((row) => [row.id, row]));
