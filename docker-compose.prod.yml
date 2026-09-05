@@ -114,7 +114,7 @@ services:
   # The house sparring agent's model. No published ports: only the sparring
   # service talks to it, over the compose network.
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.33.3
     environment:
       # One request at a time and one model resident: this box has two vCPUs and
       # the API has to keep answering while a game is being played.
@@ -124,6 +124,9 @@ services:
     volumes:
       - ollama-models:/root/.ollama
     mem_limit: 1g
+    # One and a half of the box's two cores: generation is allowed to be slow,
+    # but never at the price of the API's tail latency.
+    cpus: 1.5
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -138,15 +141,21 @@ services:
         max-file: "3"
 
   # One shot, like migrate: the image ships no weights.
+  #
+  # Deliberately not on anyone's depends_on, and it waits for the server itself
+  # rather than through a compose condition. `docker compose up -d` blocks on a
+  # dependency condition and fails the whole command when it is not met, and
+  # this stack's deploy script runs under `set -e`: making the deploy depend on
+  # registry.ollama.ai being reachable would put an unrelated third party on
+  # the critical path of every release, including the ones that only change the
+  # Caddyfile. Until the weights arrive the bot plays its local fallback, which
+  # is the degradation it is built for.
   ollama-pull:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.33.3
     entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama pull ${SPARRING_MODEL:-gemma3:270m}"]
+    command: ["until ollama list >/dev/null 2>&1; do sleep 2; done; ollama pull ${SPARRING_MODEL:-gemma3:270m}"]
     environment:
       OLLAMA_HOST: http://ollama:11434
-    depends_on:
-      ollama:
-        condition: service_healthy
     restart: "no"
 
   # One shot: makes the database agree with SPARRING_API_KEY. Safe on every
@@ -168,8 +177,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      ollama-pull:
-        condition: service_completed_successfully
+      # Not the model pull: the bot degrades to its local fallback while the
+      # weights are still arriving, and waiting would put that download on the
+      # deploy's critical path.
       sparring-bootstrap:
         condition: service_completed_successfully
     healthcheck:

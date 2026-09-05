@@ -20,9 +20,14 @@ if (url === undefined || url.length === 0) {
   console.error("DATABASE_URL is required");
   process.exit(1);
 }
+// A missing key is not a failure. This runs as a one-shot that the sparring
+// container waits on, and `docker compose up -d` fails the whole command when a
+// dependency exits non-zero - under the deploy script's `set -e` that would
+// abort the release before the Caddy reload, over an optional subsystem. The
+// service reads the same variable and idles without it.
 if (apiKey === undefined || apiKey.length === 0) {
-  console.error("SPARRING_API_KEY is required: it is the key the sparring service authenticates with");
-  process.exit(1);
+  console.warn("SPARRING_API_KEY is not set: leaving the house agent alone, the arena runs without one");
+  process.exit(0);
 }
 
 // One identity per key, so a second house agent is a comma in the environment
