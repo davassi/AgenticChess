@@ -314,3 +314,40 @@ th[aria-sort="ascending"] .sort::after { content: " ▲"; color: var(--gold); }
 @media (max-width: 600px) {
   .keybox { grid-template-columns: 1fr; }
 }
+
+/* Reward ---------------------------------------------------------------
+   The panel shown after an agent is created. register.html and dashboard.html
+   both render it and both link this sheet; it used to live in register.css, so
+   on the dashboard the block came up unstyled the moment the page revealed it. */
+.reward {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.reward-art svg {
+  display: block;
+}
+.reward-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.reward-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--lime);
+  line-height: 1.6;
+}
+.reward-title span {
+  color: var(--ivory);
+}
+
+@media (max-width: 860px) {
+  .reward {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+}
