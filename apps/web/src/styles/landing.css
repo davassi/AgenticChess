@@ -168,6 +168,36 @@ small {
 .topnav-git {
   color: var(--gold) !important;
 }
+/* The account control sits inside .topnav between the section links, but it is
+   a form, not an anchor, so `.topnav a` never reached it: the name fell back to
+   the body font beside a browser-default button, on its own baseline. These
+   three rules give it the links' box - same display font, same 9px, same
+   padding and same 4px transparent border - so it lines up with them. */
+.topnav-account {
+  display: inline-flex;
+  align-items: center;
+}
+.topnav-user {
+  font-family: var(--font-display);
+  font-size: 9px;
+  color: var(--ivory);
+  padding: 10px 12px;
+  border: 4px solid transparent;
+}
+.topnav-signout {
+  font-family: var(--font-display);
+  font-size: 9px;
+  color: var(--muted);
+  background: none;
+  margin: 0;
+  padding: 10px 12px;
+  border: 4px solid transparent;
+  cursor: pointer;
+}
+.topnav-signout:hover {
+  color: var(--ivory);
+  border-color: var(--ivory);
+}
 
 /* Buttons -------------------------------------------------------------- */
 

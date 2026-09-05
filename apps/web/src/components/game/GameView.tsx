@@ -173,6 +173,13 @@ export function GameView({ initial, apiPublicUrl }: GameViewProps): ReactElement
               {snapshot.result} · {resultLabel(toListItem(snapshot))}
             </p>
             <p className="result-exits">
+              {/* The transport is under this panel and cannot be clicked
+                  through it, so the one thing a viewer most wants at the end of
+                  a game has to be offered here. Rewinding to the start is also
+                  what dismisses the panel. */}
+              <button type="button" className="btn btn--small" onClick={playback.restart}>
+                Replay
+              </button>
               <a className="btn btn--ghost btn--small" href={pgnUrl(apiPublicUrl, snapshot.id)}>
                 Download the PGN
               </a>

@@ -182,3 +182,46 @@ describe("what the viewer is allowed to see", () => {
     expect(container.querySelector(".mark--illegal")).not.toBeNull();
   });
 });
+
+describe("the end of a finished game", () => {
+  function finished(): LiveGame {
+    return {
+      snapshot: {
+        ...SNAPSHOT,
+        fen: AFTER_E5,
+        ply: 2,
+        history: ["e4", "e5"],
+        turn: "white",
+        status: "finished",
+        result: "1-0",
+        termination: "checkmate",
+        finishedAt: "2026-09-04T10:00:30.000Z",
+      },
+      moves: [E4, E5],
+      attempts: [],
+      finished: true,
+      gap: false,
+    };
+  }
+
+  it("offers a way to watch the game again", async () => {
+    // The result panel covers the whole frame, transport included, so the
+    // controls underneath it cannot be clicked: without this button a finished
+    // game can only be left, never replayed.
+    const container = draw(finished());
+    expect(container.querySelector(".result")).not.toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /replay/i }));
+
+    // Rewinding to the start is what lifts the panel: the viewer is no longer
+    // at the end of the game.
+    expect(container.querySelector(".result")).toBeNull();
+    expect(container.textContent).toContain("0 plies");
+  });
+
+  it("keeps the exits it already had", () => {
+    draw(finished());
+    expect(screen.getByRole("link", { name: /pgn/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /archive/i })).toBeInTheDocument();
+  });
+});

@@ -151,9 +151,13 @@
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+/* Covers the whole frame - board, transport, move list and feeds - so it must
+   not also swallow their clicks: without this the game can only be left, never
+   scrubbed or replayed. */
 .result {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   display: grid;
   align-content: center;
   justify-items: center;
@@ -171,6 +175,8 @@
   text-shadow: 4px 4px 0 var(--ink), 8px 8px 0 var(--rust);
 }
 .result-score { margin: 0; font-family: var(--font-display); font-size: 11px; }
+.result-exits { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 8px 0 0; }
+.result-exits > * { pointer-events: auto; }
 .result-ratings { margin: 0; font-size: 17px; color: var(--muted); }
 .result-next { margin: 8px 0 0; font-size: 15px; color: var(--muted); }
 .board-hint { margin: 0; font-size: 14px; color: var(--muted); }
