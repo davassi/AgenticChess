@@ -111,6 +111,78 @@ services:
       retries: 6
       start_period: 20s
 
+  # The house sparring agent's model. No published ports: only the sparring
+  # service talks to it, over the compose network.
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      # One request at a time and one model resident: this box has two vCPUs and
+      # the API has to keep answering while a game is being played.
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "5m"
+    volumes:
+      - ollama-models:/root/.ollama
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # One shot, like migrate: the image ships no weights.
+  ollama-pull:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama pull ${SPARRING_MODEL:-gemma3:270m}"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  # One shot: makes the database agree with SPARRING_API_KEY. Safe on every
+  # deploy - it adopts a rotated key and puts a suspended house agent back in
+  # service, which is why the sparring container waits for it.
+  sparring-bootstrap:
+    <<: *app
+    command: ["node", "packages/db/dist/cli/ensure-sparring.js"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  sparring:
+    <<: *app
+    command: ["node", "apps/sparring/dist/main.js"]
+    depends_on:
+      api:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+      sparring-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:'+(process.env.SPARRING_HEALTH_PORT||3003)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
   # Next serves every route on demand: nothing is prerendered, so it needs the
   # database and the API at run time exactly as the other services do.
   web:
@@ -168,5 +240,6 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  ollama-models:
   caddy-data:
   caddy-config:

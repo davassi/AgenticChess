@@ -40,7 +40,8 @@ function reasonOf(error: unknown): string {
  * model's.
  */
 export function createTurnHandler(deps: TurnHandlerDeps): (turn: Turn) => Promise<MoveChoice> {
-  const fallbackMove = (turn: Turn): string => chooseByPolicy(turn.fen, turn.legalMoves, deps.fallback, deps.random).san;
+  const fallbackMove = (turn: Turn): string =>
+    chooseByPolicy(turn.fen, turn.legalMoves, deps.fallback, deps.random).san;
 
   const decide = (source: MoveSource, move: string, comment: string): MoveChoice => {
     deps.onDecision?.({ source, san: move });

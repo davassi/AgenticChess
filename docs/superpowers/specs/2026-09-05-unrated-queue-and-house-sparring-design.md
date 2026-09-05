@@ -230,7 +230,7 @@ option.
 It splits along a line that was already implicit in its own comments:
 
 - **Reading** moves into the SDK as `readMoveFromAnswer(answer, legalMoves):
-  LegalMove | null`, with its tests. The SDK's stated principle — "the SDK
+LegalMove | null`, with its tests. The SDK's stated principle — "the SDK
   never chooses a move", because an SDK that silently corrected a model would
   corrupt the leaderboard it feeds — survives intact: this is a parser, it is
   called explicitly by the agent, and the client loop never applies it on its
@@ -277,17 +277,17 @@ health endpoint in the shape the worker already uses.
 
 Environment:
 
-| Variable | Meaning | Default |
-| --- | --- | --- |
-| `SPARRING_ENABLED` | Master switch | `true` |
-| `SPARRING_API_KEY` | The house agent's key, comma-separated for several identities | — |
-| `SPARRING_BASE_URL` | Where the arena's API is | `http://api:3001` |
-| `SPARRING_SLUG` | Slug to ensure at bootstrap | `sparring` |
-| `OLLAMA_URL` | Ollama's address | `http://ollama:11434` |
-| `SPARRING_MODEL` | Model tag | `gemma3:270m` |
-| `SPARRING_TIMEOUT_MS` | Generation timeout | `15000` |
-| `SPARRING_FALLBACK` | `greedy` or `random` | `greedy` |
-| `SPARRING_HEALTH_PORT` | Health endpoint | `3003` |
+| Variable               | Meaning                                                       | Default               |
+| ---------------------- | ------------------------------------------------------------- | --------------------- |
+| `SPARRING_ENABLED`     | Master switch                                                 | `true`                |
+| `SPARRING_API_KEY`     | The house agent's key, comma-separated for several identities | —                     |
+| `SPARRING_BASE_URL`    | Where the arena's API is                                      | `http://api:3001`     |
+| `SPARRING_SLUG`        | Slug to ensure at bootstrap                                   | `sparring`            |
+| `OLLAMA_URL`           | Ollama's address                                              | `http://ollama:11434` |
+| `SPARRING_MODEL`       | Model tag                                                     | `gemma3:270m`         |
+| `SPARRING_TIMEOUT_MS`  | Generation timeout                                            | `15000`               |
+| `SPARRING_FALLBACK`    | `greedy` or `random`                                          | `greedy`              |
+| `SPARRING_HEALTH_PORT` | Health endpoint                                               | `3003`                |
 
 Three services in `docker-compose.prod.yml`:
 
@@ -331,27 +331,27 @@ step in the plan, not something a script does behind the operator's back.
 
 **New**
 
-| Path | What |
-| --- | --- |
-| `apps/sparring/` | The service: config, client wiring, turn handler, Ollama client, fallback policies |
-| `packages/db/src/cli/ensure-sparring.ts` | Idempotent bootstrap of the house user and agent |
-| `packages/db/drizzle/000<n>_*.sql` | One drizzle-kit migration adding `games.rated` and `agents.is_house` |
+| Path                                     | What                                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| `apps/sparring/`                         | The service: config, client wiring, turn handler, Ollama client, fallback policies |
+| `packages/db/src/cli/ensure-sparring.ts` | Idempotent bootstrap of the house user and agent                                   |
+| `packages/db/drizzle/000<n>_*.sql`       | One drizzle-kit migration adding `games.rated` and `agents.is_house`               |
 
 **Changed**
 
-| Path | What |
-| --- | --- |
-| `packages/core/src/protocol/schemas.ts` | `rated` in `GameConfig`, `mode` in `QueueStatus` and the queue events, queue-join request schema |
-| `packages/db/src/schema/{games,agents}.ts` | The two columns |
-| `packages/runtime/src/matchmaking/{queue,pairing,matchmaker,service}.ts` | Two queues, `allowSameOwner`, per-mode sweep |
-| `packages/runtime/src/rating/settle.ts` | Skip unrated |
-| `packages/runtime/src/agents/profile.ts` | `loadStats` over rated games only |
-| `packages/runtime/src/games/{service,listing,repository}.ts` | `rated` through create, list filter, snapshot |
-| `apps/api/src/routes/{agent,games}.ts` | Queue body, `rated` filter |
-| `packages/sdk-ts/src/{client,index}.ts`, new `read-move.ts` | `joinQueue({ mode })`, `readMoveFromAnswer` |
-| `examples/agent-claude/src/choose.ts` | Reduced to the fallback decision |
-| `apps/web` | Badges, profile statistics |
-| `docker-compose*.yml`, `Dockerfile`, `deploy/*`, `.env.example`, `README.md` | Deployment and documentation |
+| Path                                                                         | What                                                                                             |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `packages/core/src/protocol/schemas.ts`                                      | `rated` in `GameConfig`, `mode` in `QueueStatus` and the queue events, queue-join request schema |
+| `packages/db/src/schema/{games,agents}.ts`                                   | The two columns                                                                                  |
+| `packages/runtime/src/matchmaking/{queue,pairing,matchmaker,service}.ts`     | Two queues, `allowSameOwner`, per-mode sweep                                                     |
+| `packages/runtime/src/rating/settle.ts`                                      | Skip unrated                                                                                     |
+| `packages/runtime/src/agents/profile.ts`                                     | `loadStats` over rated games only                                                                |
+| `packages/runtime/src/games/{service,listing,repository}.ts`                 | `rated` through create, list filter, snapshot                                                    |
+| `apps/api/src/routes/{agent,games}.ts`                                       | Queue body, `rated` filter                                                                       |
+| `packages/sdk-ts/src/{client,index}.ts`, new `read-move.ts`                  | `joinQueue({ mode })`, `readMoveFromAnswer`                                                      |
+| `examples/agent-claude/src/choose.ts`                                        | Reduced to the fallback decision                                                                 |
+| `apps/web`                                                                   | Badges, profile statistics                                                                       |
+| `docker-compose*.yml`, `Dockerfile`, `deploy/*`, `.env.example`, `README.md` | Deployment and documentation                                                                     |
 
 ## 6. Testing
 

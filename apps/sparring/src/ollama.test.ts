@@ -49,7 +49,8 @@ describe("OllamaClient", () => {
   });
 
   it("does not leave its timer running once an answer arrives", async () => {
-    const quick: typeof fetch = () => Promise.resolve(new Response(JSON.stringify({ response: "e4" }), { status: 200 }));
+    const quick: typeof fetch = () =>
+      Promise.resolve(new Response(JSON.stringify({ response: "e4" }), { status: 200 }));
     const started = Date.now();
     expect(await client(quick).generate("x")).toBe("e4");
     // A leaked timer would keep the event loop alive far past the answer; this

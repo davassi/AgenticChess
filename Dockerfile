@@ -19,13 +19,14 @@ FROM base AS manifests
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/worker/package.json apps/worker/package.json
+COPY apps/sparring/package.json apps/sparring/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/runtime/package.json packages/runtime/package.json
-# apps/api devDepends on the SDK — its contract test lives there because it
-# needs Postgres and Redis — so the SDK is inside the build graph and needs its
-# own dependencies installed, whether or not the image ships it.
+# apps/sparring depends on the SDK at run time and apps/api devDepends on it —
+# the contract test lives there because it needs Postgres and Redis — so the SDK
+# is inside the build graph and needs its own dependencies installed.
 COPY packages/sdk-ts/package.json packages/sdk-ts/package.json
 
 FROM manifests AS build
@@ -44,14 +45,14 @@ ENV API_PUBLIC_URL=https://placeholder.invalid \
     AUTH_GITHUB_ID=placeholder \
     AUTH_GITHUB_SECRET=placeholder
 
-# Filtered to the three things this image ships, so that a workspace package
+# Filtered to the four things this image ships, so that a workspace package
 # nothing here depends on cannot break this build by existing. `COPY packages
 # packages` above brings in every package in the workspace, while the manifests
 # stage lists them one by one: a package added to one and not the other has no
 # node_modules, and an unfiltered build fails on its first missing type. Turbo
 # still pulls in the build graph, so core, db, runtime — and the SDK, which
 # apps/api devDepends on — are built regardless.
-RUN pnpm build --filter=@aichess/api --filter=@aichess/worker --filter=@aichess/web
+RUN pnpm build --filter=@aichess/api --filter=@aichess/worker --filter=@aichess/web --filter=@aichess/sparring
 
 # Production dependencies only, installed from the same lockfile, then the
 # compiled output copied in. Test tooling never reaches the image.
@@ -64,6 +65,12 @@ COPY --from=build /app/packages/db/dist packages/db/dist
 COPY --from=build /app/packages/runtime/dist packages/runtime/dist
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/worker/dist apps/worker/dist
+COPY --from=build /app/apps/sparring/dist apps/sparring/dist
+# The SDK used to be a dev dependency of the API's contract test and never
+# shipped. The sparring service imports it at run time - deliberately, so the
+# house agent is a normal client of the published client - so its build travels
+# with the image now.
+COPY --from=build /app/packages/sdk-ts/dist packages/sdk-ts/dist
 COPY --from=build /app/apps/web/.next apps/web/.next
 COPY --from=build /app/apps/web/next.config.ts apps/web/next.config.ts
 

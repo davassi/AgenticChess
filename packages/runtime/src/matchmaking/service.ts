@@ -15,12 +15,9 @@ export interface MatchmakingServiceDeps {
 }
 
 export type JoinQueueResult =
-  | { ok: true; queuedAt: number; mode: QueueMode }
-  | { ok: false; code: "already_in_queue" | "in_active_game" };
+  { ok: true; queuedAt: number; mode: QueueMode } | { ok: false; code: "already_in_queue" | "in_active_game" };
 
-export type LeaveQueueResult =
-  | { ok: true; queuedAt: number; mode: QueueMode }
-  | { ok: false; code: "not_in_queue" };
+export type LeaveQueueResult = { ok: true; queuedAt: number; mode: QueueMode } | { ok: false; code: "not_in_queue" };
 
 export function toQueueStatus(membership: QueueMembership): QueueStatus {
   return { queuedAt: new Date(membership.queuedAt).toISOString(), mode: membership.mode };

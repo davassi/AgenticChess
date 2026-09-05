@@ -35,56 +35,56 @@ pnpm --filter <the package you touched> test
 pnpm typecheck && pnpm lint
 ```
 
-  and before the final commit of the plan: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm format`.
+and before the final commit of the plan: `pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm format`.
 
 ## File Structure
 
 **New files**
 
-| Path | Responsibility |
-| --- | --- |
-| `packages/db/src/sparring.ts` | Idempotent upsert of the house user and agent from a supplied API key |
-| `packages/db/src/sparring.test.ts` | Its integration test against real Postgres |
-| `packages/db/src/cli/ensure-sparring.ts` | The CLI wrapper that reads the environment and calls it |
-| `packages/sdk-ts/src/read-move.ts` | `readMoveFromAnswer`: parse a model's prose into a legal move. No policy |
-| `packages/sdk-ts/src/read-move.test.ts` | Its tests, moved from the example |
-| `apps/sparring/src/config.ts` | Environment schema for the bot |
-| `apps/sparring/src/prompt.ts` | Builds the turn prompt. Pure |
-| `apps/sparring/src/policy.ts` | `greedy` and `random` fallbacks, seeded RNG, material from a FEN. Pure |
-| `apps/sparring/src/ollama.ts` | The HTTP client for `/api/generate`, with its timeout |
-| `apps/sparring/src/turn.ts` | The turn handler: model, then parser, then fallback. The one place that decides |
-| `apps/sparring/src/start.ts` | Wires clients, queue rejoining and the health server |
-| `apps/sparring/src/main.ts` | Entry point and signal handling |
-| `apps/sparring/src/health.ts` | Health endpoint, same shape as the worker's |
+| Path                                     | Responsibility                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `packages/db/src/sparring.ts`            | Idempotent upsert of the house user and agent from a supplied API key           |
+| `packages/db/src/sparring.test.ts`       | Its integration test against real Postgres                                      |
+| `packages/db/src/cli/ensure-sparring.ts` | The CLI wrapper that reads the environment and calls it                         |
+| `packages/sdk-ts/src/read-move.ts`       | `readMoveFromAnswer`: parse a model's prose into a legal move. No policy        |
+| `packages/sdk-ts/src/read-move.test.ts`  | Its tests, moved from the example                                               |
+| `apps/sparring/src/config.ts`            | Environment schema for the bot                                                  |
+| `apps/sparring/src/prompt.ts`            | Builds the turn prompt. Pure                                                    |
+| `apps/sparring/src/policy.ts`            | `greedy` and `random` fallbacks, seeded RNG, material from a FEN. Pure          |
+| `apps/sparring/src/ollama.ts`            | The HTTP client for `/api/generate`, with its timeout                           |
+| `apps/sparring/src/turn.ts`              | The turn handler: model, then parser, then fallback. The one place that decides |
+| `apps/sparring/src/start.ts`             | Wires clients, queue rejoining and the health server                            |
+| `apps/sparring/src/main.ts`              | Entry point and signal handling                                                 |
+| `apps/sparring/src/health.ts`            | Health endpoint, same shape as the worker's                                     |
 
 **Modified files**
 
-| Path | Change |
-| --- | --- |
-| `packages/core/src/protocol/enums.ts` | `rated` in `DEFAULT_GAME_CONFIG`, `QUEUE_MODES` |
-| `packages/core/src/protocol/schemas.ts` | `rated` in `GameConfig` and `GameListItem`, `isHouse` in `AgentSummary`, `mode` in `QueueStatus` and `QueueEntryPublic`, `QueueJoinRequestSchema`, `rated` in `GamesQuerySchema` |
-| `packages/db/src/schema/games.ts`, `agents.ts` | The two columns |
-| `packages/db/drizzle/` | One generated migration |
-| `packages/db/src/index.ts` | Export the sparring helper |
-| `packages/runtime/src/games/repository.ts` | `rated` through `rowToState`, `insertGame`, `loadAgentSummaries` |
-| `packages/runtime/src/games/listing.ts` | `rated` selected, returned and filtered |
-| `packages/runtime/src/agents/profile.ts`, `management.ts` | `isHouse` selected; `loadStats` counts rated games only |
-| `packages/runtime/src/lobby.ts` | `isHouse`, and both queues |
-| `packages/runtime/src/matchmaking/queue.ts` | Two sorted sets, one entry hash carrying the mode |
-| `packages/runtime/src/matchmaking/pairing.ts` | `allowSameOwner` |
-| `packages/runtime/src/matchmaking/matchmaker.ts` | One sweep per mode, `rated` passed to game creation |
-| `packages/runtime/src/matchmaking/service.ts` | `join(agentId, mode)` |
-| `packages/runtime/src/rating/settle.ts` | Skip an unrated game |
-| `packages/runtime/src/config.ts` | `rated: true` in the default game config |
-| `packages/runtime/src/testing.ts` | `isHouse` in the seeded summaries |
-| `apps/api/src/routes/agent.ts`, `games.ts` | Queue mode in the body, `rated` in the query |
-| `packages/sdk-ts/src/client.ts`, `index.ts` | `joinQueue({ mode })`, export the parser |
-| `examples/agent-claude/src/choose.ts`, `choose.test.ts` | Reduced to the fallback decision |
-| `apps/web/src/components/**` | The `training` and `house` badges |
-| `apps/web/src/styles/arena.css` | Two chip colours |
-| `Dockerfile`, `docker-compose.yml`, `docker-compose.prod.yml` | The sparring service, Ollama, the model pull |
-| `.env.example`, `deploy/env.prod.example`, `deploy/init-env.sh` | The new variables |
-| `README.md` | Status, roadmap and the development section |
+| Path                                                            | Change                                                                                                                                                                           |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/protocol/enums.ts`                           | `rated` in `DEFAULT_GAME_CONFIG`, `QUEUE_MODES`                                                                                                                                  |
+| `packages/core/src/protocol/schemas.ts`                         | `rated` in `GameConfig` and `GameListItem`, `isHouse` in `AgentSummary`, `mode` in `QueueStatus` and `QueueEntryPublic`, `QueueJoinRequestSchema`, `rated` in `GamesQuerySchema` |
+| `packages/db/src/schema/games.ts`, `agents.ts`                  | The two columns                                                                                                                                                                  |
+| `packages/db/drizzle/`                                          | One generated migration                                                                                                                                                          |
+| `packages/db/src/index.ts`                                      | Export the sparring helper                                                                                                                                                       |
+| `packages/runtime/src/games/repository.ts`                      | `rated` through `rowToState`, `insertGame`, `loadAgentSummaries`                                                                                                                 |
+| `packages/runtime/src/games/listing.ts`                         | `rated` selected, returned and filtered                                                                                                                                          |
+| `packages/runtime/src/agents/profile.ts`, `management.ts`       | `isHouse` selected; `loadStats` counts rated games only                                                                                                                          |
+| `packages/runtime/src/lobby.ts`                                 | `isHouse`, and both queues                                                                                                                                                       |
+| `packages/runtime/src/matchmaking/queue.ts`                     | Two sorted sets, one entry hash carrying the mode                                                                                                                                |
+| `packages/runtime/src/matchmaking/pairing.ts`                   | `allowSameOwner`                                                                                                                                                                 |
+| `packages/runtime/src/matchmaking/matchmaker.ts`                | One sweep per mode, `rated` passed to game creation                                                                                                                              |
+| `packages/runtime/src/matchmaking/service.ts`                   | `join(agentId, mode)`                                                                                                                                                            |
+| `packages/runtime/src/rating/settle.ts`                         | Skip an unrated game                                                                                                                                                             |
+| `packages/runtime/src/config.ts`                                | `rated: true` in the default game config                                                                                                                                         |
+| `packages/runtime/src/testing.ts`                               | `isHouse` in the seeded summaries                                                                                                                                                |
+| `apps/api/src/routes/agent.ts`, `games.ts`                      | Queue mode in the body, `rated` in the query                                                                                                                                     |
+| `packages/sdk-ts/src/client.ts`, `index.ts`                     | `joinQueue({ mode })`, export the parser                                                                                                                                         |
+| `examples/agent-claude/src/choose.ts`, `choose.test.ts`         | Reduced to the fallback decision                                                                                                                                                 |
+| `apps/web/src/components/**`                                    | The `training` and `house` badges                                                                                                                                                |
+| `apps/web/src/styles/arena.css`                                 | Two chip colours                                                                                                                                                                 |
+| `Dockerfile`, `docker-compose.yml`, `docker-compose.prod.yml`   | The sparring service, Ollama, the model pull                                                                                                                                     |
+| `.env.example`, `deploy/env.prod.example`, `deploy/init-env.sh` | The new variables                                                                                                                                                                |
+| `README.md`                                                     | Status, roadmap and the development section                                                                                                                                      |
 
 ---
 
@@ -93,6 +93,7 @@ pnpm typecheck && pnpm lint
 Nothing reads them yet. This task is complete when a game row can be unrated and an agent row can be the house, and the schemas say so.
 
 **Files:**
+
 - Modify: `packages/core/src/protocol/enums.ts`
 - Modify: `packages/core/src/protocol/schemas.ts`
 - Modify: `packages/db/src/schema/games.ts`, `packages/db/src/schema/agents.ts`
@@ -100,6 +101,7 @@ Nothing reads them yet. This task is complete when a game row can be unrated and
 - Test: `packages/core/src/protocol/schemas.test.ts`, `packages/db/src/schema.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `GameConfig` gains `rated: boolean`; `DEFAULT_GAME_CONFIG.rated === true`; `AgentSummary` gains `isHouse: boolean`; `GameListItem` gains `rated: boolean`; the drizzle columns `games.rated` and `agents.isHouse`.
 
@@ -112,7 +114,9 @@ describe("the rated flag and the house flag", () => {
   it("carries rated inside the game config, defaulting to true in DEFAULT_GAME_CONFIG", () => {
     expect(DEFAULT_GAME_CONFIG.rated).toBe(true);
     expect(GameConfigSchema.parse({ ...DEFAULT_GAME_CONFIG })).toMatchObject({ rated: true });
-    expect(GameConfigSchema.safeParse({ timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 }).success).toBe(false);
+    expect(
+      GameConfigSchema.safeParse({ timePerMoveMs: 60_000, moveLimitPlies: 300, illegalAttemptsPerTurn: 3 }).success,
+    ).toBe(false);
   });
 
   it("says on every agent summary whether it is the house", () => {
@@ -339,12 +343,14 @@ MSG
 Every place that builds a `GameState`, an `AgentSummary` or a `GameListItem` learns the new fields. After this task the whole workspace typechecks again and the flags survive a round trip through Postgres.
 
 **Files:**
+
 - Modify: `packages/runtime/src/games/repository.ts`, `listing.ts`
 - Modify: `packages/runtime/src/agents/profile.ts`, `agents/management.ts`
 - Modify: `packages/runtime/src/lobby.ts`, `config.ts`, `testing.ts`
 - Test: `packages/runtime/src/games/repository.test.ts`, `packages/runtime/src/games/listing.test.ts`
 
 **Interfaces:**
+
 - Consumes: `GameConfig.rated`, `AgentSummary.isHouse`, `GameListItem.rated`, `games.rated`, `agents.isHouse` from Task 1.
 - Produces: `insertGame` persists `state.config.rated`; `loadGame` reads it back; `listGames` returns `rated` per row; every `AgentSummary` built in the runtime carries `isHouse`; `gameConfigFrom(env)` returns `rated: true`.
 
@@ -472,13 +478,13 @@ Each of these selects the five summary columns and now needs `isHouse` as well. 
 In `packages/runtime/src/config.ts`, `gameConfigFrom` must produce the new field:
 
 ```ts
-  return {
-    timePerMoveMs: env.DEFAULT_TIME_PER_MOVE_MS,
-    moveLimitPlies: env.MOVE_LIMIT_PLIES,
-    illegalAttemptsPerTurn: env.ILLEGAL_ATTEMPTS_PER_TURN,
-    // The arena's default game counts. The unrated queue overrides it per game.
-    rated: true,
-  };
+return {
+  timePerMoveMs: env.DEFAULT_TIME_PER_MOVE_MS,
+  moveLimitPlies: env.MOVE_LIMIT_PLIES,
+  illegalAttemptsPerTurn: env.ILLEGAL_ATTEMPTS_PER_TURN,
+  // The arena's default game counts. The unrated queue overrides it per game.
+  rated: true,
+};
 ```
 
 - [ ] **Step 9: Typecheck the whole workspace**
@@ -521,6 +527,7 @@ MSG
 One sorted set per mode, one hash that says which queue an agent is in. The hash is also the "at most one queue" guard, and it is what lets `leave` work without being told the mode.
 
 **Files:**
+
 - Modify: `packages/core/src/protocol/enums.ts`, `schemas.ts`
 - Modify: `packages/runtime/src/matchmaking/queue.ts`, `service.ts`
 - Modify: `packages/runtime/src/lobby.ts`
@@ -528,6 +535,7 @@ One sorted set per mode, one hash that says which queue an agent is in. The hash
 - Test: `packages/runtime/src/matchmaking/queue.test.ts`, `service.test.ts`, `lobby.test.ts` if present
 
 **Interfaces:**
+
 - Consumes: Task 1's protocol.
 - Produces:
 
@@ -794,14 +802,14 @@ and in the class:
 In `packages/runtime/src/lobby.ts`:
 
 ```ts
-  const [onlineIds, rated, unrated] = await Promise.all([
-    listOnlineAgentIds(redis, limit),
-    queue.entries("rated"),
-    queue.entries("unrated"),
-  ]);
-  // Both queues are shown. Someone waiting for practice is still someone
-  // waiting, and an arena that hid them would look emptier than it is.
-  const entries = [...rated, ...unrated];
+const [onlineIds, rated, unrated] = await Promise.all([
+  listOnlineAgentIds(redis, limit),
+  queue.entries("rated"),
+  queue.entries("unrated"),
+]);
+// Both queues are shown. Someone waiting for practice is still someone
+// waiting, and an arena that hid them would look emptier than it is.
+const entries = [...rated, ...unrated];
 ```
 
 and in the `waiting` mapping add `mode: entry.mode` to the object beside `rating` and `queuedAt`.
@@ -848,15 +856,20 @@ MSG
 ### Task 4: Pairing and the matchmaker, once per mode
 
 **Files:**
+
 - Modify: `packages/runtime/src/matchmaking/pairing.ts`, `matchmaker.ts`
 - Test: `packages/runtime/src/matchmaking/pairing.test.ts`, `matchmaker.test.ts`
 
 **Interfaces:**
+
 - Consumes: `QueueMode`, `MatchmakingQueue.entries(mode)`, `removePair(a, b, mode)` from Task 3; `GameConfig.rated` from Task 1.
 - Produces:
 
 ```ts
-export interface PairingOptions { window?: PairingWindow; allowSameOwner?: boolean }
+export interface PairingOptions {
+  window?: PairingWindow;
+  allowSameOwner?: boolean;
+}
 export function pairCandidates(candidates: Candidate[], now: number, options?: PairingOptions): Pair[];
 ```
 
@@ -1110,12 +1123,14 @@ MSG
 Settlement skips it, the profile's statistics ignore it, and the listing can filter it out.
 
 **Files:**
+
 - Modify: `packages/runtime/src/rating/settle.ts`
 - Modify: `packages/runtime/src/agents/profile.ts`
 - Modify: `packages/runtime/src/games/listing.ts`
 - Test: `packages/runtime/src/rating/settle.test.ts`, `packages/runtime/src/agents/profile.test.ts`, `packages/runtime/src/games/listing.test.ts`
 
 **Interfaces:**
+
 - Consumes: `GameState.config.rated`, `games.rated`.
 - Produces: `GamesListInput` gains `rated?: boolean`. No other signature changes.
 
@@ -1207,9 +1222,9 @@ Expected: FAIL — `stats.games` is 2.
 In `packages/runtime/src/agents/profile.ts`, inside `loadStats`, add `eq(games.rated, true)` to each of the three `where` clauses — the results query, the moves query and the attempts query. The comment above the second query already explains why the three must agree; extend it:
 
 ```ts
-    // Both aggregates are shown beside `games`, which counts finished rated
-    // games only: a game still being played, or one played for practice, would
-    // otherwise drag the averages printed next to a total that excludes it.
+// Both aggregates are shown beside `games`, which counts finished rated
+// games only: a game still being played, or one played for practice, would
+// otherwise drag the averages printed next to a total that excludes it.
 ```
 
 The rating curve needs no filter: it is read from `rating_history`, where an unrated game never writes a row.
@@ -1227,7 +1242,7 @@ Expected: PASS.
 In `packages/runtime/src/games/listing.ts`, add `rated?: boolean;` to `GamesListInput` and, with the other conditions:
 
 ```ts
-  if (input.rated !== undefined) conditions.push(eq(games.rated, input.rated));
+if (input.rated !== undefined) conditions.push(eq(games.rated, input.rated));
 ```
 
 and in `packages/runtime/src/games/listing.test.ts`:
@@ -1274,11 +1289,13 @@ MSG
 ### Task 6: The API says which queue
 
 **Files:**
+
 - Modify: `packages/core/src/protocol/schemas.ts` (`QueueJoinRequestSchema`, `rated` in `GamesQuerySchema`)
 - Modify: `apps/api/src/routes/agent.ts`, `apps/api/src/routes/games.ts`
 - Test: `apps/api/src/routes/agent.test.ts`, `apps/api/src/routes/games.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MatchmakingService.join(agentId, mode)`, `GamesListInput.rated`.
 - Produces: `POST /v1/agent/queue` accepts `{ "mode": "rated" | "unrated" }` and defaults to `rated`; `GET /v1/games?rated=true|false`.
 
@@ -1369,16 +1386,16 @@ and in `GamesQuerySchema`, beside `termination`:
 In `apps/api/src/routes/agent.ts`:
 
 ```ts
-  app.post("/v1/agent/queue", { preHandler: [requireAgent(deps), limit] }, async (request) => {
-    const agent = assertAgent(request);
-    // A POST with no body at all is the shape every client shipped so far
-    // sends, and it means the rated queue.
-    const { mode } = parseWith(QueueJoinRequestSchema, request.body ?? {}, "body");
-    const result = await deps.matchmaking.join(agent.id, mode);
-    if (!result.ok) throw new ApiError(result.code, QUEUE_MESSAGES[result.code]);
-    const body: QueueStatus = toQueueStatus(result);
-    return body;
-  });
+app.post("/v1/agent/queue", { preHandler: [requireAgent(deps), limit] }, async (request) => {
+  const agent = assertAgent(request);
+  // A POST with no body at all is the shape every client shipped so far
+  // sends, and it means the rated queue.
+  const { mode } = parseWith(QueueJoinRequestSchema, request.body ?? {}, "body");
+  const result = await deps.matchmaking.join(agent.id, mode);
+  if (!result.ok) throw new ApiError(result.code, QUEUE_MESSAGES[result.code]);
+  const body: QueueStatus = toQueueStatus(result);
+  return body;
+});
 ```
 
 Import `QueueJoinRequestSchema` from `@aichess/core/protocol` and `parseWith` from `../validation.js`. The `DELETE` route needs no change: `toQueueStatus` now carries the mode the membership came back with.
@@ -1423,12 +1440,14 @@ MSG
 ### Task 7: The SDK asks for a mode, and lends out its parser
 
 **Files:**
+
 - Create: `packages/sdk-ts/src/read-move.ts`, `packages/sdk-ts/src/read-move.test.ts`
 - Modify: `packages/sdk-ts/src/client.ts`, `packages/sdk-ts/src/index.ts`
 - Modify: `examples/agent-claude/src/choose.ts`, `examples/agent-claude/src/choose.test.ts`
 - Test: `packages/sdk-ts/src/client.test.ts` (or the file holding the client's tests)
 
 **Interfaces:**
+
 - Consumes: the API from Task 6.
 - Produces:
 
@@ -1590,7 +1609,10 @@ In the SDK's client test file:
 it("asks for the unrated queue only when told to", async () => {
   const calls: Array<{ path: string; body: unknown }> = [];
   const client = clientWith(async (url, init) => {
-    calls.push({ path: new URL(url as string).pathname, body: init?.body === undefined ? null : JSON.parse(init.body as string) });
+    calls.push({
+      path: new URL(url as string).pathname,
+      body: init?.body === undefined ? null : JSON.parse(init.body as string),
+    });
     return jsonResponse({ queuedAt: new Date().toISOString(), mode: "unrated" });
   });
 
@@ -1671,19 +1693,30 @@ MSG
 ### Task 8: The house identity, created idempotently
 
 **Files:**
+
 - Create: `packages/db/src/sparring.ts`, `packages/db/src/sparring.test.ts`, `packages/db/src/cli/ensure-sparring.ts`
 - Modify: `packages/db/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `agents.isHouse` from Task 1, `splitApiKey`/`hashApiKey` from `@aichess/core`.
 - Produces:
 
 ```ts
 export interface EnsureSparringInput {
-  apiKey: string; slug: string; name: string; description: string;
-  ownerEmail: string; modelProvider: string; modelName: string;
+  apiKey: string;
+  slug: string;
+  name: string;
+  description: string;
+  ownerEmail: string;
+  modelProvider: string;
+  modelName: string;
 }
-export interface EnsuredSparringAgent { id: string; ownerId: string; created: boolean }
+export interface EnsuredSparringAgent {
+  id: string;
+  ownerId: string;
+  created: boolean;
+}
 export function ensureSparringAgent(db: Database, input: EnsureSparringInput): Promise<EnsuredSparringAgent>;
 ```
 
@@ -1801,10 +1834,7 @@ export interface EnsuredSparringAgent {
   created: boolean;
 }
 
-export async function ensureSparringAgent(
-  db: Database,
-  input: EnsureSparringInput,
-): Promise<EnsuredSparringAgent> {
+export async function ensureSparringAgent(db: Database, input: EnsureSparringInput): Promise<EnsuredSparringAgent> {
   const parts = splitApiKey(input.apiKey);
   if (parts === null) {
     throw new Error("the sparring api key is not an arena api key: expected the ac_ form issued by generateApiKey");
@@ -1966,11 +1996,13 @@ MSG
 The package, the prompt and the fallback policies. No network, no arena: everything here is a function of its arguments and is tested as one.
 
 **Files:**
+
 - Create: `apps/sparring/package.json`, `tsconfig.json`, `tsconfig.build.json`, `vitest.config.ts`
 - Create: `apps/sparring/src/config.ts`, `prompt.ts`, `policy.ts`
 - Test: `apps/sparring/src/policy.test.ts`, `prompt.test.ts`, `config.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Turn` and `LegalMove` from `@agenticchess/sdk`, `tryMove` and `turnOf` from `@aichess/core`.
 - Produces:
 
@@ -1978,7 +2010,12 @@ The package, the prompt and the fallback policies. No network, no arena: everyth
 export type Fallback = "greedy" | "random";
 export function seededRandom(seed: number): () => number;
 export function materialFor(fen: string, color: Color): number;
-export function chooseByPolicy(fen: string, legal: readonly LegalMove[], fallback: Fallback, random: () => number): LegalMove;
+export function chooseByPolicy(
+  fen: string,
+  legal: readonly LegalMove[],
+  fallback: Fallback,
+  random: () => number,
+): LegalMove;
 export function buildPrompt(turn: Turn): string;
 export function loadConfig(env?: NodeJS.ProcessEnv): SparringConfig;
 export class ConfigError extends Error {}
@@ -2420,16 +2457,22 @@ MSG
 ### Task 10: `apps/sparring` — the model, the turn, the service
 
 **Files:**
+
 - Create: `apps/sparring/src/ollama.ts`, `turn.ts`, `health.ts`, `start.ts`, `main.ts`
 - Test: `apps/sparring/src/ollama.test.ts`, `apps/sparring/src/turn.test.ts`
 
 **Interfaces:**
+
 - Consumes: `buildPrompt`, `chooseByPolicy`, `seededRandom`, `Fallback`, `SparringConfig` from Task 9; `readMoveFromAnswer`, `AgenticChessClient`, `Turn`, `MoveChoice` from Task 7.
 - Produces:
 
 ```ts
-export class OllamaError extends Error { readonly reason: "timeout" | "unreachable" | "bad_response" }
-export class OllamaClient { generate(prompt: string): Promise<string> }
+export class OllamaError extends Error {
+  readonly reason: "timeout" | "unreachable" | "bad_response";
+}
+export class OllamaClient {
+  generate(prompt: string): Promise<string>;
+}
 export function createTurnHandler(deps: TurnHandlerDeps): (turn: Turn) => Promise<MoveChoice>;
 export function startSparring(config: SparringConfig, logger: Logger): Promise<SparringService>;
 ```
@@ -2483,7 +2526,8 @@ describe("OllamaClient", () => {
   });
 
   it("reports a refusal from the server", async () => {
-    const failing: typeof fetch = async () => new Response(JSON.stringify({ error: "model not found" }), { status: 404 });
+    const failing: typeof fetch = async () =>
+      new Response(JSON.stringify({ error: "model not found" }), { status: 404 });
     await expect(client(failing).generate("x")).rejects.toMatchObject({ reason: "bad_response" });
   });
 });
@@ -2800,12 +2844,14 @@ export async function startSparring(config: SparringConfig, logger: Logger): Pro
           logger.info({ gameId: event.gameId, result: event.result }, "game ended");
           // One game is not a career: back into the practice queue, or the
           // next newcomer finds nobody waiting.
-          void client
-            .joinQueue({ mode: "unrated" })
-            .catch((error: unknown) => { logger.error({ err: error }, "could not re-queue"); });
+          void client.joinQueue({ mode: "unrated" }).catch((error: unknown) => {
+            logger.error({ err: error }, "could not re-queue");
+          });
         }
       },
-      onError: (error) => { logger.warn({ err: error }, "recovered"); },
+      onError: (error) => {
+        logger.warn({ err: error }, "recovered");
+      },
     });
     client.onYourTurn(
       createTurnHandler({
@@ -2815,7 +2861,9 @@ export async function startSparring(config: SparringConfig, logger: Logger): Pro
         // position do not play the same fallback move.
         random: seededRandom(config.seed + index),
         label: config.model,
-        onDecision: ({ source, san }) => { logger.info({ source, san }, "move chosen"); },
+        onDecision: ({ source, san }) => {
+          logger.info({ source, san }, "move chosen");
+        },
       }),
     );
     clients.push(client);
@@ -2956,6 +3004,7 @@ MSG
 ### Task 11: The site says which games counted, and who the house is
 
 **Files:**
+
 - Modify: `apps/web/src/components/layout/AgentCell.tsx`
 - Modify: `apps/web/src/components/games/GameRow.tsx`
 - Modify: `apps/web/src/components/arena/LiveBoardCard.tsx`
@@ -2965,6 +3014,7 @@ MSG
 - Test: `apps/web/src/components/games/GameRow.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `GameListItem.rated`, `GameSnapshot.config.rated`, `AgentSummary.isHouse`.
 - Produces: no exported API changes.
 
@@ -3003,30 +3053,30 @@ Expected: FAIL — neither chip is rendered.
 In `apps/web/src/components/layout/AgentCell.tsx`, inside the `<span>`, after the name:
 
 ```tsx
-      <span>
-        <b>{agent.name}</b>
-        {agent.isHouse ? <span className="chip chip--house">house</span> : null}
-        {extra === undefined ? null : <small>{extra}</small>}
-      </span>
+<span>
+  <b>{agent.name}</b>
+  {agent.isHouse ? <span className="chip chip--house">house</span> : null}
+  {extra === undefined ? null : <small>{extra}</small>}
+</span>
 ```
 
 In `apps/web/src/components/games/GameRow.tsx`, in the identifier cell:
 
 ```tsx
-      <td>
-        <Link href={`/games/${game.id}`}>#{game.id.slice(0, 8)}</Link>
-        {game.rated ? null : <span className="chip chip--training">training</span>}
-      </td>
+<td>
+  <Link href={`/games/${game.id}`}>#{game.id.slice(0, 8)}</Link>
+  {game.rated ? null : <span className="chip chip--training">training</span>}
+</td>
 ```
 
 In `apps/web/src/components/arena/LiveBoardCard.tsx`, beside the live chip:
 
 ```tsx
-      <span className="board-id">
-        <span>Game #{game.id.slice(0, 8)}</span>
-        {game.rated ? null : <span className="chip chip--training">training</span>}
-        {active ? <span className="chip chip--live">live</span> : null}
-      </span>
+<span className="board-id">
+  <span>Game #{game.id.slice(0, 8)}</span>
+  {game.rated ? null : <span className="chip chip--training">training</span>}
+  {active ? <span className="chip chip--live">live</span> : null}
+</span>
 ```
 
 In `apps/web/src/components/game/GameView.tsx`, the status line currently hardcodes the word `rated`. Make it tell the truth:
@@ -3039,7 +3089,9 @@ In `apps/web/src/components/game/GameView.tsx`, the status line currently hardco
 In `apps/web/src/components/agents/AgentHeader.tsx`, in the heading, before the suspended chip:
 
 ```tsx
-              {profile.agent.isHouse ? <span className="chip chip--house">house</span> : null}
+{
+  profile.agent.isHouse ? <span className="chip chip--house">house</span> : null;
+}
 ```
 
 - [ ] **Step 4: Give the chips their colours**
@@ -3047,8 +3099,16 @@ In `apps/web/src/components/agents/AgentHeader.tsx`, in the heading, before the 
 In `apps/web/src/styles/arena.css`, beside the existing chip modifiers:
 
 ```css
-.chip--training { color: var(--cyan); border: 2px solid var(--cyan); margin: 0; }
-.chip--house { color: var(--gold); border: 2px solid var(--gold); margin: 0 0 0 6px; }
+.chip--training {
+  color: var(--cyan);
+  border: 2px solid var(--cyan);
+  margin: 0;
+}
+.chip--house {
+  color: var(--gold);
+  border: 2px solid var(--gold);
+  margin: 0 0 0 6px;
+}
 ```
 
 - [ ] **Step 5: Run and watch it pass**
@@ -3090,11 +3150,13 @@ MSG
 ### Task 12: Ship it
 
 **Files:**
+
 - Modify: `Dockerfile`, `docker-compose.yml`, `docker-compose.prod.yml`
 - Modify: `.env.example`, `deploy/env.prod.example`, `deploy/init-env.sh`
 - Modify: `README.md`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: `SPARRING_*` and `OLLAMA_URL` in the environment; the `ollama`, `ollama-pull`, `sparring-bootstrap` and `sparring` services.
 
@@ -3138,74 +3200,74 @@ Expected: the build succeeds, and the run prints the configuration error about `
 In `docker-compose.prod.yml`, after `worker`:
 
 ```yaml
-  # The house sparring agent's model. No published ports: only the sparring
-  # service talks to it, over the compose network.
-  ollama:
-    image: ollama/ollama:latest
-    environment:
-      # One request at a time and one model resident: this box has two vCPUs
-      # and the API has to keep answering while a game is being played.
-      OLLAMA_NUM_PARALLEL: "1"
-      OLLAMA_MAX_LOADED_MODELS: "1"
-      OLLAMA_KEEP_ALIVE: "5m"
-    volumes:
-      - ollama-models:/root/.ollama
-    mem_limit: 1g
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+# The house sparring agent's model. No published ports: only the sparring
+# service talks to it, over the compose network.
+ollama:
+  image: ollama/ollama:latest
+  environment:
+    # One request at a time and one model resident: this box has two vCPUs
+    # and the API has to keep answering while a game is being played.
+    OLLAMA_NUM_PARALLEL: "1"
+    OLLAMA_MAX_LOADED_MODELS: "1"
+    OLLAMA_KEEP_ALIVE: "5m"
+  volumes:
+    - ollama-models:/root/.ollama
+  mem_limit: 1g
+  healthcheck:
+    test: ["CMD", "ollama", "list"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 30s
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
-  # One shot, like migrate: the image ships no weights.
-  ollama-pull:
-    image: ollama/ollama:latest
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama pull ${SPARRING_MODEL:-gemma3:270m}"]
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-    depends_on:
-      ollama:
-        condition: service_healthy
-    restart: "no"
+# One shot, like migrate: the image ships no weights.
+ollama-pull:
+  image: ollama/ollama:latest
+  entrypoint: ["/bin/sh", "-c"]
+  command: ["ollama pull ${SPARRING_MODEL:-gemma3:270m}"]
+  environment:
+    OLLAMA_HOST: http://ollama:11434
+  depends_on:
+    ollama:
+      condition: service_healthy
+  restart: "no"
 
-  # One shot: makes the database agree with SPARRING_API_KEY. Safe on every
-  # deploy, and it adopts a rotated key.
-  sparring-bootstrap:
-    <<: *app
-    command: ["node", "packages/db/dist/cli/ensure-sparring.js"]
-    restart: "no"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
+# One shot: makes the database agree with SPARRING_API_KEY. Safe on every
+# deploy, and it adopts a rotated key.
+sparring-bootstrap:
+  <<: *app
+  command: ["node", "packages/db/dist/cli/ensure-sparring.js"]
+  restart: "no"
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
 
-  sparring:
-    <<: *app
-    command: ["node", "apps/sparring/dist/main.js"]
-    depends_on:
-      api:
-        condition: service_healthy
-      ollama-pull:
-        condition: service_completed_successfully
-      sparring-bootstrap:
-        condition: service_completed_successfully
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:'+(process.env.SPARRING_HEALTH_PORT||3003)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+sparring:
+  <<: *app
+  command: ["node", "apps/sparring/dist/main.js"]
+  depends_on:
+    api:
+      condition: service_healthy
+    ollama-pull:
+      condition: service_completed_successfully
+    sparring-bootstrap:
+      condition: service_completed_successfully
+  healthcheck:
+    test:
+      - CMD
+      - node
+      - -e
+      - "fetch('http://127.0.0.1:'+(process.env.SPARRING_HEALTH_PORT||3003)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 30s
 ```
 
 and add `ollama-models:` to the `volumes:` block at the bottom.
@@ -3215,20 +3277,20 @@ and add `ollama-models:` to the `volumes:` block at the bottom.
 In `docker-compose.yml`, add:
 
 ```yaml
-  # Only with `docker compose --profile sparring up -d`: developing the arena
-  # does not require running a model.
-  ollama:
-    image: ollama/ollama:latest
-    profiles: ["sparring"]
-    ports:
-      - "11435:11434"
-    volumes:
-      - ollama-models:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
+# Only with `docker compose --profile sparring up -d`: developing the arena
+# does not require running a model.
+ollama:
+  image: ollama/ollama:latest
+  profiles: ["sparring"]
+  ports:
+    - "11435:11434"
+  volumes:
+    - ollama-models:/root/.ollama
+  healthcheck:
+    test: ["CMD", "ollama", "list"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
 ```
 
 and `ollama-models:` to its `volumes:` block.
@@ -3279,7 +3341,7 @@ In the roadmap's "Later" line, drop `an unrated queue with a house sparring agen
 
 In the Development section, after the stack commands:
 
-```markdown
+````markdown
 The house sparring agent is optional locally. It needs Ollama and the model:
 
 ```bash
@@ -3289,20 +3351,22 @@ docker compose exec ollama ollama pull gemma3:270m
 pnpm --filter @aichess/db build && node packages/db/dist/cli/ensure-sparring.js
 pnpm --filter @aichess/sparring dev
 ```
+````
 
 Your own agent then asks for a practice game instead of a rated one:
 
 ```ts
 await client.joinQueue({ mode: "unrated" });
 ```
-```
+
+````
 
 - [ ] **Step 7: Run the whole gate**
 
 ```bash
 pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm format
 git diff --stat
-```
+````
 
 Expected: everything green. `pnpm format` may reformat the files this task touched; that is why it runs before the commit.
 

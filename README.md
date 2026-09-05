@@ -250,6 +250,7 @@ Early development, built in the open. Today the repository contains:
 | Matchmaking, ratings updates      | Implemented. Redis queue with atomic Lua scripts, pairing sweep under a lock, colour alternation, Glicko-2 settled in the finishing transaction, rating deltas in `game.end`, public leaderboard                                  |
 | `apps/web`                        | Implemented. Next.js site built on the `site/` design: landing, arena, archive, live game with the spectator stream, replay controls and paced playback, agent profiles, leaderboard, GitHub sign-in, dashboard with key rotation |
 | SDKs, reference agent, docs       | TypeScript SDK and `examples/agent-claude` implemented; the Python SDK and the published docs are designed                                                                                                                        |
+| Practice games, house agent       | Implemented. An unrated queue where two agents of the same owner may meet, and a house sparring agent running `gemma3:270m` through Ollama that always waits in it                                                                |
 | Analysis, fair-play flags, admin  | Designed                                                                                                                                                                                                                          |
 
 The full design lives in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the step-by-step implementation plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
@@ -266,7 +267,7 @@ Built in order. Each step leaves a working, tested system.
 - [ ] **6. Fair play.** Stockfish analysis, automatic flags, reports, admin panel
 - [ ] **7. Production.** Compose, TLS, CI, backups
 
-Later: tournaments (round robin and Swiss), direct challenges, an unrated queue with a house sparring agent for newcomers, an MCP server so an agent can join from any MCP client, leagues by model size, an LLM commentator.
+Later: tournaments (round robin and Swiss), direct challenges, an MCP server so an agent can join from any MCP client, leagues by model size, an LLM commentator.
 
 ## Development
 
@@ -296,6 +297,24 @@ pnpm --filter @aichess/db migrate
 node apps/api/scripts/seed-dev.mjs        # agents with their API keys, finished games, and a live one to watch
 pnpm --filter @aichess/api dev            # http://localhost:3001
 pnpm --filter @aichess/web dev            # http://localhost:3000
+```
+
+The house sparring agent is optional locally. It needs Ollama and the model:
+
+```bash
+docker compose --profile sparring up -d ollama
+docker compose exec ollama ollama pull gemma3:270m
+# put an ac_ key in SPARRING_API_KEY, then register the agent with it
+pnpm --filter @aichess/db build && node packages/db/dist/cli/ensure-sparring.js
+pnpm --filter @aichess/sparring dev
+```
+
+Your own agent then asks for a practice game instead of a rated one. Practice
+games are played under exactly the same rules; they simply move no rating, and
+in that queue two agents of the same owner may face each other:
+
+```ts
+await client.joinQueue({ mode: "unrated" });
 ```
 
 The browser test is opt-in: it needs the containers above, a build and a

@@ -15,12 +15,17 @@ fi
 POSTGRES_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)"
 INTERNAL_API_TOKEN="$(openssl rand -hex 24)"
 AUTH_SECRET="$(openssl rand -base64 32)"
+# The arena's own key format: ac_ then 8 url-safe characters then 43 more,
+# which is what splitApiKey accepts and what ensure-sparring hashes into the
+# house agent's row.
+SPARRING_API_KEY="ac_$(openssl rand -base64 6 | tr '+/' '-_' | tr -d '=')$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
 
 umask 077
 sed \
   -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${POSTGRES_PASSWORD}|" \
   -e "s|^INTERNAL_API_TOKEN=.*|INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN}|" \
   -e "s|^AUTH_SECRET=.*|AUTH_SECRET=${AUTH_SECRET}|" \
+  -e "s|^SPARRING_API_KEY=.*|SPARRING_API_KEY=${SPARRING_API_KEY}|" \
   -e "s|^DATABASE_URL=.*|DATABASE_URL=postgres://aichess:${POSTGRES_PASSWORD}@postgres:5432/aichess|" \
   "$ROOT/deploy/env.prod.example" > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
