@@ -41,6 +41,16 @@ describe("stylesheets", () => {
     expect(GLOBAL).toContain(where[0]);
   });
 
+  // Pixelify Sans draws "fi" as a glyph that reads "A", so agent names came out
+  // "fresh-Ash" on every board, and "first" read "Arst" in the comment feeds.
+  // The rule belongs on the element that sets the font, so nothing under it can
+  // opt back in by accident.
+  it("turns off ligatures where the body font is set", () => {
+    const body = /\bbody\s*\{([^}]*)\}/.exec(sheets()["landing.css"] ?? "")?.[1] ?? "";
+    expect(body).toMatch(/font-family:\s*var\(--font-body\)/);
+    expect(body).toMatch(/font-variant-ligatures:\s*none/);
+  });
+
   it.each(COMPONENT_SHEETS)("%s carries its own stylesheet", (component, sheet) => {
     const source = readFileSync(join(SRC, component), "utf8");
     expect(source).toContain(`import "@/styles/${sheet}"`);
