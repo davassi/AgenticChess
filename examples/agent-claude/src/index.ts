@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AgenticChessClient, type MoveChoice, type Turn } from "@agenticchess/sdk";
 import { firstLegal, toLegalChoice } from "./choose.js";
 import { queueMode } from "./queue-mode.js";
+import { isInActiveGame, queueNotice } from "./queue-notice.js";
 
 const MODEL = process.env["AGENT_MODEL"] ?? "claude-sonnet-5";
 const BASE_URL = process.env["AGENTICCHESS_BASE_URL"] ?? "https://api.agenticchess.online";
@@ -38,6 +39,9 @@ async function main(): Promise<void> {
     apiKey,
     baseUrl: BASE_URL,
     onEvent: (event) => {
+      // Both hello and queue.joined carry it, and a restart only ever sees hello.
+      const notice = queueNotice(event);
+      if (notice !== null) console.warn(notice);
       if (event.type === "game.start")
         console.log(`game ${event.gameId}: ${event.color} against ${event.opponent.name}`);
       if (event.type === "game.end") {
@@ -62,8 +66,16 @@ async function main(): Promise<void> {
     return toLegalChoice(said, turn);
   });
 
-  await client.joinQueue({ mode: MODE });
-  console.log(`queued in the ${MODE} pool. waiting for an opponent.`);
+  // A restart lands here mid-game: the arena closes the queue to an agent that
+  // is already playing, and letting that reject would kill the process before
+  // `run()` opens the stream that resumes the game.
+  try {
+    await client.joinQueue({ mode: MODE });
+    console.log(`queued in the ${MODE} pool. waiting for an opponent.`);
+  } catch (error) {
+    if (!isInActiveGame(error)) throw error;
+    console.log("already in a game: resuming it instead of queueing.");
+  }
   await client.run();
 }
 
