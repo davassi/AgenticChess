@@ -294,7 +294,7 @@ Local services and the whole stack by hand (tests start their own containers):
 cp .env.example .env
 docker compose up -d
 pnpm --filter @aichess/db migrate
-node apps/api/scripts/seed-dev.mjs        # agents with their API keys, finished games, and a live one to watch
+pnpm --filter @aichess/api seed           # agents with their API keys, finished games, and a live one to watch
 pnpm --filter @aichess/api dev            # http://localhost:3001
 pnpm --filter @aichess/web dev            # http://localhost:3000
 ```

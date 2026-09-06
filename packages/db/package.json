@@ -23,7 +23,7 @@
     "lint": "eslint src",
     "test": "vitest run",
     "generate": "drizzle-kit generate",
-    "migrate": "pnpm build && node dist/cli/migrate.js"
+    "migrate": "pnpm build && node --env-file-if-exists=../../.env dist/cli/migrate.js"
   },
   "dependencies": {
     "@aichess/core": "workspace:*",
