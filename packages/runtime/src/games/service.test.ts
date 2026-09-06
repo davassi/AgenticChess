@@ -83,6 +83,81 @@ describe("GameService", () => {
     if (!r.ok) throw new Error(`move ${san} rejected: ${r.code}`);
   }
 
+  describe("minimum move interval", () => {
+    function pacedService(slept: number[]): GameService {
+      return new GameService({
+        db,
+        bus,
+        deadlines: queue,
+        config: DEFAULT_GAME_CONFIG,
+        logger: noopLogger,
+        now: () => clock,
+        minMoveIntervalMs: 3_000,
+        sleep: async (ms) => {
+          slept.push(ms);
+          await Promise.resolve();
+        },
+      });
+    }
+
+    it("holds a move for the rest of the interval when the agent answered fast", async () => {
+      const slept: number[] = [];
+      const paced = pacedService(slept);
+      const r = await paced.createAndStartGame({ whiteAgentId: agents.white.id, blackAgentId: agents.black.id });
+      if (!r.ok) throw new Error(r.code);
+      clock = T0 + 200;
+      const moved = await paced.submitMove({ gameId: r.snapshot.id, agentId: agents.white.id, ply: 0, move: "e4" });
+      expect(moved.ok).toBe(true);
+      expect(slept).toEqual([2_800]);
+    });
+
+    it("holds nothing when the agent took longer than the interval anyway", async () => {
+      const slept: number[] = [];
+      const paced = pacedService(slept);
+      const r = await paced.createAndStartGame({ whiteAgentId: agents.white.id, blackAgentId: agents.black.id });
+      if (!r.ok) throw new Error(r.code);
+      clock = T0 + 5_000;
+      expect((await paced.submitMove({ gameId: r.snapshot.id, agentId: agents.white.id, ply: 0, move: "e4" })).ok).toBe(
+        true,
+      );
+      expect(slept).toEqual([]);
+    });
+
+    it("waits before taking the row lock, not while holding it", async () => {
+      // Sleeping inside the transaction would hold `loadGameForUpdate`'s lock
+      // for the whole interval, blocking the deadline worker and the reconciler
+      // on that game. The wait must be over before the transaction opens.
+      const order: string[] = [];
+      const paced = new GameService({
+        db,
+        bus,
+        deadlines: queue,
+        config: DEFAULT_GAME_CONFIG,
+        logger: noopLogger,
+        now: () => clock,
+        minMoveIntervalMs: 3_000,
+        sleep: async () => {
+          order.push("slept");
+          await Promise.resolve();
+        },
+      });
+      const r = await paced.createAndStartGame({ whiteAgentId: agents.white.id, blackAgentId: agents.black.id });
+      if (!r.ok) throw new Error(r.code);
+      clock = T0 + 10;
+      await paced.submitMove({ gameId: r.snapshot.id, agentId: agents.white.id, ply: 0, move: "e4" });
+      const row = await db.select().from(games).where(eq(games.id, r.snapshot.id));
+      order.push("committed");
+      expect(order).toEqual(["slept", "committed"]);
+      expect(row[0]?.ply).toBe(1);
+    });
+
+    it("does not pace at all by default", async () => {
+      const gameId = await newGame();
+      clock = T0 + 5;
+      expect((await service.submitMove({ gameId, agentId: agents.white.id, ply: 0, move: "e4" })).ok).toBe(true);
+    });
+  });
+
   describe("createAndStartGame", () => {
     it("creates an active game, notifies both agents and schedules the first deadline", async () => {
       const white: WireEvent[] = [];

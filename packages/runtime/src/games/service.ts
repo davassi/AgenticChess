@@ -23,6 +23,7 @@ import {
   type WireExtras,
 } from "../events/wire.js";
 import { deadlineFireAt, scheduleDeadline, type DeadlineQueue } from "../jobs/deadlines.js";
+import { paceDelay } from "./pacing.js";
 import type { RuntimeLogger } from "../logger.js";
 import { settleRatings } from "../rating/settle.js";
 import {
@@ -44,6 +45,10 @@ export interface GameServiceDeps {
   logger: RuntimeLogger;
   now?: () => number;
   newId?: () => string;
+  /** Hold each move until this long after its turn began. 0, the default, changes nothing. */
+  minMoveIntervalMs?: number;
+  /** Injected so the pacing can be asserted without a test that actually waits. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export interface CreateGameInput {
@@ -120,10 +125,32 @@ function isOver(state: GameState): boolean {
 export class GameService {
   private readonly now: () => number;
   private readonly newId: () => string;
+  private readonly minMoveIntervalMs: number;
+  private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(private readonly deps: GameServiceDeps) {
     this.now = deps.now ?? ((): number => Date.now());
     this.newId = deps.newId ?? ((): string => randomUUID());
+    this.minMoveIntervalMs = deps.minMoveIntervalMs ?? 0;
+    this.sleep = deps.sleep ?? ((ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms)));
+  }
+
+  /**
+   * Slow the arena to something a spectator can follow.
+   *
+   * Deliberately outside the transaction below: `loadGameForUpdate` takes a row
+   * lock, and holding it for the interval would park the deadline worker and
+   * the reconciler on this game for as long as the pause lasts. The cost is one
+   * extra unlocked read per move, and a move that arrives during the wait is
+   * serialised by the lock exactly as it was before.
+   */
+  private async pace(gameId: string): Promise<void> {
+    if (this.minMoveIntervalMs <= 0) return;
+    const state = await loadGame(this.deps.db, gameId);
+    if (state === null) return;
+    const turnStartedAt = state.moveDeadlineAt === null ? null : state.moveDeadlineAt - state.config.timePerMoveMs;
+    const delay = paceDelay(this.now(), turnStartedAt, this.minMoveIntervalMs);
+    if (delay > 0) await this.sleep(delay);
   }
 
   async createAndStartGame(input: CreateGameInput): Promise<CreateGameResult> {
@@ -156,6 +183,7 @@ export class GameService {
   }
 
   async submitMove(input: SubmitMoveInput): Promise<SubmitMoveResult> {
+    await this.pace(input.gameId);
     const outcome = await this.deps.db.transaction(async (tx): Promise<TxOutcome<SubmitMoveResult>> => {
       const state = await loadGameForUpdate(tx, input.gameId);
       if (state === null) return { result: { ok: false, code: "not_found" }, postCommit: null };

@@ -13,6 +13,8 @@ export interface RuntimeConfig {
   redisUrl: string;
   game: GameConfig;
   dbPoolMax?: number;
+  /** Hold each move until this long after its turn began. 0, the default, changes nothing. */
+  minMoveIntervalMs?: number;
 }
 
 export interface RuntimeHandle {
@@ -53,7 +55,14 @@ export async function createRuntime(config: RuntimeConfig, logger: RuntimeLogger
     throw error;
   }
   const deadlines = createDeadlineQueue(queueConnection);
-  const service = new GameService({ db: dbHandle.db, bus, deadlines, logger, config: config.game });
+  const service = new GameService({
+    db: dbHandle.db,
+    bus,
+    deadlines,
+    logger,
+    config: config.game,
+    minMoveIntervalMs: config.minMoveIntervalMs,
+  });
   const queue = new MatchmakingQueue(redis);
   const matchmaking = new MatchmakingService({ db: dbHandle.db, queue, bus, logger });
   const openBus = bus;
