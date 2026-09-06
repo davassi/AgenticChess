@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Clock } from "./Clock";
 import { CommentFeed } from "./CommentFeed";
@@ -31,6 +32,21 @@ describe("Clock", () => {
       vi.advanceTimersByTime(90_000);
     });
     expect(screen.getByRole("timer", { name: "White clock" })).toHaveTextContent("0.0");
+  });
+
+  // The server renders this component too, and the browser hydrates it a moment
+  // later. A first render that reads the clock therefore produces two different
+  // strings, React throws the server's markup away and rebuilds the subtree.
+  it("renders the same markup however much time has passed", () => {
+    const props = {
+      deadlineAt: new Date(NOW + 60_000).toISOString(),
+      timePerMoveMs: 60_000,
+      running: true,
+      label: "White clock",
+    };
+    const atStart = renderToString(<Clock {...props} />);
+    vi.setSystemTime(NOW + 12_345);
+    expect(renderToString(<Clock {...props} />)).toBe(atStart);
   });
 
   it("shows the full clock and does not tick when it is the other side's turn", () => {

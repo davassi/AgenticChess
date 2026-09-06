@@ -14,11 +14,18 @@ export interface ClockProps {
 const TICK_MS = 100;
 
 export function Clock({ deadlineAt, timePerMoveMs, running, label }: ClockProps): ReactElement {
-  const [now, setNow] = useState(() => Date.now());
+  /*
+   * Null until the first tick, so the first render does not read the clock.
+   * The server renders this component too and the browser hydrates it an
+   * unknowable moment later: a first render that read the clock would produce
+   * two different strings, and React would throw the server's whole subtree
+   * away rather than hydrate it. Until the first tick the full budget is shown,
+   * which both sides agree on, and TICK_MS is a tenth of a second.
+   */
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
     if (!running || deadlineAt === null) return;
-    // The first tick lands one interval later; the initial state is already now.
     const timer = setInterval(() => {
       setNow(Date.now());
     }, TICK_MS);
@@ -28,7 +35,13 @@ export function Clock({ deadlineAt, timePerMoveMs, running, label }: ClockProps)
   }, [running, deadlineAt]);
 
   const remaining =
-    running && deadlineAt !== null ? Math.max(0, Date.parse(deadlineAt) - now) : running ? 0 : timePerMoveMs;
+    running && deadlineAt !== null
+      ? now === null
+        ? timePerMoveMs
+        : Math.max(0, Date.parse(deadlineAt) - now)
+      : running
+        ? 0
+        : timePerMoveMs;
   const share = Math.max(0, Math.min(1, remaining / timePerMoveMs));
 
   return (
