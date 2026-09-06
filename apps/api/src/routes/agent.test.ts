@@ -78,13 +78,44 @@ describe("agent queue routes", () => {
 
     const join = await h.app.inject({ method: "POST", url: "/v1/agent/queue", headers: auth(h.agents.white) });
     const { queuedAt } = join.json() as QueueStatus;
-    expect(await first.take("queue.joined")).toEqual({ type: "queue.joined", queuedAt, mode: "rated" });
+    expect(await first.take("queue.joined")).toEqual({ type: "queue.joined", queuedAt, mode: "rated", opponents: 0 });
 
     const second = await connect(h.agents.white);
     expect(await second.take("hello")).toMatchObject({ queue: { queuedAt } });
 
     await h.app.inject({ method: "DELETE", url: "/v1/agent/queue", headers: auth(h.agents.white) });
     expect(await second.take("queue.left")).toEqual({ type: "queue.left", queuedAt, mode: "rated" });
+  });
+
+  it("tells an agent nobody in its queue can be its opponent", async () => {
+    // Both seeded agents belong to one owner, and pairing refuses that in the
+    // rated queue. So the queue holds two agents, both online, and neither is
+    // ever paired - until this count existed, nothing in the protocol said so
+    // and the only symptom was silence.
+    await h.app.inject({ method: "POST", url: "/v1/agent/queue", headers: auth(h.agents.black) });
+    const join = await h.app.inject({ method: "POST", url: "/v1/agent/queue", headers: auth(h.agents.white) });
+    expect(join.json()).toMatchObject({ mode: "rated", opponents: 0 });
+
+    const me = await h.app.inject({ method: "GET", url: "/v1/agent/me", headers: auth(h.agents.white) });
+    expect(me.json()).toMatchObject({ queue: { opponents: 0 } });
+  });
+
+  it("counts that same agent once both are in the unrated queue, where the owner rule is relaxed", async () => {
+    const body = { mode: "unrated" };
+    const headers = { "content-type": "application/json" };
+    await h.app.inject({
+      method: "POST",
+      url: "/v1/agent/queue",
+      headers: { ...auth(h.agents.black), ...headers },
+      payload: body,
+    });
+    const join = await h.app.inject({
+      method: "POST",
+      url: "/v1/agent/queue",
+      headers: { ...auth(h.agents.white), ...headers },
+      payload: body,
+    });
+    expect(join.json()).toMatchObject({ mode: "unrated", opponents: 1 });
   });
 
   it("joins the rated queue when the body says nothing", async () => {

@@ -1,5 +1,5 @@
-import { QueueJoinRequestSchema, type AgentMe, type QueueStatus } from "@aichess/core/protocol";
-import { loadRating, toQueueStatus, toRatingSummary } from "@aichess/runtime";
+import { QueueJoinRequestSchema, type AgentMe, type QueueStanding, type QueueStatus } from "@aichess/core/protocol";
+import { loadRating, toQueueStanding, toQueueStatus, toRatingSummary } from "@aichess/runtime";
 import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
 import { ApiError } from "../errors.js";
@@ -27,7 +27,7 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AppDeps, streams
     const [online, activeGame, queue, rating] = await Promise.all([
       streams.isOnline(agent.id),
       deps.service.activeGameFor(agent.id),
-      deps.matchmaking.status(agent.id),
+      deps.matchmaking.standing(agent.id),
       loadRating(deps.db, agent.id),
     ]);
     const body: AgentMe = {
@@ -42,7 +42,7 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AppDeps, streams
       status: agent.status,
       online,
       activeGameId: activeGame?.id ?? null,
-      queue: queue === null ? null : toQueueStatus(queue),
+      queue,
       rating: toRatingSummary(rating),
     };
     return body;
@@ -62,7 +62,7 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AppDeps, streams
     }
     const result = await deps.matchmaking.join(agent.id, mode);
     if (!result.ok) throw new ApiError(result.code, QUEUE_MESSAGES[result.code]);
-    const body: QueueStatus = toQueueStatus(result);
+    const body: QueueStanding = toQueueStanding(result, result.opponents);
     return body;
   });
 

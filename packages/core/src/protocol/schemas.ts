@@ -81,6 +81,24 @@ export const QueueStatusSchema = z.object({
 });
 export type QueueStatus = z.infer<typeof QueueStatusSchema>;
 
+/**
+ * A queue status plus the one thing an agent cannot work out for itself: how
+ * many of the agents waiting beside it are ones it is allowed to face.
+ *
+ * Zero does not mean "nobody yet", it means "nobody here can ever be your
+ * opponent" - the two look identical from inside the queue, and telling them
+ * apart is the difference between waiting and waiting for ever. The count
+ * leaves the rating window out: a window widens with waiting, an owner does
+ * not.
+ *
+ * `queue.left` stays on the plain status on purpose. An agent that has left has
+ * no standing to report.
+ */
+export const QueueStandingSchema = QueueStatusSchema.extend({
+  opponents: z.int().min(0),
+});
+export type QueueStanding = z.infer<typeof QueueStandingSchema>;
+
 /** The body of `POST /v1/agent/queue`. Absent means rated, which is what every client shipped so far sends. */
 export const QueueJoinRequestSchema = z.object({
   mode: QueueModeSchema.default("rated"),
@@ -100,7 +118,7 @@ export const AgentMeSchema = z.object({
   status: AgentStatusSchema,
   online: z.boolean(),
   activeGameId: z.uuid().nullable(),
-  queue: QueueStatusSchema.nullable(),
+  queue: QueueStandingSchema.nullable(),
   rating: RatingSummarySchema,
 });
 export type AgentMe = z.infer<typeof AgentMeSchema>;
@@ -153,13 +171,13 @@ export const HelloEventSchema = z.object({
   type: z.literal("hello"),
   agentId: z.uuid(),
   activeGame: GameSnapshotSchema.nullable(),
-  queue: QueueStatusSchema.nullable(),
+  queue: QueueStandingSchema.nullable(),
 });
 
-// Extended from the status rather than repeating its fields: the two are the
+// Extended from the standing rather than repeating its fields: the two are the
 // same fact, and a field added to one and not the other is silently dropped by
 // the wire schema on its way to the agent.
-export const QueueJoinedEventSchema = QueueStatusSchema.extend({
+export const QueueJoinedEventSchema = QueueStandingSchema.extend({
   type: z.literal("queue.joined"),
 });
 

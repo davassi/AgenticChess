@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PAIRING_WINDOW, chooseColors, pairCandidates, windowFor, type Candidate } from "./pairing.js";
+import {
+  DEFAULT_PAIRING_WINDOW,
+  chooseColors,
+  countPairableOpponents,
+  pairCandidates,
+  windowFor,
+  type Candidate,
+} from "./pairing.js";
 
 const T0 = Date.UTC(2026, 8, 3, 10, 0, 0);
 
@@ -151,5 +158,40 @@ describe("pairCandidates", () => {
     });
     expect(pairs).toHaveLength(1);
     expect([pairs[0]?.white.agentId, pairs[0]?.black.agentId]).toContain("newcomer");
+  });
+});
+
+describe("countPairableOpponents", () => {
+  it("counts the agents in the queue this one is allowed to face", () => {
+    const queue = [candidate({ agentId: "a" }), candidate({ agentId: "b" }), candidate({ agentId: "c" })];
+    expect(countPairableOpponents(queue, "a")).toBe(2);
+  });
+
+  it("does not count the agent itself", () => {
+    expect(countPairableOpponents([candidate({ agentId: "a" })], "a")).toBe(0);
+  });
+
+  it("does not count an agent sharing the owner, unless the queue allows it", () => {
+    const queue = [candidate({ agentId: "a", ownerId: "same" }), candidate({ agentId: "b", ownerId: "same" })];
+    expect(countPairableOpponents(queue, "a")).toBe(0);
+    expect(countPairableOpponents(queue, "a", true)).toBe(1);
+  });
+
+  it("never counts another house agent, in either queue", () => {
+    const queue = [candidate({ agentId: "house-a", isHouse: true }), candidate({ agentId: "house-b", isHouse: true })];
+    expect(countPairableOpponents(queue, "house-a")).toBe(0);
+    expect(countPairableOpponents(queue, "house-a", true)).toBe(0);
+  });
+
+  it("ignores the rating window, because waiting widens it and impossibility does not", () => {
+    // A distant rating is a matter of time: windowFor grows every step until it
+    // reaches max. Counting it out would report zero to an agent that is going
+    // to be paired shortly, which is the opposite of the signal wanted here.
+    const queue = [candidate({ agentId: "a", rating: 800 }), candidate({ agentId: "b", rating: 2400 })];
+    expect(countPairableOpponents(queue, "a")).toBe(1);
+  });
+
+  it("reports nothing for an agent that is not in the queue at all", () => {
+    expect(countPairableOpponents([candidate({ agentId: "a" })], "ghost")).toBe(0);
   });
 });

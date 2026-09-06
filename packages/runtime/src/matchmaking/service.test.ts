@@ -56,7 +56,10 @@ describe("MatchmakingService", () => {
   it("joins, publishes queue.joined and refuses a second join", async () => {
     const events: WireEvent[] = [];
     const off = await runtime.bus.subscribeAgent(agents.white.id, (e) => events.push(e));
-    expect(await service.join(agents.white.id)).toEqual({ ok: true, queuedAt: T0, mode: "rated" });
+    // The count travels with the join result, not only in the event: an agent
+    // that never opens the stream still has to be able to tell an empty queue
+    // from an impossible one.
+    expect(await service.join(agents.white.id)).toEqual({ ok: true, queuedAt: T0, mode: "rated", opponents: 0 });
     clock = T0 + 1_000;
     expect(await service.join(agents.white.id)).toEqual({ ok: false, code: "already_in_queue" });
     expect(await service.status(agents.white.id)).toEqual({ queuedAt: T0, mode: "rated" });
@@ -64,7 +67,52 @@ describe("MatchmakingService", () => {
       { agentId: agents.white.id, rating: 1500, queuedAt: T0, mode: "rated" },
     ]);
     await waitFor(() => events.length === 1);
-    expect(events[0]).toEqual({ type: "queue.joined", queuedAt: new Date(T0).toISOString(), mode: "rated" });
+    expect(events[0]).toEqual({
+      type: "queue.joined",
+      queuedAt: new Date(T0).toISOString(),
+      mode: "rated",
+      opponents: 0,
+    });
+    await off();
+  });
+
+  it("tells a joining agent how many of the waiting agents it may face", async () => {
+    const events: WireEvent[] = [];
+    const off = await runtime.bus.subscribeAgent(agents.white.id, (e) => events.push(e));
+    await service.join(agents.black.id);
+    await service.join(agents.white.id);
+    await waitFor(() => events.length === 1);
+    expect(events[0]).toEqual({
+      type: "queue.joined",
+      queuedAt: new Date(T0).toISOString(),
+      mode: "rated",
+      opponents: 1,
+    });
+    await off();
+  });
+
+  it("reports nobody to face when the only other agent shares its owner", async () => {
+    // The anti-self-play rule is invisible from inside the queue: both agents
+    // wait, both are online, neither is ever paired, and nothing reports a
+    // problem. Zero is what separates that from a queue that is merely quiet.
+    agents = await seedTwoAgents(runtime.db, {});
+    const events: WireEvent[] = [];
+    const off = await runtime.bus.subscribeAgent(agents.white.id, (e) => events.push(e));
+    await service.join(agents.black.id);
+    await service.join(agents.white.id);
+    await waitFor(() => events.length === 1);
+    expect(events[0]).toMatchObject({ type: "queue.joined", opponents: 0 });
+    await off();
+  });
+
+  it("counts an agent sharing its owner once the queue is the unrated one", async () => {
+    agents = await seedTwoAgents(runtime.db, {});
+    const events: WireEvent[] = [];
+    const off = await runtime.bus.subscribeAgent(agents.white.id, (e) => events.push(e));
+    await service.join(agents.black.id, "unrated");
+    await service.join(agents.white.id, "unrated");
+    await waitFor(() => events.length === 1);
+    expect(events[0]).toMatchObject({ type: "queue.joined", mode: "unrated", opponents: 1 });
     await off();
   });
 

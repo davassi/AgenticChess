@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { toQueueStatus } from "@aichess/runtime";
 import type { FastifyReply } from "fastify";
 import type { AppDeps } from "../deps.js";
 import type { AuthenticatedAgent } from "../plugins/auth.js";
@@ -58,15 +57,10 @@ export class AgentStreamRegistry {
     try {
       const [activeGame, queue] = await Promise.all([
         this.deps.service.activeGameFor(agent.id),
-        this.deps.matchmaking.status(agent.id),
+        this.deps.matchmaking.standing(agent.id),
       ]);
       if (connection.closed) return;
-      connection.send({
-        type: "hello",
-        agentId: agent.id,
-        activeGame,
-        queue: queue === null ? null : toQueueStatus(queue),
-      });
+      connection.send({ type: "hello", agentId: agent.id, activeGame, queue });
       const turn = await this.deps.service.yourTurnFor(agent.id);
       if (connection.closed) return;
       if (turn !== null) connection.send(turn);

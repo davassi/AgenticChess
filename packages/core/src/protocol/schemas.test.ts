@@ -224,13 +224,21 @@ describe("agent profile, queue and leaderboard schemas", () => {
     const base = { type: "hello", agentId: randomUUID(), activeGame: null };
     expect(WireEventSchema.safeParse(base).success).toBe(false);
     expect(WireEventSchema.safeParse({ ...base, queue: null }).success).toBe(true);
-    expect(
-      WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z", mode: "rated" } }).success,
-    ).toBe(true);
-    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "yesterday", mode: "rated" } }).success).toBe(false);
+    const standing = { queuedAt: "2026-09-03T10:00:00.000Z", mode: "rated", opponents: 0 };
+    expect(WireEventSchema.safeParse({ ...base, queue: standing }).success).toBe(true);
+    expect(WireEventSchema.safeParse({ ...base, queue: { ...standing, queuedAt: "yesterday" } }).success).toBe(false);
     // A membership without its mode is not a membership: the agent has to know
     // whether the game it is waiting for will count.
-    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: "2026-09-03T10:00:00.000Z" } }).success).toBe(false);
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: standing.queuedAt, opponents: 0 } }).success).toBe(
+      false,
+    );
+    // And one without the opponent count is the bug this field exists for: an
+    // agent cannot otherwise tell an empty queue from one it can never be
+    // paired out of, so the field is required rather than optional.
+    expect(WireEventSchema.safeParse({ ...base, queue: { queuedAt: standing.queuedAt, mode: "rated" } }).success).toBe(
+      false,
+    );
+    expect(WireEventSchema.safeParse({ ...base, queue: { ...standing, opponents: -1 } }).success).toBe(false);
   });
 });
 
