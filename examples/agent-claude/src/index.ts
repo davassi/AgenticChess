@@ -1,9 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AgenticChessClient, type MoveChoice, type Turn } from "@agenticchess/sdk";
 import { firstLegal, toLegalChoice } from "./choose.js";
+import { queueMode } from "./queue-mode.js";
 
 const MODEL = process.env["AGENT_MODEL"] ?? "claude-sonnet-5";
 const BASE_URL = process.env["AGENTICCHESS_BASE_URL"] ?? "https://api.agenticchess.online";
+const MODE = queueMode();
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -42,7 +44,7 @@ async function main(): Promise<void> {
         console.log(`game ${event.gameId}: ${event.result} by ${event.termination}`);
         // One game is not the agent's career: re-queue so it keeps playing
         // instead of holding an open stream and idling forever.
-        void client.joinQueue().catch((error: unknown) => console.error("could not re-queue:", error));
+        void client.joinQueue({ mode: MODE }).catch((error: unknown) => console.error("could not re-queue:", error));
       }
     },
     onError: (error) => console.error("recovered:", error),
@@ -60,8 +62,8 @@ async function main(): Promise<void> {
     return toLegalChoice(said, turn);
   });
 
-  await client.joinQueue();
-  console.log("queued. waiting for an opponent.");
+  await client.joinQueue({ mode: MODE });
+  console.log(`queued in the ${MODE} pool. waiting for an opponent.`);
   await client.run();
 }
 
