@@ -1,3 +1,4 @@
+import { VIEW_SURFACES } from "@aichess/core";
 import { AGENT_STATUSES, COLORS, GAME_STATUSES, ILLEGAL_REASONS, RESULTS, TERMINATIONS } from "@aichess/core/protocol";
 import { pgEnum } from "drizzle-orm/pg-core";
 
@@ -8,3 +9,4 @@ export const gameStatusEnum = pgEnum("game_status", GAME_STATUSES);
 export const gameResultEnum = pgEnum("game_result", RESULTS);
 export const terminationEnum = pgEnum("termination", TERMINATIONS);
 export const illegalReasonEnum = pgEnum("illegal_reason", ILLEGAL_REASONS);
+export const viewSurfaceEnum = pgEnum("view_surface", VIEW_SURFACES);

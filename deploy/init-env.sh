@@ -15,6 +15,10 @@ fi
 POSTGRES_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)"
 INTERNAL_API_TOKEN="$(openssl rand -hex 24)"
 AUTH_SECRET="$(openssl rand -base64 32)"
+# The visit counter's two secrets. The salt is what stops a leaked table from
+# being matched against a guessed address; the token guards the figures.
+ANALYTICS_SALT="$(openssl rand -hex 32)"
+ANALYTICS_TOKEN="$(openssl rand -hex 24)"
 # The arena's own key format: ac_ then 8 url-safe characters then 43 more,
 # which is what splitApiKey accepts and what ensure-sparring hashes into the
 # house agent's row.
@@ -25,6 +29,8 @@ sed \
   -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${POSTGRES_PASSWORD}|" \
   -e "s|^INTERNAL_API_TOKEN=.*|INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN}|" \
   -e "s|^AUTH_SECRET=.*|AUTH_SECRET=${AUTH_SECRET}|" \
+  -e "s|^ANALYTICS_SALT=.*|ANALYTICS_SALT=${ANALYTICS_SALT}|" \
+  -e "s|^ANALYTICS_TOKEN=.*|ANALYTICS_TOKEN=${ANALYTICS_TOKEN}|" \
   -e "s|^SPARRING_API_KEY=.*|SPARRING_API_KEY=${SPARRING_API_KEY}|" \
   -e "s|^DATABASE_URL=.*|DATABASE_URL=postgres://aichess:${POSTGRES_PASSWORD}@postgres:5432/aichess|" \
   "$ROOT/deploy/env.prod.example" > "$ENV_FILE"

@@ -23,7 +23,9 @@
     "lint": "eslint src",
     "test": "vitest run",
     "generate": "drizzle-kit generate",
-    "migrate": "pnpm build && node --env-file-if-exists=../../.env dist/cli/migrate.js"
+    "migrate": "pnpm build && node --env-file-if-exists=../../.env dist/cli/migrate.js",
+    "insights": "pnpm build && node --env-file-if-exists=../../.env dist/cli/insights.js",
+    "insights:purge": "pnpm build && node --env-file-if-exists=../../.env dist/cli/purge-page-views.js"
   },
   "dependencies": {
     "@aichess/core": "workspace:*",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactElement, ReactNode } from "react";
 import { AccountNav } from "@/components/layout/AccountNav";
 import { Footer } from "@/components/layout/Footer";
+import { PageViews } from "@/components/layout/PageViews";
 import { Sky } from "@/components/layout/Sky";
 import { TopBar } from "@/components/layout/TopBar";
 import { currentUser } from "@/lib/session";
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
         <TopBar account={<AccountNav account={user === null ? null : { name: user.name, email: user.email }} />} />
         <main id="main">{children}</main>
         <Footer />
+        <PageViews />
       </body>
     </html>
   );

@@ -22,6 +22,7 @@ visual vocabulary:
 - `skill.md`, `llms.txt`: the guides for agents, served as text. Generated from `js/protocol.js` by `node site/scripts/guides.mjs`; do not edit by hand.
 - `css/landing.css`: tokens, frames, responsive rules, reduced-motion rules. `css/arena.css`: intro block, filter controls, agent cells and chips shared by the arena pages.
 - `js/pixel.js`: pixel masks, auto-shading, SVG and canvas renderers.
+- `js/track.js`: one page view, sent to `/api/track` on the same origin. Honours Do Not Track and Global Privacy Control, stores no cookie. Its twin in the app is `apps/web/src/lib/beacon.ts`, and a test holds the two to the same behaviour.
 - `js/iso.js`: isometric canvas scenes (the living board and the architecture map) and integer canvas scaling.
 - `js/site.js`: the starfield, hash parameters, page URLs, preview API keys, clipboard copy and relative times shared by every page.
 - `js/protocol.js`: the wire protocol as data (endpoints, events, error codes, rules) plus the guide templates; used by `docs.html` and by `scripts/guides.mjs`.

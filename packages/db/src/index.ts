@@ -3,6 +3,16 @@ export * from "./client.js";
 export * from "./errors.js";
 export { createAgent, type CreateAgentInput, type CreatedAgent } from "./create-agent.js";
 export { ensureSparringAgent, type EnsureSparringInput, type EnsuredSparringAgent } from "./sparring.js";
+export {
+  recordPageView,
+  pageViewStats,
+  purgePageViews,
+  type PageViewRequest,
+  type PageViewConfig,
+  type PageViewRange,
+  type PageViewStats,
+  type DailyViews,
+} from "./page-views.js";
 // runMigrations lives on the ./migrate subpath: it points at the SQL folder
 // with `new URL(..., import.meta.url)`, which bundlers try to resolve at build
 // time, and the web app has no business bundling migrations. Everything that

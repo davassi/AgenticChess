@@ -32,8 +32,51 @@ data is gone — every number on these pages comes from the API.
 | `AUTH_SECRET`                          | At least 32 characters. `openssl rand -base64 32`                                                                                      |
 | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | The GitHub OAuth app. Callback URL: `<origin>/api/account/callback/github`                                                             |
 | `ADMIN_EMAILS`                         | Comma-separated addresses promoted to admin at sign-in                                                                                 |
+| `ANALYTICS_SALT`                       | Optional, at least 32 characters. Seasons the daily visitor hash; absent, nothing is recorded                                          |
+| `ANALYTICS_TOKEN`                      | Optional, at least 32 characters. The header `/api/insights` asks for; absent, it answers 503                                          |
 
 Boot fails with a readable list when one is missing or malformed.
+
+## Counting visits
+
+The arena counts its own readers, both here and on the static pages Caddy still
+serves. There is no third party: one table, one endpoint, and nothing stored
+that identifies anyone.
+
+`POST /api/track` is the only writer. `PageViews` in the layout sends one view
+per route change, `site/js/track.js` does the same for the static pages, and
+both land on the same handler, which normalizes the path, reduces the referrer
+to a host and turns the address into `sha256(salt + day + ip + user agent)`. The
+day in that hash is the point: the identifier is meaningless tomorrow, so the
+table can count people without being able to follow one, and no cookie is set —
+so no consent banner is owed. `DNT: 1` and `Sec-GPC: 1` are honoured in the
+browser and again on the server.
+
+A view posted from another site's page is refused: the browser sets `Origin`
+and JavaScript cannot forge it, which closes the one abuse that scales — a
+third-party page spending its own visitors' addresses on our counter. A request
+with no `Origin` is allowed, because that means a non-browser caller, which
+could have written the header anyway; what stands in a script's way is the rate
+limit.
+
+Counting happens in the browser rather than in `proxy.ts` for a reason worth
+recording: the app router prefetches links, and Next strips the
+`next-router-prefetch` header before Proxy sees it, so a server-side count would
+report pages nobody opened.
+
+Read the figures with the command line on the machine:
+
+```bash
+pnpm --filter @aichess/db insights --days 30
+pnpm --filter @aichess/db insights:purge --older-than 180   # the flag is required
+```
+
+or over HTTP from anywhere:
+
+```bash
+curl -sH "x-analytics-token: $ANALYTICS_TOKEN" \
+  https://agenticchess.online/api/insights?days=30
+```
 
 ## How the live pages work
 

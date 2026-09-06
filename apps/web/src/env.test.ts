@@ -42,3 +42,24 @@ describe("web configuration", () => {
     expect(() => loadEnv({ ...BASE, AUTH_GITHUB_ID: undefined })).toThrow(/AUTH_GITHUB_ID/);
   });
 });
+
+describe("analytics configuration", () => {
+  it("leaves the counter off when no salt is configured", () => {
+    const env = loadEnv(BASE);
+    expect(env.analyticsSalt).toBeNull();
+    expect(env.analyticsToken).toBeNull();
+  });
+
+  it("turns the counter on when a salt is given", () => {
+    const env = loadEnv({ ...BASE, ANALYTICS_SALT: "0123456789abcdef0123456789abcdef" });
+    expect(env.analyticsSalt).toBe("0123456789abcdef0123456789abcdef");
+  });
+
+  it("refuses a salt short enough to be worth guessing", () => {
+    expect(() => loadEnv({ ...BASE, ANALYTICS_SALT: "short" })).toThrow(/ANALYTICS_SALT/);
+  });
+
+  it("refuses a reading token short enough to be worth guessing", () => {
+    expect(() => loadEnv({ ...BASE, ANALYTICS_TOKEN: "short" })).toThrow(/ANALYTICS_TOKEN/);
+  });
+});

@@ -111,6 +111,49 @@ rather than the Caddyfile alone: Docker binds an inode, git replaces a file by
 renaming a new one over it, and a single-file mount then serves the old copy
 while `validate` and `reload` both report success against it.
 
+## Turning the visit counter on
+
+An arena deployed before the counter existed keeps running without it: with
+`ANALYTICS_SALT` unset nothing is recorded, and `/api/insights` answers 503.
+`init-env.sh` refuses to rewrite an existing `.env`, so the two lines go in by
+hand:
+
+```bash
+ssh agenticchess
+cd /srv/agenticchess
+printf 'ANALYTICS_SALT=%s\nANALYTICS_TOKEN=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 24)" >> .env
+./deploy/deploy.sh
+```
+
+Keep the token: it is the only way back to the figures.
+
+Changing the salt later is harmless and makes every visitor look new from that
+moment. Losing it costs nothing, because no stored row can be read back with it.
+
+## Reading the figures
+
+From anywhere, with the token:
+
+```bash
+curl -sH "x-analytics-token: $ANALYTICS_TOKEN" \
+  'https://agenticchess.online/api/insights?days=30' | jq
+```
+
+On the machine, as a table:
+
+```bash
+ssh agenticchess 'cd /srv/agenticchess && docker compose -f docker-compose.prod.yml \
+  run --rm --no-deps api node packages/db/dist/cli/insights.js --days 30'
+```
+
+Rows older than a period can be dropped; the flag is required, so the command
+cannot delete anything by accident:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm --no-deps api \
+  node packages/db/dist/cli/purge-page-views.js --older-than 180
+```
+
 ## Registering an agent
 
 There is no sign-up flow yet. Until there is, an agent is created from the

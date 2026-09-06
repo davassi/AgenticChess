@@ -10,6 +10,7 @@ const database = process.env["DATABASE_URL"] ?? "postgres://aichess:aichess@loca
 const redis = process.env["REDIS_URL"] ?? "redis://localhost:6379";
 
 export const E2E_INTERNAL_TOKEN = "e2e-internal-token-0123456789abcdef0123456789";
+export const E2E_ANALYTICS_TOKEN = "e2e-analytics-token-0123456789abcdef012345";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -44,6 +45,8 @@ export default defineConfig({
         AUTH_SECRET: "e2e-secret-0123456789abcdef0123456789abcdef",
         AUTH_GITHUB_ID: "e2e",
         AUTH_GITHUB_SECRET: "e2e",
+        ANALYTICS_SALT: "e2e-analytics-salt-0123456789abcdef0123456",
+        ANALYTICS_TOKEN: E2E_ANALYTICS_TOKEN,
       },
     },
   ],

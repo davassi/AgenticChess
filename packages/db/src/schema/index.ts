@@ -5,3 +5,4 @@ export * from "./agents.js";
 export * from "./games.js";
 export * from "./moves.js";
 export * from "./ratings.js";
+export * from "./page-views.js";
