@@ -30,7 +30,7 @@ data is gone — every number on these pages comes from the API.
 | `API_INTERNAL_URL`                     | Where the web app itself reaches the API. Defaults to `API_PUBLIC_URL`; inside Docker it is the service name                           |
 | `DATABASE_URL`                         | Postgres, for sessions and the dashboard's own writes                                                                                  |
 | `AUTH_SECRET`                          | At least 32 characters. `openssl rand -base64 32`                                                                                      |
-| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | The GitHub OAuth app. Callback URL: `<origin>/api/auth/callback/github`                                                                |
+| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | The GitHub OAuth app. Callback URL: `<origin>/api/account/callback/github`                                                             |
 | `ADMIN_EMAILS`                         | Comma-separated addresses promoted to admin at sign-in                                                                                 |
 
 Boot fails with a readable list when one is missing or malformed.

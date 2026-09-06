@@ -29,8 +29,11 @@ The web app refuses to start without `AUTH_GITHUB_ID` and
 <https://github.com/settings/developers>, whose callback must be exactly:
 
 ```
-https://agenticchess.online/api/auth/callback/github
+https://agenticchess.online/api/account/callback/github
 ```
+
+The base path is `/api/account`, not the Auth.js default `/api/auth`: see
+`apps/web/src/lib/auth-path.ts` for why, and change it in one place only.
 
 `AUTH_URL` must be set to `https://agenticchess.online`. Auth.js otherwise
 derives its own address from the request headers, and behind the proxy it

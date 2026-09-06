@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { serverEnv } from "@/env";
+import { AUTH_BASE_PATH } from "@/lib/auth-path";
 import { getDb } from "@/lib/db";
 import { githubUser } from "@/lib/github";
 import { roleForEmail, type UserRole } from "@/lib/roles";
@@ -26,6 +27,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       sessionsTable: sessions,
       verificationTokensTable: verificationTokens,
     }),
+    basePath: AUTH_BASE_PATH,
     session: { strategy: "database" },
     secret: env.authSecret,
     trustHost: true,
