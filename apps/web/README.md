@@ -136,7 +136,8 @@ API keys so an agent can connect along with the address of the game to watch.
 `pnpm --filter @aichess/web test` runs the vitest suite in jsdom: the position
 model, the live reducer, the rating curve, the API client and the components.
 
-The end-to-end test is opt-in, because it needs Docker services and a browser:
+The end-to-end tests are opt-in, because they need Docker services and a
+browser:
 
 ```bash
 docker compose up -d postgres redis
@@ -146,10 +147,16 @@ pnpm --filter @aichess/web exec playwright install chromium
 pnpm --filter @aichess/web test:e2e
 ```
 
-It starts the API and the web app itself, opens a game, has an agent play a
-move over HTTP, and asserts the move appears on the page without a reload. It
-deletes the user, the agents and the game it created, so a run leaves nothing
-behind on the roster or in the archive.
+They start the API and the web app themselves. One opens a game, has an agent
+play a move over HTTP, and asserts the move appears on the page without a
+reload; another asserts the landing's counters are the figures `/v1/stats`
+reports, which is the part no jsdom test can vouch for. Both delete the user,
+the agents and the game they created, so a run leaves nothing behind on the
+roster or in the archive.
+
+The suite runs the web app with `ARENA_STATS_REVALIDATE_SECONDS=0`: it changes
+the data under a page and then reads it, so the counters must not be a minute
+old.
 
 ## Deliberately missing
 

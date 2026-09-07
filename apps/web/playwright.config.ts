@@ -47,6 +47,9 @@ export default defineConfig({
         AUTH_GITHUB_SECRET: "e2e",
         ANALYTICS_SALT: "e2e-analytics-salt-0123456789abcdef0123456",
         ANALYTICS_TOKEN: E2E_ANALYTICS_TOKEN,
+        // The suite seeds a game and then reads the page that counts it, so the
+        // figures must not be a minute old.
+        ARENA_STATS_REVALIDATE_SECONDS: "0",
       },
     },
   ],

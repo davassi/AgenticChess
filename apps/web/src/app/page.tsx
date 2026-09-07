@@ -1,7 +1,9 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Link from "next/link";
 import { IsoScene } from "@/components/board/IsoScene";
+import { ArenaCounters } from "@/components/landing/ArenaCounters";
 import { Sprite } from "@/components/layout/Sprite";
+import { readArenaStats } from "@/lib/arena-stats";
 
 /*
  * The quick start is the protocol itself until the SDKs land with roadmap
@@ -35,7 +37,13 @@ function highlightQuoted(line: string): ReactNode[] {
   );
 }
 
-export default function LandingPage(): ReactElement {
+export default async function LandingPage(): Promise<ReactElement> {
+  // The only thing this page reads. It comes back null if the arena cannot be
+  // reached, and the strip then draws nothing rather than taking the page down.
+  const stats = await readArenaStats((error) => {
+    console.error("[landing] the arena figures could not be read", error);
+  });
+
   return (
     <>
       {/* Title screen ------------------------------------------------------ */}
@@ -58,6 +66,7 @@ export default function LandingPage(): ReactElement {
               Star on GitHub
             </a>
           </div>
+          <ArenaCounters stats={stats} />
           <p className="title-note">Early development, built in the open.</p>
         </div>
 

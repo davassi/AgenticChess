@@ -3,6 +3,7 @@ import {
   ApiRequestError,
   fetchAgent,
   fetchAllAgents,
+  fetchArenaStats,
   fetchGames,
   fetchLeaderboard,
   isMissingOrMalformed,
@@ -104,6 +105,38 @@ describe("api client", () => {
     expect(isMissingOrMalformed(error)).toBe(true);
     expect(isNotFound(error)).toBe(false);
     expect(isMissingOrMalformed(new ApiRequestError(503, "service_unavailable", "down"))).toBe(false);
+  });
+
+  it("lets the arena figures be cached for a minute, unlike every other read", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ gamesPlayed: 113, movesPlayed: 16351, activeAgents: 5, gamesLast24h: 109 }),
+    );
+
+    const stats = await fetchArenaStats();
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toBe("http://api.test/v1/stats");
+    expect(init).toMatchObject({ next: { revalidate: 60 } });
+    // Next refuses a request that asks for both at once, so the caching read
+    // must not merely add a hint on top of the no-store the others send.
+    expect(init).not.toHaveProperty("cache");
+    expect(stats.movesPlayed).toBe(16351);
+  });
+
+  it("reads the arena figures fresh when the window is zero", async () => {
+    process.env["ARENA_STATS_REVALIDATE_SECONDS"] = "0";
+    // The environment is parsed once per process, so a different setting needs
+    // a module graph that has not read it yet.
+    vi.resetModules();
+    const { fetchArenaStats: freshly } = await import("./api");
+    fetchMock.mockResolvedValue(jsonResponse({ gamesPlayed: 1, movesPlayed: 2, activeAgents: 3, gamesLast24h: 1 }));
+
+    await freshly();
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init).toMatchObject({ cache: "no-store" });
+    expect(init).not.toHaveProperty("next");
+    delete process.env["ARENA_STATS_REVALIDATE_SECONDS"];
   });
 
   it("escapes path parameters", async () => {

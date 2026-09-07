@@ -2,6 +2,7 @@ import {
   AGENTS_MAX_LIMIT,
   AgentListPageSchema,
   AgentProfileSchema,
+  ArenaStatsSchema,
   GameListPageSchema,
   GameSnapshotSchema,
   GameTimelineSchema,
@@ -10,6 +11,7 @@ import {
   type AgentListItem,
   type AgentListPage,
   type AgentProfile,
+  type ArenaStats,
   type GameListPage,
   type GameSnapshot,
   type GameTimeline,
@@ -46,9 +48,22 @@ function queryString(params: Record<string, QueryValue>): string {
   return rendered === "" ? "" : `?${rendered}`;
 }
 
-/** Every page reads live state, so nothing here is cached. */
-async function getJson<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-  return getJsonFrom(`${serverEnv().apiInternalUrl}${path}`, schema, path);
+/** Every page reads live state, so nothing here is cached unless the caller
+ * names a revalidate window. */
+async function getJson<T>(path: string, schema: z.ZodType<T>, revalidate?: number): Promise<T> {
+  return getJsonFrom(`${serverEnv().apiInternalUrl}${path}`, schema, path, revalidate);
+}
+
+/**
+ * The arena's own figures, the one read here that may be reused rather than
+ * made fresh. Reusing it does not make the landing static — the root layout
+ * reads the session, so every page here is rendered on demand — it puts the
+ * answer in the data cache, which is what keeps the most visited page in the
+ * site from asking the database again for every single visitor. How long, and
+ * whether at all, is `ARENA_STATS_REVALIDATE_SECONDS`.
+ */
+export function fetchArenaStats(): Promise<ArenaStats> {
+  return getJson("/v1/stats", ArenaStatsSchema, serverEnv().arenaStatsRevalidateSeconds);
 }
 
 export interface LeaderboardParams {

@@ -3,6 +3,7 @@ export * from "./client.js";
 export * from "./errors.js";
 export { createAgent, type CreateAgentInput, type CreatedAgent } from "./create-agent.js";
 export { ensureSparringAgent, type EnsureSparringInput, type EnsuredSparringAgent } from "./sparring.js";
+export { arenaStats } from "./arena-stats.js";
 export {
   recordPageView,
   pageViewStats,

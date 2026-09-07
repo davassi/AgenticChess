@@ -14,6 +14,11 @@ const EnvSchema = z.object({
   // it suggests an anonymity it does not provide.
   ANALYTICS_SALT: z.string().min(32).optional(),
   ANALYTICS_TOKEN: z.string().min(32).optional(),
+  // How long a reading of the arena's own figures may be reused. A minute
+  // keeps the busiest page in the site off the database without letting the
+  // numbers visibly lag; zero turns the reuse off, which is what a test
+  // environment needs to see a page it has just changed the data under.
+  ARENA_STATS_REVALIDATE_SECONDS: z.coerce.number().int().min(0).max(3_600).default(60),
 });
 
 export interface WebEnv {
@@ -31,6 +36,8 @@ export interface WebEnv {
   analyticsSalt: string | null;
   /** Null makes the statistics endpoint refuse to answer. */
   analyticsToken: string | null;
+  /** Seconds the landing may reuse the arena's figures. Zero reads every time. */
+  arenaStatsRevalidateSeconds: number;
 }
 
 export type EnvSource = Record<string, string | undefined>;
@@ -52,6 +59,7 @@ export function loadEnv(source: EnvSource = process.env): WebEnv {
     adminEmails: parsed.data.ADMIN_EMAILS,
     analyticsSalt: parsed.data.ANALYTICS_SALT ?? null,
     analyticsToken: parsed.data.ANALYTICS_TOKEN ?? null,
+    arenaStatsRevalidateSeconds: parsed.data.ARENA_STATS_REVALIDATE_SECONDS,
   };
 }
 

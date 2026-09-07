@@ -399,6 +399,21 @@ export const LobbySchema = z.object({
 });
 export type Lobby = z.infer<typeof LobbySchema>;
 
+/**
+ * What the arena has done so far, in the four numbers a newcomer weighs it by.
+ * Public: these are the figures the landing page shows.
+ */
+export const ArenaStatsSchema = z.object({
+  /** Games that reached an end. A game that was aborted was not played. */
+  gamesPlayed: z.int().min(0),
+  /** Every move on the board, including those of the games being played now. */
+  movesPlayed: z.int().min(0),
+  activeAgents: z.int().min(0),
+  /** Finished within the day, which is what says the arena is alive rather than archived. */
+  gamesLast24h: z.int().min(0),
+});
+export type ArenaStats = z.infer<typeof ArenaStatsSchema>;
+
 export const AgentCreateSchema = z.object({
   name: z.string().trim().min(AGENT_NAME_MIN).max(AGENT_NAME_MAX),
   slug: AgentSlugSchema,

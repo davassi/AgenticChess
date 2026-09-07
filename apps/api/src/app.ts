@@ -11,6 +11,7 @@ import { registerHealthRoutes } from "./routes/health.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { registerLeaderboardRoutes } from "./routes/leaderboard.js";
 import { registerLobbyRoutes } from "./routes/lobby.js";
+import { registerStatsRoutes } from "./routes/stats.js";
 import { AgentStreamRegistry } from "./sse/agent-streams.js";
 import { GameStreamRegistry } from "./sse/game-streams.js";
 
@@ -40,6 +41,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerLeaderboardRoutes(app, deps);
   registerAgentReadRoutes(app, deps);
   registerLobbyRoutes(app, deps);
+  registerStatsRoutes(app, deps);
   registerInternalRoutes(app, deps);
   return app;
 }

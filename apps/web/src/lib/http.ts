@@ -13,15 +13,34 @@ export class ApiRequestError extends Error {
 }
 
 /**
+ * How fresh the answer has to be. Next refuses a request that asks for both at
+ * once, so this is one choice rather than two flags: no-store for everything
+ * that shows live state, and a revalidate window for the rare read where a
+ * slightly old answer beats a round trip on every visit.
+ */
+type Freshness = { cache: "no-store" } | { next: { revalidate: number } };
+
+const freshness = (revalidate: number | undefined): Freshness =>
+  // Zero is spelled as no-store rather than passed through: `revalidate: 0` and
+  // `cache: "no-store"` mean the same thing to Next, and saying it one way
+  // keeps every uncached read in this app looking identical on the wire.
+  revalidate === undefined || revalidate === 0 ? { cache: "no-store" } : { next: { revalidate } };
+
+/**
  * One JSON read, with the arena's error body honoured and its shape checked.
  * Server components reach it through api.ts with the internal address; the
  * browser reaches it with the public one, which is why the url arrives whole
  * rather than as a path.
  */
-export async function getJsonFrom<T>(url: string, schema: z.ZodType<T>, label: string): Promise<T> {
+export async function getJsonFrom<T>(
+  url: string,
+  schema: z.ZodType<T>,
+  label: string,
+  revalidate?: number,
+): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" });
+    response = await fetch(url, { headers: { accept: "application/json" }, ...freshness(revalidate) });
   } catch {
     throw new ApiRequestError(503, "service_unavailable", `The arena API did not answer (${label})`);
   }

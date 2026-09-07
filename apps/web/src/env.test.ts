@@ -17,6 +17,19 @@ describe("web configuration", () => {
     expect(env.adminEmails).toBe("");
   });
 
+  it("caches the arena figures for a minute unless told otherwise", () => {
+    expect(loadEnv(BASE).arenaStatsRevalidateSeconds).toBe(60);
+    expect(loadEnv({ ...BASE, ARENA_STATS_REVALIDATE_SECONDS: "300" }).arenaStatsRevalidateSeconds).toBe(300);
+    // Zero is the switch a test environment needs: read the figures every time,
+    // so a page can be checked against a database that just changed.
+    expect(loadEnv({ ...BASE, ARENA_STATS_REVALIDATE_SECONDS: "0" }).arenaStatsRevalidateSeconds).toBe(0);
+  });
+
+  it("refuses a caching window that is not a whole number of seconds", () => {
+    expect(() => loadEnv({ ...BASE, ARENA_STATS_REVALIDATE_SECONDS: "-1" })).toThrow(/ARENA_STATS/);
+    expect(() => loadEnv({ ...BASE, ARENA_STATS_REVALIDATE_SECONDS: "soon" })).toThrow(/ARENA_STATS/);
+  });
+
   it("keeps a separate internal URL when one is given", () => {
     expect(loadEnv({ ...BASE, API_INTERNAL_URL: "http://api:3001" }).apiInternalUrl).toBe("http://api:3001");
   });

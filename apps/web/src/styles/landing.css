@@ -374,6 +374,40 @@ h1 {
   font-size: 16px;
 }
 
+/* The arena counting itself, under the title's buttons. Gold on the display
+   font, because the number is a score and this page is an arcade cabinet. */
+.counters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 30px;
+  max-width: 760px;
+  margin: 24px auto 0;
+  padding: 0;
+}
+.counter {
+  /* The label is written first, as a description list wants it, and read
+     second: the eye takes the figure before the words that name it. */
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.counter dt {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+.counter dd {
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1;
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
 .arena {
   max-width: 1540px;
   margin: 0 auto;
@@ -1391,5 +1425,22 @@ h1 {
   h1,
   .intro h1 {
     text-shadow: 3px 3px 0 var(--ink);
+  }
+}
+
+@media (max-width: 600px) {
+  /* Four across becomes three and a stray one. Two by two is the same figures
+     without the orphan. */
+  .counters {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px 12px;
+    max-width: 340px;
+  }
+  .counter dd {
+    font-size: 16px;
+  }
+  .counter dt {
+    font-size: 13px;
   }
 }
